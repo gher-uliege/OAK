@@ -1,0 +1,53 @@
+xf: forecasted statevector
+Sf: forecasted error space
+xa: analysed statevector
+Sa: analysed error space
+xa_xf: analyis corrections
+lambda: eigenvalues of matrix HSf^T R^{-1} HSf
+UT: each row is a eigenvector of HSf^T R^{-1} HSf
+
+ntime: time index of the observation to assimilate as defined 
+  by the initilisation file
+infix: "XXX." where XXX three digit time index
+path: path for diagnostics
+output: xa, Sa, biasa (global variable)
+str: filename for some diagnostics
+obsnames: descriptive names of the observations. For example: SST, SSH, 
+  CTD_TEM, ...
+m: number of scalar observations
+n: state vector size
+k: error space size
+v: index for loop over all observation variables
+i1,i2: start- and end-index for a given observation variables
+ingrid: number of valid observation inside the model grid, also german firstame
+istat: return code of flush
+H: obervation operator (sparse matrix)
+C: correlation matrix (sparse matrix)
+ObsML: memory layout structure of the observations
+yo: observation vector
+Hxf: model forecast at observation location
+Hxa: model analysis at observation location
+invsqrtR: inverse of the square root of the diagonal elements of R (error
+  covariance of observations)
+yo_Hxf: difference between yo and Hxf
+yo_Hxa: difference between yo and Hxa
+Hshift: constant shift of the observation operator
+Hbf: model forecasted bias at observation location
+HSf: error space of the model forecast at observation location
+HSa: error space of the model analysis at observation location
+amplitudes,ampl: correction (xa-xf) projected on the error space Sf
+mjd: modfied julian day of observation ntime
+cputime: cpu time for profiling
+bindex: index of each timed block 
+
+gamma, biasgamma: fraction of systematic error (bias) over the total error
+bf: a priorie bias estimation of the model forecast xf
+ba: a posteriorie bias estimation of the model forecast xf
+unbiasedxf: best unbiased estimation of the model forecast xf
+unbiasedHxf: best unbiased estimation of the model forecast xf at 
+  observation location
+
+zoneSize: size of each zone where the assimilation must be done independently 
+  (often it is the number of water column)
+zoneIndex: vector of indexes. xf(zoneIndex) is a rearranges state vector where 
+  all zones is contiginous in memory

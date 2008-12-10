@@ -1,0 +1,60 @@
+
+! include the fortran preprocessor definitions
+#include "ppdef.h"
+
+
+program genobsoper
+ use matoper
+ use rrsqrt
+ use ufileformat
+ use date
+ use initfile
+ use assimilation
+
+ implicit none
+
+ integer :: iargc,ntime,startntime,endntime
+ integer, pointer   :: Hindex(:,:)
+ real, pointer      :: Hop(:,:), Hcoeff(:)
+ character(len=124) :: str,path,prefix
+ type(MemLayout)    :: ObsML
+ type(sparseMatrix) :: H
+
+ if (iargc().ne.2.and.iargc().ne.3) then
+   write(stderr,*) 'Usage: genobsoper <init file> <start time index>  [<end time index>] '
+   stop
+ end if
+
+ call getarg(1,str); call init(str)
+ call getarg(2,str); read(str,*) startntime  
+ if (iargc().eq.3) then
+   call getarg(3,str); read(str,*) endntime  
+ else
+   endntime = startntime
+ end if
+
+ do ntime=startntime,endntime
+   write(prefix,'(A,I3.3,A)') 'Obs',ntime,'.'
+   call MemoryLayout(prefix,ObsML)
+
+   call genObservationOper(ntime,ObsML,Hindex,Hcoeff)
+
+   allocate(Hop(9,size(Hcoeff)))
+   Hop(1:8,:) = Hindex
+   Hop(9,:) = Hcoeff
+
+   write(prefix,'(A,I3.3,A)') 'Diag',ntime,'.'
+   call getInitValue(initfname,trim(prefix)//'path',path,default='')
+   call getInitValue(initfname,trim(prefix)//'H',str)
+
+   call usave(trim(path)//str,Hop,9999.)
+
+!#ifdef .true.
+   call packSparseMatrix(Hindex,Hcoeff,ObsML,ModML,H)
+   call usave(trim(path)//trim(str)//'.i',real(H%i(1:H%nz)),9999.)
+   call usave(trim(path)//trim(str)//'.j',real(H%j(1:H%nz)),9999.)
+   call usave(trim(path)//trim(str)//'.s',H%s(1:H%nz),9999.)
+!#endif
+
+ end do
+end program genobsoper

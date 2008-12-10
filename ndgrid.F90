@@ -1,0 +1,1075 @@
+!
+! interpolation of arbitrary N-dimentional grids
+!
+! coordinate can be givem explicetly (as a variable) or implicitly (as a function)
+! 
+!
+! Alexander Barth
+! 11 February 2005
+! 
+!
+! Copyright Alexander Barth 2005
+!
+
+
+!
+! include the fortran preprocessor definitions
+!
+#include "ppdef.h"
+
+#define DATABOX_SEARCH
+!#define IMPLICIT_COORDINATE
+
+module ndgrid
+
+#ifdef DATABOX_SEARCH
+ type databoxND
+   ! xmin(i) and xmax(i) are the minimum and maximum of the ith coordinate
+   real, pointer :: xmin(:), xmax(:)
+
+   ! type of the databox, possible values are db_cell, db_splitted and db_notsplitted
+   integer :: type
+
+   ! zero-based indexes of the databox
+   integer, pointer :: imin(:),imax(:)
+
+   ! sub-databoxes
+   type(databoxND), pointer :: db(:)   
+ end type databoxND
+#endif
+
+! definition of a n-dimentinal aribtrary grid
+
+ type grid
+   ! dimension of the grid
+   integer :: n
+
+   ! gshape(n): shape of the grid, gshape(i) is the maximum value of the ith one-based index
+   integer, pointer :: gshape(:)
+   ! ioffset(i,j) offset of the ith coordinate repectus the jth index
+   integer, pointer :: ioffset(:,:)
+
+   integer, pointer :: ioffset_mask(:)
+
+
+   ! dependence(n,n): dependence(i,j) is 1 if the jth coordinate dependend on the ith index, ortherwise 0
+   integer, pointer :: dependence(:,:)
+
+   ! coordinates
+   real, pointer :: coord(:,:) 
+   real, pointer :: data(:)
+
+   ! startindex(n)
+   ! the corridnate value relevant for intex i start at data(startindex(i))
+   integer, pointer :: startindex(:)
+   integer, pointer :: endindex(:)
+
+   ! .false. if point on grid is valid, .true. if is masked
+   logical, pointer :: masked(:)
+   
+   ! how the cube should be splitted in tetrahedrons
+   real, pointer :: tetrahedron(:,:,:)
+
+#  ifdef DATABOX_SEARCH
+   type(databoxND) :: db
+#  endif
+
+ end type grid
+
+! possible values of type
+  integer, parameter :: db_cell = 0
+  integer, parameter :: db_splitted = 1
+  integer, parameter :: db_notsplitted = 2
+
+! top-level grid interpolation subroutine
+!
+! interpgrid_E : with explicit coordinates and databox search
+! interpgrid_I : with implicit coordinates and databox search
+! interpgrid_EL: with explicit coordinates and user provided search function
+! interpgrid_IL: with implicit coordinates and user provided search function
+
+interface interpgrid 
+ module procedure interpgrid_E, interpgrid_I,interpgrid_EL,interpgrid_IL
+end interface
+
+interface interpgrid_coeff
+ module procedure interpgrid_coeff_E, interpgrid_coeff_I,interpgrid_coeff_EL,interpgrid_coeff_IL
+end interface
+
+interface locate_databox
+ module procedure locate_databox_E, locate_databox_I
+end interface
+
+interface init_databox
+ module procedure init_databox_E, init_databox_I
+end interface
+
+interface InCube
+ module procedure InCube_E, InCube_I
+end interface
+
+
+interface setCoord
+ module procedure setCoord_fromFile, setCoord_fromVariable
+end interface
+
+
+contains
+
+!!$ subroutine  allpossibilities(n,b)
+!!$  implicit none
+!!$  integer, intent(in) :: n
+!!$  integer :: b(n,2**n)
+!!$
+!!$  integer :: i,j
+!!$
+!!$  do i=1,n
+!!$    do j=0,2**n-1
+!!$      b(i,j+1) = btest(j,i)
+!!$      if (btest(j,i-1)) then
+!!$        b(i,j+1) = 1
+!!$      else
+!!$        b(i,j+1) = 0
+!!$      end if
+!!$    end do
+!!$  end do
+!!$
+!!$ end subroutine allpossibilities
+
+ !
+ ! --------------------------------------------------------------------
+ !
+
+
+ ! x(components , corner point indexes)
+
+ ! c(corner points of cube, corner points of cube)
+
+ ! tetrahedron(corner points of cube, corner points of tetrahedron, index of tetrahedron)
+
+ ! tetrahedron(1:2^n, corner point, thetraeders)  = coefficient
+
+ recursive subroutine split_old(n,subn,c,fixeddim,selection,tc)
+  implicit none
+  integer, intent(in) :: n,subn
+  logical, intent(in) :: fixeddim(n),selection(2**n)
+  real, intent(in) :: c(2**n,2**n)
+  real, intent(out) :: tc(:,:,:)
+
+  real :: cm(2**n)
+  integer :: twon,nbth,subnbth,i,j,k,m
+  logical :: fd(n),subselection(2**n),l
+
+  twon = 2**n
+
+  if (subn.eq.1) then
+    ! we have a straight line
+    do i=1,twon
+      tc(i,1:2,1) = pack(c(i,:),selection)
+    end do
+    return
+  end if
+
+  ! middle point
+
+  cm = sum(c,2,spread(selection,1,twon))/count(spread(selection,1,twon),2)
+
+  nbth = factorial(subn)*2**(subn-1) 
+  subnbth = factorial(subn-1)*2**(subn-2)
+
+  ! add middle point
+
+  tc(:,subn+1,1:nbth) = spread(cm,2,nbth)
+  !  do i=1,nbth
+  !    tc(:,subn+1,i) = cm(:)
+  !  end do
+
+
+  m=1
+  do i=1,n
+    if (.not.fixeddim(i)) then
+      fd = fixeddim
+      fd(i) = .true.
+
+      do j=0,1
+        !        subselection = selection .and. (corner_indexes(i,:).eq.j)
+
+        do k=1,twon
+          if (btest(k-1,i-1)) then
+            subselection(k) = selection(k) .and. (1.eq.j)
+          else
+            subselection(k) = selection(k) .and. (0.eq.j)
+          end if
+        end do
+
+        ! split the faces of the cube
+        call split_old(n,subn-1,c,fd,subselection,tc(:,1:subn,m:m+subnbth-1) )
+
+        m=m+subnbth
+      end do
+    end if
+  end do
+
+ end subroutine split_old
+
+
+
+
+!
+ ! --------------------------------------------------------------------
+ !
+
+
+ ! x(components , corner point indexes)
+
+ ! c(corner points of cube, corner points of cube)
+
+ ! tetrahedron(corner points of cube, corner points of tetrahedron, index of tetrahedron)
+
+ ! tetrahedron(1:2^n, corner point, thetraeders)  = coefficient
+
+ recursive subroutine split(n,subn,fixeddim,selection,tc)
+  implicit none
+  integer, intent(in) :: n,subn
+  logical, intent(in) :: fixeddim(n),selection(2**n)
+!  real, intent(in) :: c(2**n,2**n)
+
+  real, intent(out) :: tc(:,:,:)
+
+  real :: cm(2**n)
+  integer :: twon,nbth,subnbth,i,j,k,m
+  logical :: fd(n),subselection(2**n),l
+
+  twon = 2**n
+
+  if (subn.eq.1) then
+    ! we have a straight line
+!!$    do i=1,twon
+!!$      tc(i,1:2,1) = pack(c(i,:),selection)
+!!$    end do
+
+    tc = 0
+    j=1
+   
+    do i=1,twon
+      if (selection(i)) then
+        tc(i,j,1) = 1 
+        j=j+1
+      end if
+    end do
+
+    return
+  end if
+
+  ! middle point
+
+!  cm = sum(c,2,spread(selection,1,twon))/count(spread(selection,1,twon),2)
+
+  cm = 0
+  do i=1,twon
+    if (selection(i))  cm(i) = 1./count(selection)
+  end do
+
+  nbth = factorial(subn)*2**(subn-1) 
+  subnbth = factorial(subn-1)*2**(subn-2)
+
+  ! add middle point
+
+  tc(:,subn+1,1:nbth) = spread(cm,2,nbth)
+  !  do i=1,nbth
+  !    tc(:,subn+1,i) = cm(:)
+  !  end do
+
+
+  m=1
+  do i=1,n
+    if (.not.fixeddim(i)) then
+      fd = fixeddim
+      fd(i) = .true.
+
+      do j=0,1
+!        subselection = selection .and. (corner_indexes(i,:).eq.j)
+
+        do k=1,twon
+          if (btest(k-1,i-1)) then
+            subselection(k) = selection(k) .and. (1.eq.j)
+          else
+            subselection(k) = selection(k) .and. (0.eq.j)
+          end if
+        end do
+
+        ! split the faces of the cube
+        call split(n,subn-1,fd,subselection,tc(:,1:subn,m:m+subnbth-1) )
+
+        m=m+subnbth
+      end do
+    end if
+  end do
+
+ end subroutine split
+
+
+
+ !
+ ! --------------------------------------------------------------------
+ !
+
+ function factorial(n) result(f)
+  implicit none
+  integer, intent(in) :: n
+  integer :: f
+
+  integer ::i
+  f = 1
+
+  do i=2,n
+    f = f*i
+  end do
+
+ end function factorial
+
+ !
+ ! --------------------------------------------------------------------
+ !
+
+ ! Y(1) first data point located at X(:,1)
+ ! X( components, corner points )
+
+ subroutine interp_tetrahedron(n,X,xi,out,coeff)
+  use matoper
+  implicit none
+  integer, intent(in) :: n
+  real, intent(in) :: X(n,n+1),xi(n)
+  real, intent(out) :: coeff(n+1)
+  logical, intent(out) :: out
+
+  ! precision of the inverse
+  real, parameter :: eps=1e-8
+  ! local variables
+
+  real :: M(n+1,n+1)
+  real :: determ
+
+  M = 1
+  coeff = 1
+
+  M(2:n+1,:) = X
+
+  coeff(2:n+1) = xi
+  coeff = matmul(inv(M,determ),coeff)
+
+  out = .not.all(coeff.ge.0-eps.and.coeff.le.1+eps)
+
+  !write(6,*) 'determ ',determ
+  !write(6,*) 'coeff ',coeff
+  !  stop
+  !if (out) coeff = coeff+(1-sum(coeff))/(n+1)
+
+  !  write(6,*) 'corrected coeff ',coeff,out
+
+ end subroutine interp_tetrahedron
+ !
+ ! --------------------------------------------------------------------
+ !
+
+
+
+ subroutine interp_cube(n,tetrahedron,x,xi,out,c)
+  implicit none
+  integer, intent(in) :: n
+  real, intent(in) :: x(n,2**n),xi(n)
+  real, intent(in) :: tetrahedron(:,:,:)
+  logical, intent(out) :: out
+  real, optional, intent(out) :: c(2**n)
+
+
+  real :: coeff(n+1)
+  integer :: l
+
+  !   write(6,*) 'cube ',allocated(tetrahedron)
+  !c = 0
+
+  !  write(6,*) 'cube ',allocated(tetrahedron)
+
+  ! search over all tetrahedrons
+
+  do l=1,size(tetrahedron,3)
+
+    call interp_tetrahedron(n,matmul(x,tetrahedron(:,:,l)),xi,out,coeff)
+
+    if (.not.out)  then
+      if (present(c)) c = matmul(tetrahedron(:,:,l),coeff)
+      return
+    end if
+  end do
+
+ end subroutine interp_cube
+
+
+! four different different variants of the interpolation routine are
+! possible weather the corrdinate are given explicitly (as a variabble)
+! or implicitly (as a function) or if a point is localised with
+! the default routine or localisation function provided by the used.
+!
+! The different variants are obtained by defining or not the preprocessor
+! macros IMPLICIT_COORDINATE and USER_LOCATE
+
+
+! explicit coordinate
+! no user locate
+
+#undef IMPLICIT_COORDINATE
+#undef USER_LOCATE
+
+#define interpgrid_coeff_VARIANT    interpgrid_coeff_E
+#define locate_testall_VARIANT      locate_testall_E
+#define InCube_VARIANT              InCube_E
+#define interpgrid_VARIANT          interpgrid_E
+#define init_databox_VARIANT        init_databox_E
+#define init_databox_helper_VARIANT init_databox_helper_E
+#define locate_databox_VARIANT      locate_databox_E
+#define define_databox_VARIANT      define_databox_E
+#define split_databox_VARIANT       split_databox_E
+#define search_boundarybox_VARIANT      search_boundarybox_E
+
+#include "ndgrid_inc.F90"
+
+#undef interpgrid_coeff_VARIANT
+#undef locate_testall_VARIANT 
+#undef InCube_VARIANT 
+#undef interpgrid_VARIANT 
+#undef init_databox_VARIANT 
+#undef init_databox_helper_VARIANT 
+#undef locate_databox_VARIANT 
+#undef define_databox_VARIANT 
+#undef split_databox_VARIANT 
+#undef search_boundarybox_VARIANT
+
+! implicit coordinate
+! no user locate
+
+#define IMPLICIT_COORDINATE
+#undef USER_LOCATE
+
+#define interpgrid_coeff_VARIANT    interpgrid_coeff_I
+#define locate_testall_VARIANT      locate_testall_I
+#define InCube_VARIANT              InCube_I
+#define interpgrid_VARIANT          interpgrid_I
+#define init_databox_VARIANT        init_databox_I
+#define init_databox_helper_VARIANT init_databox_helper_I
+#define locate_databox_VARIANT      locate_databox_I
+#define define_databox_VARIANT      define_databox_I
+#define split_databox_VARIANT       split_databox_I
+#define search_boundarybox_VARIANT      search_boundarybox_I
+
+#include "ndgrid_inc.F90"
+
+#undef interpgrid_coeff_VARIANT
+#undef locate_testall_VARIANT 
+#undef InCube_VARIANT 
+#undef interpgrid_VARIANT 
+#undef init_databox_VARIANT 
+#undef init_databox_helper_VARIANT 
+#undef locate_databox_VARIANT 
+#undef define_databox_VARIANT 
+#undef split_databox_VARIANT 
+#undef search_boundarybox_VARIANT
+
+! explicit coordinate
+! user locate
+
+#undef IMPLICIT_COORDINATE
+#define USER_LOCATE
+
+#define interpgrid_coeff_VARIANT    interpgrid_coeff_EL
+#define locate_testall_VARIANT      locate_testall_EL
+#define InCube_VARIANT              InCube_EL
+#define interpgrid_VARIANT          interpgrid_EL
+#define init_databox_VARIANT        init_databox_EL
+#define init_databox_helper_VARIANT init_databox_helper_EL
+#define locate_databox_VARIANT      locate_databox_EL
+#define define_databox_VARIANT      define_databox_EL
+#define split_databox_VARIANT       split_databox_EL
+#define search_boundarybox_VARIANT      search_boundarybox_EL
+
+#include "ndgrid_inc.F90"
+
+#undef interpgrid_coeff_VARIANT
+#undef locate_testall_VARIANT 
+#undef InCube_VARIANT 
+#undef interpgrid_VARIANT 
+#undef init_databox_VARIANT 
+#undef init_databox_helper_VARIANT 
+#undef locate_databox_VARIANT 
+#undef define_databox_VARIANT 
+#undef split_databox_VARIANT 
+#undef search_boundarybox_VARIANT
+
+! implicit coordinate
+! user locate
+
+#define IMPLICIT_COORDINATE
+#define USER_LOCATE
+
+#define interpgrid_coeff_VARIANT    interpgrid_coeff_IL
+#define locate_testall_VARIANT      locate_testall_IL
+#define InCube_VARIANT              InCube_IL
+#define interpgrid_VARIANT          interpgrid_IL
+#define init_databox_VARIANT        init_databox_IL
+#define init_databox_helper_VARIANT init_databox_helper_IL
+#define locate_databox_VARIANT      locate_databox_IL
+#define define_databox_VARIANT      define_databox_IL
+#define split_databox_VARIANT       split_databox_IL
+#define search_boundarybox_VARIANT      search_boundarybox_IL
+
+#include "ndgrid_inc.F90"
+
+#undef interpgrid_coeff_VARIANT
+#undef locate_testall_VARIANT 
+#undef InCube_VARIANT 
+#undef interpgrid_VARIANT 
+#undef init_databox_VARIANT 
+#undef init_databox_helper_VARIANT 
+#undef locate_databox_VARIANT 
+#undef define_databox_VARIANT 
+#undef split_databox_VARIANT 
+#undef search_boundarybox_VARIANT
+
+! coordinate as grid type
+! no user locate
+
+#undef IMPLICIT_COORDINATE
+#define GRID_COORDINATE
+#undef USER_LOCATE
+
+#define interpgrid_coeff_VARIANT    interpgrid_coeff_G
+#define locate_testall_VARIANT      locate_testall_G
+#define InCube_VARIANT              InCube_G
+#define interpgrid_VARIANT          interpgrid_G
+#define init_databox_VARIANT        init_databox_G
+#define init_databox_helper_VARIANT init_databox_helper_G
+#define locate_databox_VARIANT      locate_databox_G
+#define define_databox_VARIANT      define_databox_G
+#define split_databox_VARIANT       split_databox_G
+#define search_boundarybox_VARIANT      search_boundarybox_G
+
+#include "ndgrid_inc.F90"
+
+
+
+! routines independent of the variant
+
+ function linindex2index(m,ioffset) result(ind)
+  implicit none
+  integer, intent(in) :: m,ioffset(:)
+  integer :: ind(size(ioffset))
+
+  integer :: d
+  ind(1) = m
+  do d=size(ioffset) ,2,-1
+    ind(d) = ind(1)/ioffset(d)
+    ind(1) = ind(1)-ind(d)*ioffset(d)
+  end do
+
+ end function linindex2index
+ !_______________________________________________________
+ !
+ ! deallocate data box
+ !_______________________________________________________
+ !
+
+ recursive subroutine done_databox(db)
+  implicit none
+  type(databoxND), intent(out) :: db
+
+  integer :: n
+
+  deallocate(db%imin,db%imax,db%xmin,db%xmax)
+
+!  if (associated(db%db)) then
+  if (db%type .eq. db_splitted) then
+    ! deallocate all sub data boxes
+    do n=1,size(db%db)
+      call done_databox(db%db(n))
+    end do
+    deallocate(db%db)
+  end if
+ end subroutine done_databox
+
+
+!_______________________________________________________________
+!
+! methods for type grid
+!
+!________________________________________________________________
+!
+
+!
+! Initialization
+!
+
+ subroutine initgrid(g,n,gshape,masked,dependence)
+  implicit none
+  type(grid), intent(out) :: g
+  integer, intent(in) :: n,gshape(n)
+  integer, optional, intent(in) :: dependence(n,n)
+  logical, optional :: masked(:)
+
+  integer :: i,j,nbth
+  real, dimension(2**n,2**n) :: identity
+!  write(6,*) 'n ',n
+!  n = size(gshape)
+  g%n = n
+  allocate(g%gshape(n),g%ioffset(n,n),g%ioffset_mask(n),g%dependence(n,n),g%startindex(n),g%endindex(n))
+
+
+  g%gshape = gshape
+!  write(6,*) 'n ',   g%gshape
+  if (present(dependence)) then
+    g%dependence = dependence
+  else
+    g%dependence = 1
+  end if
+
+!  write(6,*) '  g%dependence ', g%dependence(:,1),g%gshape
+
+  g%startindex(1) = 1
+  g%endindex(1) = product(g%gshape,g%dependence(:,1).eq.1)
+  g%ioffset_mask(1) = 1
+
+  do i=2,n
+    g%startindex(i) = g%endindex(i-1) +1
+    g%endindex(i) = g%endindex(i-1) + product(g%gshape,g%dependence(:,i).eq.1)
+    g%ioffset_mask(i) = g%ioffset_mask(i-1)*(g%gshape(i-1))
+  end do
+
+!  write(6,*) '  end ',  g%endindex
+!  write(6,*) '  start ',  g%startindex
+
+  do j=1,n
+    do i=1,n
+      if (g%dependence(i,j).eq.1) then
+        g%ioffset(i,j) = product(gshape(1:i-1),g%dependence(1:i-1,j).eq.1)
+      else
+        g%ioffset(i,j) = 0
+      end if
+    end do
+  end do
+
+  allocate(g%data( g%endindex(n) ))
+
+  nbth =  factorial(n)*2**(n-1) 
+  allocate(g%tetrahedron(2**n,n+1,nbth))
+
+ ! identity matrix
+
+  identity = 0.
+  do i=1,2**n
+    identity(i,i) = 1.
+  end do
+
+  g%tetrahedron = 0
+  call split(n,n,(/ (.false.,i=1,n) /),(/ (.true.,i=1,2**n) /),g%tetrahedron)
+
+  ! initialise mask
+
+  allocate(g%masked(product(gshape)))
+
+  if (present(masked)) then
+    g%masked = masked
+  else
+    g%masked = .false.
+  end if
+
+  ! data box
+
+  call init_databox_G(g%db,g%n,g%gshape,g)
+ end subroutine initgrid
+
+
+
+!
+! Finalization
+!
+
+ subroutine donegrid(g)
+  implicit none
+  type(grid), intent(out) :: g
+
+
+  call done_databox(g%db)
+
+  deallocate(g%gshape,g%ioffset,g%ioffset_mask,g%dependence,g%startindex,g%endindex)
+  deallocate(g%data)
+  deallocate(g%tetrahedron)
+  deallocate(g%masked)
+
+ end subroutine
+
+
+
+ subroutine setCoord_fromVariable(g,nd,x)
+  implicit none
+  type(grid), intent(inout) :: g
+  integer, intent(in) :: nd
+  real, intent(in) :: x(*)
+
+  integer :: i,n,totsize
+
+  do i=g%startindex(nd),g%endindex(nd)
+    g%data(i) = x(i-g%startindex(nd)+1)
+  end do
+
+ end subroutine 
+
+
+ subroutine setCoord_fromFile(g,nd,fname)
+  use ufileformat
+  implicit none
+  type(grid), intent(inout) :: g
+  integer, intent(in) :: nd
+  character(*), intent(in) :: fname
+
+  integer :: ndim,gshape(MaxDimensions),prec
+  real :: valex
+
+   call uinquire(fname,valex,prec,ndim,gshape)
+
+   if (product(gshape(1:ndim)).ne.g%endindex(nd)-g%startindex(nd)+1 ) then
+     write(0,*) 'incomptaible sizes ',trim(fname)
+     write(0,*) 'expected ',g%endindex(nd)-g%startindex(nd)+1
+     write(0,*) 'found ',gshape(1:ndim),' or a total size of ',product(gshape(1:ndim))
+     ERROR_STOP
+   end if
+
+   call ureadfull(fname,g%data(g%startindex(nd):),valex)
+
+ end subroutine 
+
+
+
+!!$subroutine initgrid_from_disk(g,name1,name2,name3,name4)
+!!$implicit none
+!!$  type(grid), intent(out) :: g
+!!$  character(*), intent(in) :: name1
+!!$  character(*), optional, intent(in) :: name2,name3,name4
+!!$
+!!$end subroutine
+
+
+! ind = zero-based index
+
+function getCoord(g,ind,out) result(x)
+implicit none
+  type(grid), intent(inout) :: g
+  integer, intent(in) :: ind(:)
+  logical, optional, intent(out) :: out
+  real :: x(size(ind))
+
+  integer :: i,linindex
+
+  if (present(out)) then
+    out = (any(ind.lt.0).or.any(ind.ge.g%gshape))
+    if (out) return
+  end if
+
+  do i=1,g%n
+    linindex = g%startindex(i) + sum(ind * g%ioffset(:,i))
+    x(i) = g%data( linindex )
+  end do
+  
+  
+end function
+
+subroutine localizeIt(g,x,ind,out) 
+implicit none
+  type(grid), intent(inout) :: g
+  real, intent(in) :: x(:)
+  integer, intent(out) :: ind(size(x))
+  logical, intent(out) :: out
+
+  call locate_databox_G(g%db,g%n,g%ioffset_mask,g%tetrahedron,g,x,ind,out)
+
+
+end subroutine
+
+subroutine cinterp(g,xi,indexes,coeff,nbp)
+ implicit none
+ type(grid), intent(inout) :: g
+ real, intent(in) :: xi(:)
+ integer, intent(out) :: indexes(:,:),nbp
+ real, intent(out) :: coeff(:)
+
+ ! local variables
+
+ integer :: lentot,twon,d,linindex,i,l,j,k
+
+ ! ind = zero-based indexes
+
+ integer, dimension(g%n) :: ind
+ integer, dimension(g%n,2**g%n) :: pind
+ real, dimension(g%n,2**g%n) :: px
+ logical, dimension(2**g%n) :: pmasked
+ logical :: out
+
+ lentot = product(g%gshape-1)
+ twon = 2**g%n
+ nbp = 0
+
+ call localizeIt(g,xi,ind,out) 
+
+
+ if (.not.out) then
+
+   ! compute all corner points of the hypercube: px
+
+   do j = 1,twon
+     do k=1,g%n
+       if  (btest(j-1,k-1)) then
+         indexes(k,j) = ind(k) + 1
+       else
+         indexes(k,j) = ind(k) 
+       end if
+     end do
+
+     !write(6,*) 'indexes(i,:,j) ',i,indexes(i,:,j)
+
+     linindex = sum((indexes(:,j)) * g%ioffset_mask) + 1
+     pmasked(j) = g%masked(linindex)
+     px(:,j) = getCoord(g,indexes(:,j))
+   end do
+
+   out = any(pmasked)
+
+   if (.not.out)  then
+     call interp_cube(g%n,g%tetrahedron,px,xi,out,coeff)
+     nbp = twon
+   end if
+ end if
+
+! convert zero-based indexes to one-based indexes
+
+  indexes = indexes+1
+end subroutine cinterp
+
+
+subroutine interp(g,f,xi,fi,out)
+ implicit none
+ type(grid), intent(inout) :: g
+ real, intent(in) :: f(:),xi(:)
+ real, intent(out) :: fi
+ logical, intent(out) :: out
+
+ real :: coeff(2**g%n)
+ integer :: i, nbp, indexes(g%n,2**g%n), linindex
+
+ call cinterp(g,xi,indexes,coeff,nbp)
+ out = nbp.eq.0
+
+ fi = 0
+ do i=1,nbp
+
+   if (any(indexes(:,i).le.0).or.any(indexes(:,i).gt.g%gshape)) then
+     write(0,*) 'invalid index ',i,g%n
+     write(0,*) 'indexes(:,i) ',indexes(:,i)
+     ERROR_STOP
+   end if
+
+   linindex = sum((indexes(:,i)-1) * g%ioffset_mask) + 1
+   fi=fi + coeff(i)*f(linindex)
+ end do
+end subroutine interp
+
+ !_______________________________________________________
+ !
+
+subroutine interp_c(g,f,xi,fi,out,indexes,coeff,nbp)
+ implicit none
+ type(grid), intent(inout) :: g
+ real, intent(in) :: f(:),xi(:)
+ real, intent(out) :: fi
+ logical, intent(out) :: out
+
+ real, intent(out) :: coeff(2**g%n)
+ integer, intent(out) :: indexes(g%n,2**g%n),  nbp
+
+ integer :: i,linindex
+
+ call cinterp(g,xi,indexes,coeff,nbp)
+ out = nbp.eq.0
+
+ fi = 0
+ do i=1,nbp
+
+   if (any(indexes(:,i).le.0).or.any(indexes(:,i).gt.g%gshape)) then
+     write(0,*) 'invalid index ',i,g%n
+     write(0,*) 'indexes(:,i) ',indexes(:,i)
+     ERROR_STOP
+   end if
+
+   linindex = sum((indexes(:,i)-1) * g%ioffset_mask) + 1
+   fi=fi + coeff(i)*f(linindex)
+ end do
+end subroutine interp_c
+
+ !_______________________________________________________
+ !
+
+subroutine interp_field(grid1,field1,grid2,field2,outgrid)
+ implicit none
+ type(grid), intent(inout) :: grid1, grid2
+ real, intent(in) :: field1(:)
+ logical, intent(out), optional :: outgrid(:)
+ real, intent(out) :: field2(:)
+
+ logical :: out
+ integer :: i2,ind(grid2%n),d
+ real :: x2(grid2%n)
+
+
+ do i2=1,product(grid2%gshape)
+! do i2=70401,70401
+   if (.not.grid2%masked(i2)) then
+     !  i2 -> ind
+
+     ind(1) = i2-1
+     do d=grid2%n,2,-1
+       ind(d) = ind(1)/grid2%ioffset_mask(d)
+       ind(1) = ind(1)-ind(d)*grid2%ioffset_mask(d)
+     end do
+     !ind = ind+1
+     x2 = getCoord(grid2,ind,out)
+
+     if (.not.out) then
+       call interp(grid1,field1,x2,field2(i2),out)
+!     write(6,*) 'ind ',i2, ind, out, x2,field2(i2)
+
+     end if
+
+     if (present(outgrid)) outgrid(i2) = out
+   else
+     field2(i2)=0
+   end if
+ end do
+
+end subroutine interp_field
+
+ !_______________________________________________________
+ !
+
+subroutine interp_field_c(grid1,field1,grid2,field2,outgrid,indexes,coefficients,nz)
+ implicit none
+ type(grid), intent(inout) :: grid1, grid2
+ real, intent(in) :: field1(:)
+ logical, intent(out), optional :: outgrid(:)
+ real, intent(out) :: field2(:)
+ integer, intent(out) :: indexes(:,:)
+ real, intent(out) :: coefficients(:)
+
+ logical :: out
+ integer :: i2,ind(grid2%n),d
+ real :: x2(grid2%n)
+
+
+ real :: tcoeff(2**grid2%n)
+ integer :: tindexes(grid2%n,2**grid2%n),  tnbp, n, nz
+ integer :: linindex1,linindex2
+
+ nz = 0
+ n = grid2%n
+
+ do i2=1,product(grid2%gshape)
+! do i2=70401,70401
+   if (.not.grid2%masked(i2)) then
+     !  i2 -> ind
+
+     ind(1) = i2-1
+     do d=n,2,-1
+       ind(d) = ind(1)/grid2%ioffset_mask(d)
+       ind(1) = ind(1)-ind(d)*grid2%ioffset_mask(d)
+     end do
+
+     x2 = getCoord(grid2,ind,out)
+
+     ! convert zero-based index to one-based index
+     ind = ind+1
+
+     if (.not.out) then
+!       call interp_c(grid1,field1,x2,field2(i2),out,tindexes,tcoeff,tnbp)
+       call cinterp(grid1,x2,tindexes,tcoeff,tnbp)
+     end if
+
+       if (out.or.tnbp.eq.0) then
+        tnbp=1
+        ! indexes of destination grid
+        indexes(1:n,nz+1) = ind
+        indexes(n+1:2*n,nz+1) = -1
+        coefficients(nz+1) = 0.
+       else
+         !write(6,*) 'shape(indexes) ',shape(indexes) , nz,n,tnbp
+         ! indexes of destination grid
+         indexes(1:n,nz+1:nz+tnbp) = spread(ind,2,tnbp)
+         ! indexes of source grid
+         indexes(n+1:2*n,nz+1:nz+tnbp) = tindexes(:,1:tnbp)
+         coefficients(nz+1:nz+tnbp) = tcoeff(1:tnbp)  
+       end if
+!     write(6,*) 'ind ',i2, ind, out, x2,field2(i2)
+!     write(6,*) 'nz ',nz
+      nz = nz+tnbp
+!     end if
+
+     if (present(outgrid)) outgrid(i2) = out
+   else
+     field2(i2)=0
+   end if
+ end do
+
+end subroutine interp_field_c
+
+ !_______________________________________________________
+ !
+
+subroutine interp_field_coeff(indexes,coefficients,ioffset1,field1,ioffset2,field2,outgrid,nz)
+ implicit none
+ integer, intent(in) :: ioffset1(:),ioffset2(:)
+
+ real, intent(in) :: field1(:)
+ logical, intent(out), optional :: outgrid(:)
+ real, intent(out) :: field2(:)
+ integer, intent(in) :: indexes(:,:)
+ real, intent(in) :: coefficients(:)
+
+ logical :: out
+ integer :: i2,ind(size(ioffset2)),d
+ real :: x2(size(ioffset2))
+
+
+ real :: tcoeff(2**size(ioffset2))
+ integer :: tindexes(size(ioffset2),2**size(ioffset2)),  tnbp, n, nz,i
+ integer :: linindex1,linindex2
+
+ n = size(ioffset2)
+
+if (present(outgrid)) outgrid = .true.
+ field2 = 0.
+! write(6,*) 'sum c',sum(coefficients),nz
+ do i=1,nz
+   linindex2 = sum((indexes(1:n,i) -1) *     ioffset2) + 1
+
+!   if (indexes(i,n+1).ne.-1) then
+   if (indexes(n+1,i).ne.-1) then
+     linindex1 = sum((indexes(n+1:2*n,i) -1) * ioffset1) + 1
+!     linindex1 = sum((indexes(i,n+1:2*n) -1) * ioffset1) + 1
+     field2(linindex2) = field2(linindex2) + field1(linindex1) * coefficients(i)
+
+     if (present(outgrid)) outgrid(linindex2) = .false.
+   else
+     if (present(outgrid)) outgrid(linindex2) = .true.
+   end if
+ end do
+
+
+end subroutine 
+
+
+end module ndgrid
