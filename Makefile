@@ -32,7 +32,7 @@ include Compilers/$(OS)-$(strip $(FORT)).mk
 #  assim  #
 #---------#
 
-ASSIM_PROG = assimS
+ASSIM_PROG = assim
 
 ASSIM_SRCS = anamorphosis.F90 assim.F90 assimilation.F90 date.F90 grids.F90 \
 	initfile.F90 matoper.F90 ndgrid.F90 parall.F90 rrsqrt.F90 \
