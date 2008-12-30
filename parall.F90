@@ -32,6 +32,8 @@ module parall
 
 contains
 
+!_______________________________________________________
+
 
  subroutine parallInit(num,nb,speed)
   implicit none
@@ -130,7 +132,8 @@ contains
 
  end subroutine parallInit
             
-
+!_______________________________________________________
+!
 ! if nzones iterations must be carried out, then split the
 ! number of iterations among nbprocs processes taking the speed
 ! into accound
@@ -162,6 +165,7 @@ subroutine parallPartion(nzones)
 end subroutine
 
 
+ !_______________________________________________________
 
 !
 ! change of interface of parallSyncronise
@@ -254,6 +258,7 @@ end subroutine
 
  end subroutine
 
+ !_______________________________________________________
 
  subroutine parallSyncronise2(myi1,myi2,myx,allx,tag,whoRecieves)
   implicit none
@@ -345,6 +350,7 @@ end subroutine
 
  end subroutine parallSyncronise2
 
+ !_______________________________________________________
 
 
  subroutine parallJoinParts(localSVsize,localxf,xf)
@@ -402,6 +408,7 @@ end subroutine
 
  end subroutine parallJoinParts
 
+ !_______________________________________________________
 
  subroutine parallSplitParts(localSVsize,localxa,xa)
   implicit none
@@ -455,6 +462,44 @@ end subroutine
 
 
  end subroutine parallSplitParts
+
+ !_______________________________________________________
+
+
+ subroutine parallGather(xf,xt,startIndexZones,endIndexZones)
+  implicit none
+  real, intent(in) :: xf(:)
+  real, intent(out):: xt(:)
+  integer, intent(in) :: startIndexZones(:),endIndexZones(:)
+  integer, allocatable :: rcount(:),rdispls(:)
+  integer          :: ierr,k,j1,j2,baseIndex
+
+#ifdef ASSIM_PARALLEL
+  j1 = startIndexZones(startZIndex(procnum))
+  j2 =   endIndexZones(  endZIndex(procnum))
+
+  baseIndex = -j1+1
+
+  allocate(rcount(nbprocs),rdispls(nbprocs))
+
+  ! revieve count and displacements
+  rcount = endIndexZones(endZIndex) - startIndexZones(startZIndex) + 1
+  rdispls = startIndexZones(startZIndex) -1
+
+# ifdef DEBUG
+!  write(stdout,*) 'rdispls ',rdispls
+!  write(stdout,*) 'rcount ',rcount
+# endif
+
+  ! only master get the complete x
+  call mpi_gatherv(xf,rcount(procnum),mpi_real,xt,rcount,rdispls,mpi_real,0, mpi_comm_world, ierr)
+  deallocate(rcount,rdispls)
+
+#endif
+ end subroutine
+
+
+!_______________________________________________________
 
 ! Finalize parallel job
 

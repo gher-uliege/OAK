@@ -761,7 +761,7 @@ contains
 
   if (ML%distributed) then
     allocate(xt(ML%effsize))
-    call parallGather(vec,xt)
+    call parallGather(vec,xt,startIndexZones,endIndexZones)
  
     if (procnum.eq.1) then
 
@@ -2269,40 +2269,6 @@ contains
 
  end subroutine genObservationCorr
 
- !_______________________________________________________
-
- subroutine parallGather(xf,xt)
-  use parall
- implicit none
-  real, intent(in) :: xf(:)
-  real, intent(out):: xt(:)
-  integer, allocatable :: rcount(:),rdispls(:)
-  integer          :: ierr,k,j1,j2,baseIndex
-
-#ifdef ASSIM_PARALLEL
-  j1 = startIndexZones(startZIndex(procnum))
-  j2 =   endIndexZones(  endZIndex(procnum))
-
-  baseIndex = -j1+1
-
-  allocate(rcount(nbprocs),rdispls(nbprocs))
-
-  ! revieve count and displacements
-  rcount = endIndexZones(endZIndex) - startIndexZones(startZIndex) + 1
-  rdispls = startIndexZones(startZIndex) -1
-
-# ifdef DEBUG
-!  write(stdout,*) 'rdispls ',rdispls
-!  write(stdout,*) 'rcount ',rcount
-# endif
-
-  ! only master get the complete x
-  call mpi_gatherv(xf,rcount(procnum),mpi_real,xt,rcount,rdispls,mpi_real,0, mpi_comm_world, ierr)
-  deallocate(rcount,rdispls)
-
-#endif
- end subroutine
-
 
  !_______________________________________________________
 
@@ -2347,7 +2313,7 @@ contains
 
 !   allocate(xt(H%n))
 
-  call parallGather(xf,xt)
+  call parallGather(xf,xt,startIndexZones,endIndexZones)
 
   if (procnum == 1) then
     Hx = H.x.xt
