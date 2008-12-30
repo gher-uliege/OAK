@@ -145,11 +145,11 @@ module assimilation
         mask(:),startIndex(:),endIndex(:),startIndexSea(:),endIndexSea(:), &
         seaindex(:),invindex(:)
    logical :: removeLandPoints 
-!#  ifdef ASSIM_PARALLEL
-   logical :: distributed
    logical :: permute
+
+   ! in single CPU version those have sensible values
+   logical :: distributed
    integer :: startIndexParallel, endIndexParallel
-!#  endif
  end type MemLayout
 
 ! entire model state vector
@@ -343,8 +343,6 @@ contains
 
 #   ifdef ASSIM_PARALLEL
     call parallPartion(NZones)
-
-    ModMLParallel%permute = .true.
     ModMLParallel%distributed = .true.
     ModMLParallel%startIndexParallel = startIndexZones(startZIndex(procnum))
     ModMLParallel%endIndexParallel   =   endIndexZones(endZIndex(procnum))
@@ -353,7 +351,6 @@ contains
     write(stddebug,*) 'indexes for me',procnum,ModMLParallel%startIndexParallel,ModMLParallel%endIndexParallel
 #   endif
 #else
-    ModMLParallel%permute = .true.
     ModMLParallel%distributed = .false.
     ModMLParallel%startIndexParallel = 1
     ModMLParallel%endIndexParallel   =  ModMLParallel%effsize
@@ -361,8 +358,6 @@ contains
   end if
 
   ModMLParallel%permute = schemetype.eq.LocalScheme
-
-    write(stddebug,*) 'indexes for me',procnum,ModMLParallel%startIndexParallel,ModMLParallel%endIndexParallel
 
 ! Maximum correction
 
@@ -379,11 +374,7 @@ contains
     tmp = huge(tmp(1))
   end if
 
-
-  if (schemetype.eq.LocalScheme) then
-    write(stddebug,*) 'permute maxCorrection'
-    call permute(zoneIndex,tmp,tmp)
-  endif
+  if (ModMLParallel%permute) call permute(zoneIndex,tmp,tmp)
 
   maxCorrection = tmp(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel);
   deallocate(tmp)
@@ -1283,12 +1274,10 @@ contains
     la%effsize = la%totsize
   end if
 
-# ifdef ASSIM_PARALLEL
   la%distributed = .false.
   la%permute = .false.
   la%startIndexParallel = 1
   la%endIndexParallel = la%effsize
-# endif
 
 # ifdef DEBUG
   write(stddebug,*) 'Memory Layout: allocate'
