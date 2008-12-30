@@ -1846,12 +1846,13 @@ contains
     deallocate(tmpH%i,tmpH%j,tmpH%s,filterMod%i,filterMod%j,filterMod%s)
   end if
 
-#ifdef ASSIM_PARALLEL
-  ! permute state vector
-  do j=1,H%nz
-    H%j(j) = invZoneIndex(H%j(j))
-  end do
-#endif
+
+  if (schemetype.eq.LocalScheme) then
+    ! permute state vector
+    do j=1,H%nz
+      H%j(j) = invZoneIndex(H%j(j))
+    end do
+  endif
 
 #ifdef DEBUG
   write(stddebug,*) 'Observation operator H'
@@ -2518,6 +2519,14 @@ contains
   ! weight (invsqrtR) = 0
   !
 
+
+#ifndef ASSIM_PARALLEL
+        call permute(zoneIndex,xf,xf)
+        do k=1,size(Sf,2)
+          call permute(zoneIndex,Sf(:,k),Sf(:,k))
+        end do
+#endif
+
   call loadObservationOper(ntime,ObsML,H,Hshift,invsqrtR)
 
 
@@ -2583,13 +2592,6 @@ contains
         call checkVar(HSf(:,1),'assim:HSf1');
         call checkVar(Sf(:,1),'assim:Sf1');
 
-#ifndef ASSIM_PARALLEL
-        call permute(zoneIndex,xf,xf)
-        do k=1,size(Sf,2)
-          call permute(zoneIndex,Sf(:,k),Sf(:,k))
-        end do
-#endif
-
         call locanalysis(zoneSize,selectObservations, &
              xf,Hxf,yo,Sf,HSf,invsqrtR, xa,Sa,locAmplitudes)
 
@@ -2638,6 +2640,14 @@ contains
     where (xa-maxCorrection.gt.xf) xa=xf+maxCorrection
     where (xa.lt.xf-maxCorrection) xa=xf-maxCorrection
 
+    Hxa = obsoper(H,xa) + Hshift
+
+    do k=1,size(Sf,2)
+      HSa(:,k) = obsoper(H,Sa(:,k))
+    end do
+
+    yo_Hxa = yo-Hxa
+
 #ifndef ASSIM_PARALLEL
         call ipermute(zoneIndex,xa,xa)
         call ipermute(zoneIndex,xf,xf)
@@ -2646,14 +2656,6 @@ contains
           call ipermute(zoneIndex,Sf(:,k),Sf(:,k))
         end do
 #endif
-
-    Hxa = obsoper(H,xa) + Hshift
-
-    do k=1,size(Sf,2)
-      HSa(:,k) = obsoper(H,Sa(:,k))
-    end do
-
-    yo_Hxa = yo-Hxa
 
 
 !$omp end master
