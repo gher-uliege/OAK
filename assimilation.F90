@@ -379,9 +379,6 @@ contains
   maxCorrection = tmp(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel);
   deallocate(tmp)
 
-  call checkVar(real(zoneIndex),"zoneIndex") 
-  call checkVar(maxCorrection,"maxCorrection") 
-
  end subroutine globalInit
 
  !_______________________________________________________
@@ -659,8 +656,6 @@ contains
 
 # endif
 
-
-  call checkVar(vector,"loadVector_byfilenames:vector") 
 
   deallocate(x)
  end subroutine loadVector_byfilenames
@@ -2335,8 +2330,6 @@ contains
 #endif
 #endif
 
-  call checkVar(Hx,"obsoper:Hx") 
-
  end function obsoper
 
  !_______________________________________________________
@@ -2531,18 +2524,8 @@ contains
              biasgamma,H,Hshift,xf,biasf,Hxf,Hbf,yo,Sf,HSf,invsqrtR, &
              xa,biasa,Sa, amplitudes)
       else
-        call checkVar(xf,'assim:xf');
-        call checkVar(yo,'assim:yo');
-        call checkVar(HSf(:,1),'assim:HSf1');
-        call checkVar(Sf(:,1),'assim:Sf1');
-
         call locanalysis(zoneSize,selectObservations, &
              xf,Hxf,yo,Sf,HSf,invsqrtR, xa,Sa,locAmplitudes)
-
-        call checkVar(xa,'assim:xa');
-        call checkVar(Sa(:,1),'assim:Sa1');
-        !call checkVar(locAmplitudes,'assim:locAmplitudes');
-
       end if
     else
 !$omp master
@@ -2726,9 +2709,6 @@ contains
     ! these diagnostics makes only sens when we assimilate
 
     if (runtype.eq.AssimRun) then
-
-        call checkVar(xa,'assim:xa2');
-        call checkVar(xf,'assim:xf2');
 
       if (presentInitValue(initfname,'Diag'//infix//'amplitudes')) then
         call getInitValue(initfname,'Diag'//infix//'path',path)
