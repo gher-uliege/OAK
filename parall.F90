@@ -146,6 +146,8 @@ subroutine parallPartion(nzones)
 !  integer, intent(in) :: zoneIndex(:)
   integer, intent(in) :: nzones
 
+#ifdef ASSIM_PARALLEL
+
   allocate(startZIndex(nbprocs),endZIndex(nbprocs))
   startZIndex =(nzones*cumulprocspeed(1:nbprocs))/cumulprocspeed(nbprocs+1) + 1
   endZIndex =  (nzones*cumulprocspeed(2:nbprocs+1))/cumulprocspeed(nbprocs+1)
@@ -154,6 +156,8 @@ subroutine parallPartion(nzones)
   write(stdout,*) 'partitioning start',startZIndex
   write(stdout,*) 'partitioning end  ',endZIndex
 # endif
+
+#endif
 
 end subroutine
 
@@ -461,8 +465,11 @@ end subroutine
   call mpi_finalize(ierr)
 #endif
 
+#ifdef ASSIM_PARALLEL
   deallocate(procid,procSpeed,cumulProcSpeed)
   deallocate(startZIndex, endZIndex)
+#endif
+
  end subroutine
 
 

@@ -145,11 +145,11 @@ module assimilation
         mask(:),startIndex(:),endIndex(:),startIndexSea(:),endIndexSea(:), &
         seaindex(:),invindex(:)
    logical :: removeLandPoints 
-#  ifdef ASSIM_PARALLEL
+!#  ifdef ASSIM_PARALLEL
    logical :: distributed
    logical :: permute
    integer :: startIndexParallel, endIndexParallel
-#  endif
+!#  endif
  end type MemLayout
 
 ! entire model state vector
@@ -223,8 +223,8 @@ contains
   use anamorphosis
 # ifdef ASSIM_PARALLEL
   use parall
-  use matoper
 # endif
+  use matoper
   implicit none
   character(len=*), intent(in) :: fname
 
@@ -352,9 +352,15 @@ contains
 #   ifdef DEBUG
     write(stddebug,*) 'indexes for me',procnum,ModMLParallel%startIndexParallel,ModMLParallel%endIndexParallel
 #   endif
+#else
+    ModMLParallel%permute = .true.
+    ModMLParallel%distributed = .false.
+    ModMLParallel%startIndexParallel = 1
+    ModMLParallel%endIndexParallel   =  ModMLParallel%effsize
 #   endif     
   end if
 
+    write(stddebug,*) 'indexes for me',procnum,ModMLParallel%startIndexParallel,ModMLParallel%endIndexParallel
 
 ! Maximum correction
 
@@ -372,12 +378,17 @@ contains
   end if
 
 
-  call permute(zoneIndex,tmp,tmp)
+  if (schemetype.eq.LocalScheme) then
+    write(stddebug,*) 'permute maxCorrection'
+    call permute(zoneIndex,tmp,tmp)
+  endif
 
   maxCorrection = tmp(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel);
   deallocate(tmp)
 
- 
+  call checkVar(real(zoneIndex),"zoneIndex") 
+  call checkVar(maxCorrection,"maxCorrection") 
+
  end subroutine globalInit
 
  !_______________________________________________________
@@ -523,6 +534,30 @@ contains
 
  !_______________________________________________________
  !
+
+ subroutine checkVar(var,name)
+  use ufileformat
+  implicit none
+  
+  real, intent(in) :: var(:)
+  integer, save :: i = 0
+  character(len=*) :: name
+  character(len=256) :: filename
+
+#ifdef ASSIM_PARALLEL
+  write(filename,'("debugM",I3.3)') i
+#else
+  write(filename,'("debugS",I3.3)') i
+#endif
+
+  call usave(trim(filename)//name,var,9999.)
+  write(6,*) 'write ',trim(filename)//name
+  i = i+1
+
+ end subroutine checkVar
+
+ !_______________________________________________________
+ !
  ! high level generic input and output routines
  !
  !
@@ -628,6 +663,9 @@ contains
   end if
 
 # endif
+
+
+  call checkVar(vector,"loadVector_byfilenames:vector") 
 
   deallocate(x)
  end subroutine loadVector_byfilenames
@@ -1808,10 +1846,12 @@ contains
     deallocate(tmpH%i,tmpH%j,tmpH%s,filterMod%i,filterMod%j,filterMod%s)
   end if
 
+#ifdef ASSIM_PARALLEL
   ! permute state vector
   do j=1,H%nz
     H%j(j) = invZoneIndex(H%j(j))
   end do
+#endif
 
 #ifdef DEBUG
   write(stddebug,*) 'Observation operator H'
@@ -2243,7 +2283,7 @@ contains
   integer, allocatable :: rcount(:),rdispls(:)
   integer          :: ierr,k,j1,j2,baseIndex
 
-
+#ifdef ASSIM_PARALLEL
   j1 = startIndexZones(startZIndex(procnum))
   j2 =   endIndexZones(  endZIndex(procnum))
 
@@ -2264,7 +2304,7 @@ contains
   call mpi_gatherv(xf,rcount(procnum),mpi_real,xt,rcount,rdispls,mpi_real,0, mpi_comm_world, ierr)
   deallocate(rcount,rdispls)
 
-
+#endif
  end subroutine
 
 
@@ -2341,6 +2381,8 @@ contains
 
 #endif
 #endif
+
+  call checkVar(Hx,"obsoper:Hx") 
 
  end function obsoper
 
@@ -2536,8 +2578,25 @@ contains
              biasgamma,H,Hshift,xf,biasf,Hxf,Hbf,yo,Sf,HSf,invsqrtR, &
              xa,biasa,Sa, amplitudes)
       else
+        call checkVar(xf,'assim:xf');
+        call checkVar(yo,'assim:yo');
+        call checkVar(HSf(:,1),'assim:HSf1');
+        call checkVar(Sf(:,1),'assim:Sf1');
+
+#ifndef ASSIM_PARALLEL
+        call permute(zoneIndex,xf,xf)
+        do k=1,size(Sf,2)
+          call permute(zoneIndex,Sf(:,k),Sf(:,k))
+        end do
+#endif
+
         call locanalysis(zoneSize,selectObservations, &
              xf,Hxf,yo,Sf,HSf,invsqrtR, xa,Sa,locAmplitudes)
+
+        call checkVar(xa,'assim:xa');
+        call checkVar(Sa(:,1),'assim:Sa1');
+        !call checkVar(locAmplitudes,'assim:locAmplitudes');
+
       end if
     else
 !$omp master
@@ -2578,6 +2637,15 @@ contains
 
     where (xa-maxCorrection.gt.xf) xa=xf+maxCorrection
     where (xa.lt.xf-maxCorrection) xa=xf-maxCorrection
+
+#ifndef ASSIM_PARALLEL
+        call ipermute(zoneIndex,xa,xa)
+        call ipermute(zoneIndex,xf,xf)
+        do k=1,size(Sf,2)
+          call ipermute(zoneIndex,Sa(:,k),Sa(:,k))
+          call ipermute(zoneIndex,Sf(:,k),Sf(:,k))
+        end do
+#endif
 
     Hxa = obsoper(H,xa) + Hshift
 
@@ -2723,6 +2791,9 @@ contains
 
     if (runtype.eq.AssimRun) then
 
+        call checkVar(xa,'assim:xa2');
+        call checkVar(xf,'assim:xf2');
+
       if (presentInitValue(initfname,'Diag'//infix//'amplitudes')) then
         call getInitValue(initfname,'Diag'//infix//'path',path)
         call getInitValue(initfname,'Diag'//infix//'amplitudes',str)
@@ -2734,10 +2805,9 @@ contains
       end if
 
 
-    if (presentInitValue(initfname,'Diag'//infix//'meanSa')) then
-      call saveVector('Diag'//infix//'meanSa',ModMLParallel,sum(Sa,2)/size(Sa,2))
-    end if
-
+      if (presentInitValue(initfname,'Diag'//infix//'meanSa')) then
+        call saveVector('Diag'//infix//'meanSa',ModMLParallel,sum(Sa,2)/size(Sa,2))
+      end if
 
       if (presentInitValue(initfname,'Diag'//infix//'Hxa'))         &
            call saveVector('Diag'//infix//'Hxa',ObsML,Hxa,invsqrtR.ne.0.)
@@ -2910,7 +2980,9 @@ MahalanobisLen=0
      logical :: noRelevantObs
 
 
+     ! is state vector permuted ? yes -> in local analysis
      index = zoneIndex(ind)
+
      call ind2sub(ModML,index,v,i,j,k)
 
      if (ModML%ndim(v).eq.2) then
