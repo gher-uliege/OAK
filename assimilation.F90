@@ -2284,15 +2284,6 @@ contains
   real             :: Hx(H%m), tmp(H%m)
   integer          :: ierr,k,j1,j2,baseIndex
 
-
-!!$  if (procnum == 1) then
-!!$    Hx = H.x.xf
-!!$  end if
-!!$
-!!$# ifdef ASSIM_PARALLEL
-!!$  call mpi_bcast(Hx,H%m,mpi_real,0,mpi_comm_world,ierr)
-!!$# endif
-
 #define EXACT_OBS_OPER
 
 
