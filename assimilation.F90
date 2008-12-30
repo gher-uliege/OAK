@@ -360,6 +360,8 @@ contains
 #   endif     
   end if
 
+  ModMLParallel%permute = schemetype.eq.LocalScheme
+
     write(stddebug,*) 'indexes for me',procnum,ModMLParallel%startIndexParallel,ModMLParallel%endIndexParallel
 
 ! Maximum correction
@@ -662,6 +664,8 @@ contains
     vector = x
   end if
 
+  if (ML%permute) call permute(zoneIndex,vector,vector)
+
 # endif
 
 
@@ -802,6 +806,8 @@ contains
     deallocate(xt)
 
   else
+    if (ML%permute) call ipermute(zoneIndex,vec,vec)
+
     if (ML%removeLandPoints) then
       do v=1,size(filenames)
 #ifdef DEBUG
@@ -2519,14 +2525,6 @@ contains
   ! weight (invsqrtR) = 0
   !
 
-
-#ifndef ASSIM_PARALLEL
-        call permute(zoneIndex,xf,xf)
-        do k=1,size(Sf,2)
-          call permute(zoneIndex,Sf(:,k),Sf(:,k))
-        end do
-#endif
-
   call loadObservationOper(ntime,ObsML,H,Hshift,invsqrtR)
 
 
@@ -2647,16 +2645,6 @@ contains
     end do
 
     yo_Hxa = yo-Hxa
-
-#ifndef ASSIM_PARALLEL
-        call ipermute(zoneIndex,xa,xa)
-        call ipermute(zoneIndex,xf,xf)
-        do k=1,size(Sf,2)
-          call ipermute(zoneIndex,Sa(:,k),Sa(:,k))
-          call ipermute(zoneIndex,Sf(:,k),Sf(:,k))
-        end do
-#endif
-
 
 !$omp end master
 
