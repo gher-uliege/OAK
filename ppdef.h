@@ -32,7 +32,8 @@
 
 #define flush(unit,stat) FLUSH(unit)
 
-#define ASSIM_PARALLEL
+  ! uncomment this line for parallel execution
+!#define ASSIM_PARALLEL
 
 #ifndef ASSIM_PARALLEL
 #define procnum 1

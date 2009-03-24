@@ -22,7 +22,7 @@
 
 OS?=Linux
 
-FORT?=g95
+FORT?=gfortran
 
 FORMAT=big_endian
 
