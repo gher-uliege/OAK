@@ -1,3 +1,6 @@
+! Copyright(c) 2002-2009 Alexander Barth and Luc Vandenblucke
+
+
 
 ! include the fortran preprocessor definitions
 #include "ppdef.h"

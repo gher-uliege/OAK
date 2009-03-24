@@ -1,3 +1,5 @@
+! Copyright(c) 2002-2009 Alexander Barth and Luc Vandenblucke
+
 !
 ! interpolation of arbitrary N-dimentional grids
 !
