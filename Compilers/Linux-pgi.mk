@@ -37,12 +37,6 @@ ifdef OpenMP
   LDFLAGS += -mp
 endif
 
-ifdef MPI
-  F90FLAGS += -I$(MPI_INCDIR)
-  LIBS += -L$(MPI_LIBDIR) -llamf77mpi -lmpi -llam -lutil -lpthread -ldl
-endif
-
-
 DEBUG := 
 ifdef DEBUG
   F90FLAGS += -g -C
