@@ -1,0 +1,830 @@
+\documentclass[a4paper,12pt]{article}
+\usepackage{fullpage,color}
+\usepackage[round]{natbib}
+\usepackage{hyperref}
+\def\bibdir{/biblio/}
+
+\newcommand{\code}{\texttt}
+\newenvironment{codeexample}{\begin{verbatim}}{\end{verbatim}}
+\newenvironment{keytabular}{\begin{tabular}{|p{0.3\textwidth}|p{0.2\textwidth}|p{0.5\textwidth}|} \hline Key & Type & Description \\ \hline \hline }{\end{tabular}}
+\newcommand{\subsubsubsection}[1]{\bigskip \textit{#1} \medskip}
+%\newcommand{\subsubsubsection}[1]{\paragraph{#1}}
+
+\definecolor{color_nesting}{rgb}{.3,0,1}
+\begin{document}
+
+
+\setlength{\parindent}{0cm}
+\newcommand{\tabularcol}{|p{0.3\textwidth}|p{0.2\textwidth}|p{0.5\textwidth}|}
+
+\title{GHER Assimilation Module \\ User guide}
+\author{Alexander Barth, Luc Vandenbulcke}
+\maketitle
+
+
+%\chapter{Users guide}
+
+\section{Structure of the software}
+
+The software is structured in different modules
+
+\begin{itemize}
+
+\item \code{ufileformat:} Binary output and input of large 1D, 2D or 3D
+matrixes in the GHER or NetCDF.
+\item \code{initfile:} Input of integers, floating number, strings and small
+vectors of those data types.
+\item \code{matoper:} Basic matrix operating: multiplication, matrix
+  inversion, eigenvalue/eigenvectors and singular value decomposition
+  (relying and BLAS and LAPACK).
+\item \code{date:} module for conversion between modified Julian day number
+  and Gregorian date.
+\item \code{grids:} interpolation for one grid to another of 1D, 2D or
+  3D data.
+\item \code{rrsqrt:} The analysis equation
+\item \code{assimilation:} I/O of state vector, observations, error
+  space and observation operator. Analysis routine with input/output
+  and computation of diagnostics.
+\end{itemize}
+
+These module can either be used for specific task with standalone programs \ref{sec_standalone} or by a hydrodynamic model
+in the case of a simulation assimilating observations. The GHER
+hydrodynamic model drives the data assimilation modules trough the
+following subroutines:
+
+\begin{itemize}
+\item \code{dainit:} initializes of the data assimilation modules
+\item \code{daobs:} loads of the next observation to assimilate
+\item \code{daanalysis:} performs the analysis
+\item \code{damoderr:} propagates the error covariance of the model 
+\end{itemize}
+
+\section{Module: \code{ufileformat}}\label{subsec_use_ufileformat}
+
+This module is used for binary output and input of large 1D, 2D or 3D
+matrixes. The GHER and a subset of the NetCDF format is currently
+supported. The matrix can contain exclusion points
+(``holes''). Matrices $A$ where the elements are a linear combination of
+the indices can also be efficiently represented: 
+
+\begin{equation}
+A(i,j,k) = a_0 + a_1 i + a_2 j + a_3 k
+\end{equation}
+
+Only the coefficient $a_0$, $a_0$, $a_0$ and $a_4$ are
+stored. These file are called degenerated. For example, the longitude and latitude of each grid point can
+often be expressed in this way.\\
+
+For the GHER format, each file represent a real matrix. If the
+filenames ends with \code{.gz}, then the file is uncompressed
+(with \code{gunzip}) in the user's temporary directory defined by the
+environment variable \code{\$TMPDIR} (or by default in
+\code{/tmp}). Simple Fortran 90-style extraction can also by performed
+with the module \code{ufileformat}. A coma separated
+list of indices or ranges of indices in parenthesis can be appended to
+the filename, if only a subsection of the matrix should be loaded.
+
+For example if the file
+\code{toto.TEM} is a 10 x 10 x 10 matrix, the ``file'':
+
+\begin{description}
+\item[\code{toto.TEM(:,:,6)}] is 10x10x1 matrix containing all
+  elements with the 3rd indices equal to 6.
+\item[\code{toto.TEM(:,end,:)}] is 10x1x10 matrix containing all
+  elements with the 2nd indices equal to 10.
+\item[\code{toto.TEM(1:,:end,1:end)}] is 10x10x10 matrix equal to the
+  original matrix
+\end{description}
+
+But no arithmetics with the indices (for example
+\code{toto.TEM(:,end-1,:)}) are allowed. If data extraction is used
+with degenerated matrixes, the four coefficient are changed
+accordingly to the subsection chosen.\\
+
+Data extraction and automatic decompression can only be used
+for loading data.  \\
+
+A variable in a NetCDF file can be loaded by specifying a ``filename'' of
+the following form:
+
+\begin{verbatim}
+NetCDF_filename#NetCDF_variable
+\end{verbatim}
+
+If the NetCDF filename end with \code{.gz}, then the file is uncompressed
+as with the GHER file format. The data extraction follows also the same
+rules as above. For example, the following is a valid filename for
+loading a matrix. \\
+
+\begin{verbatim}
+file.nc.gz#temp(:,:,1)
+\end{verbatim}
+
+The file \code{file.nc.gz} is first decompressed, then the slice with
+the 3rd indices equal to 1 of the variable \code{temp} is returned to
+the calling program. \\
+ 
+The special value for missing data is stored in the variables attribute
+\code{missing\_data}. In the case of degenerated file, the attribute
+\code{shape} must be present, containing the shape of the matrix. The actual value
+of the variable contains the coefficients $a_i$.
+
+
+\section{The initialisation file}
+
+With the module \code{initfile} a program can read an integer number,
+floating number or a character string from an initialisation file.  Each line in
+this file is composed by a name (called key), an equal sign and the value. For
+example:
+
+\begin{verbatim}
+runtype = 2
+Geoflow.maxU = 0.3 
+logfile = 'assim.log' 
+\end{verbatim} 
+
+When the program search for example the key ``\code{runtype}'', it gets
+the integer 2. If a key is present several times in the same
+initialisation file, then the last value found is taken. \\
+
+The key can be composed by any alphanumeric character and by periods (.).
+In particular, spaces and a equal signs are not allowed within the key
+name. The wildcards symbols *, ? and brackets ([,]), are allowed but have
+a special meaning (see Paragraph below). \\
+
+Vectors of integers, floats and character strings are also supported. The
+values are separated with commas and enclosed in brackets.
+
+\begin{verbatim}
+Model.variables = ['ETA','TEM','SAL'] 
+Model.maxCorrection = [0.3,3.,2.,0.3,3.,2.,0.3,3.,2.] 
+\end{verbatim} 
+
+Blank lines are ignored and comments begin with the pound sign (\#).
+It is recommended to document the meaning and the possible values
+by a comments directly in the initialisation file. \\
+
+Entries in this files cannot be splited across different lines. Before
+assigning a value to a key you should know with type is expected:
+scalar or vector and number or characters. If the type does not
+correspond, the program will be stopped. \\
+
+Sometimes a sequence of keys are attributed to the same values:
+
+\begin{verbatim}
+Obs001.path      = '/u/abarth/soft/Ligur3/Obs/' 
+Obs002.path      = '/u/abarth/soft/Ligur3/Obs/' 
+Obs003.path      = '/u/abarth/soft/Ligur3/Obs/' 
+\end{verbatim} 
+
+In this case one can use wildcards and write the following:
+
+\begin{verbatim}
+Obs*.path      = '/u/abarth/soft/Ligur3/Obs/' 
+\end{verbatim} 
+
+The meaning of the wildcards are the same as for filename generation of the
+Burne Shell (see also man page of sh and gmatch).  
+
+\section{Assimilation module}
+
+\subsection{Reduced order analysis}
+
+The best linear unbiased estimator (BLUE) of the model's state vector
+given the model forecast $\mathbf x^f$ with error covariance $\mathbf
+P^f$ and the observation $\mathbf y^o$ with error covariance $\mathbf
+R$ is given by $\mathbf x^a$:
+
+\begin{eqnarray}
+\mathbf x^a &=& \mathbf x^f + \mathbf K 
+\left(\mathbf y^o - \mathbf H \mathbf x^f \right) \\
+\mathbf K &=& \mathbf P^f \mathbf H^T 
+\left( \mathbf H \mathbf P^f \mathbf H^T + \mathbf R \right)^{-1} 
+\\
+\mathbf P^a &=&
+\mathbf P^f - \mathbf K \mathbf H \mathbf P^f
+\end{eqnarray}
+
+where $\mathbf H$ is the observation operator extracting the observed
+part of the state vector and $\mathbf P^a$ the error covariance of the
+analysis $\mathbf x^a$. As many other assimilation schemes (SEEK,
+RRSQRT, ESSE, EnKF) we decompose $\mathbf P^f$ in:
+
+\begin{equation}
+\mathbf P^f = \mathbf S^f {\mathbf S^f}^T  
+\end{equation}
+
+Where $\mathbf S^f$ is a $n \times r$ matrix. The reduced order
+implementation is only effective if $r$ is small ($r << n$). Furthermore
+$\mathbf R$ must be diagonal.\\
+
+In partice, the following eigenvalue decomposition is made (Brankart), 
+
+\begin{equation}
+\left(\mathbf H \mathbf S^f\right)^T  \mathbf R^{-1} \mathbf H \mathbf S^f
+= \mathbf U \mathbf \Lambda \mathbf U^T
+\end{equation} 
+
+where  $\mathbf U^T \mathbf U = \mathbf I$ and where $\Lambda$ is
+diagonal. The Kalman gain $\mathbf K$ and $\mathbf S^a$  can be computed straigth foreward by:
+
+\begin{eqnarray}
+   \mathbf K &=& \mathbf S^f \mathbf U (1+ \mathbf \Lambda)^{-1} \mathbf U^T (\mathbf H \mathbf S^f)^T \mathbf R^{-1} \\
+   \mathbf S^a &=& \mathbf S^f \mathbf U (1+ \mathbf \Lambda)^{-1/2} \mathbf U^T
+\end{eqnarray}
+ 
+$\mathbf S^a$ is the square root of $\mathbf P^a$:
+
+\begin{equation}
+\mathbf P^a = \mathbf S^a {\mathbf S^a}^T
+\end{equation}
+
+The bias aware anlysis scheme of \citet{dee98} is also implemented. But the error space $\mathbf S^a$ is not computed.
+
+\subsection{Configuration}\label{sec_config}
+
+The initialisation file of the assimilation module is composed mainly
+by four sections: configuration of \textbf{the model} (model state vector,
+position of the individual variables, error space of the model),
+\textbf{observations} to assimilate (observations, their position, their
+error), eventual \textbf{diagnostics} of the analysis and
+miscellaneous \textbf{flags}.
+
+\subsubsection{The model}
+
+The following code contains the definition of the multivariate state
+vector. The key \code{Model.variables} is a vector of character
+strings attributing to each variable a user chosen name. The keys
+\code{Model.gridX}, \code{Model.gridY}, \code{Model.gridZ} and
+\code{Model.mask} are vectors of filenames. The files in \code{Model.gridX} and 
+\code{Model.gridY} are degenerated and give the longitude and latitude
+of each variable. The files in \code{Model.gridZ} can be plain files
+and contains the depth. The key \code{Model.mask} is used to determine
+the sea-land mask of each variable. The exclusion value (or missing
+value in NetCDF terminology) marks a land point all other values, a sea
+points. Every files assembled into a state vector should have physical
+values where mask assumes a sea point. The shape of the arrays in
+\code{Model.gridX}, \code{Model.gridY}, \code{Model.gridZ} and
+\code{Model.mask} must be the same. No check is performed for the
+shape neither for the mask so be careful. \\
+
+The string in \code{Model.path} in prepended to each filenames.
+Example:
+
+
+\begin{verbatim}
+Model.variables = ['ETA'             ,'TEM'    ,'SAL'] 
+Model.gridX     = ['ligur.X(:,:,end)','ligur.X','ligur.X'] 
+Model.gridY     = ['ligur.Y(:,:,end)','ligur.Y','ligur.Y'] 
+Model.gridZ     = ['ligur.Z(:,:,end)','ligur.Z','ligur.Z'] 
+Model.mask      = ['ligur.Z(:,:,end)','ligur.Z','ligur.Z'] 
+Model.path      = '/u/abarth/soft/Ligur3/Data/' 
+\end{verbatim}
+
+{%\color{color_nesting}
+For nested grids the variables of the same nested must be grouped
+and the groups must be orders according to the resolution started with
+the highest resolution one. To each model grid is associated a
+\code{Model.gridnum}: one for the highest resolution one, two of the
+next highest resolution one and so one.
+
+\begin{verbatim} 
+Model.variables = ['TEM'    ,'SAL'    ,'TEM',   'SAL'] 
+Model.gridX     = ['ligur.X','ligur.X','med.X','med.X'] 
+Model.gridY     = ['ligur.Y','ligur.Y','med.Y','med.Y'] 
+Model.gridZ     = ['ligur.Z','ligur.Z','med.Z','med.Z'] 
+Model.mask      = ['ligur.Z','ligur.Z','med.Z','med.Z'] 
+Model.gridnum   = [        1,        1,      2,      2] 
+Model.path      = '/u/abarth/soft/Ligur3/Data/' 
+\end{verbatim}}
+
+\subsubsubsection{Mandatory keys}
+
+\begin{keytabular}
+\code{ErrorSpace.dimension} & integer & The dimension of the error space.
+\\
+\code{ErrorSpace.init} & vector of strings &
+Each string is a Fortran format containing an integer descriptor. The format is converted into a
+filename with an internal write. The integer is a number ranging from 1
+to the dimension of the error space $n$. $n$ vectors of filenames are
+formed and represent a error mode in the state space. Their norm
+represent the importance of the error mode and thus they are in
+general not normed. Orthogonality is not necessary.
+\\
+\hline
+\end{keytabular}
+
+\subsubsubsection{Optional keys}
+
+\begin{keytabular}
+\code{ErrorSpace.path} & string &  The path is prepended to all filenames
+specified in \code{ErrorSpace.*}. The current path is used by default.
+\\
+\code{ErrorSpace.space} & real &
+Each error mode is multiplied by this real number. The default is 1.
+\\
+\code{ErrorSpace.spaceScale} & vector of strings &
+Each error mode is multiplied element by element by this vector. The
+default is a vector with all elements equal to 1.
+\\
+\hline
+\end{keytabular}
+
+
+\subsubsection{The observations}
+
+All set of simultaneous observation are ordered chronically and are attributed to a time
+index starting with 001 (written always with three digits). In the
+following keys ``XXX'' have to be replaced by the time index. 
+
+
+\subsubsubsection{Mandatory keys}
+
+\begin{keytabular}
+\code{ObsXXX.date} & 'dd/mm/yyyy' &
+  d=day   (2 digids integer)
+  m=month (2 digids integer)
+  y=year  (minumum 1 digid integer)
+\\
+\code{ObsXXX.time} & 'hh:mm:ss[.ss]' &
+  h=hour (2 digids integer)
+  m=min  (2 digids integer)
+  s=second (minimum 1 digid integer or real)
+\\  
+\code{ObsXXX.value} & vector of strings & Each string is a filename containing
+  the actual values of the observations
+\\
+\code{ObsXXX.rmse} & vector of strings & Each string is a filename containing 
+  the root mean square error of the observations.
+\\
+\code{ObsXXX.mask} & vector of strings & Each string is a filename containing 
+  the binary mask of the observations. Values where the mask is different
+  from 1 are rejected.
+\\
+\hline
+\end{keytabular}
+
+\subsubsubsection{Optional keys}
+
+\begin{keytabular}
+\code{ObsXXX.variables} & vector of strings & The names must correspond to the names 
+  choosen in Model.variables. Unknown names are treated as "out of the grid"
+  and are not assimilated.
+\\
+\code{ObsXXX.names} & vector of strings & Each string is a desciption of 
+the data type of the observations. You can choose any name meaningful 
+to you. These names are only used for the logfile. The default names 
+are \code{Var01}, \code{Var02},...
+\\
+\code{ObsXXX.gridX} & vector of strings & Each string is a filename containing 
+  the longitude of the observations.
+\\
+\code{ObsXXX.gridY} & vector of strings & Each string is a filename containing 
+  the latitude of the observations.
+\\
+\code{ObsXXX.gridZ} & vector of strings & Each string is a filename containing 
+  the depth of the observations.
+\\
+\code{ObsXXX.HperObs} & vector of strings & The observation operator stored in a 
+   sparse matrix form per observations
+\\
+\code{ObsXXX.operator} & string & The observation operator stored in a 
+   sparse matrix form.   
+\\
+\code{ObsXXX.path} & string & The path is prepended to all filenames
+specified in \code{ObsXXX.*}. The current path is used by default.
+\\
+\hline
+\end{keytabular}
+
+The optional keys are used to create the observation operator. If it
+is applied to the state vector, it extracts the observed variables at
+the location of the measurements. Several ways exist to specify the
+observation operator.
+
+\begin{enumerate}
+\item \code{ObsXXX.operator}: the observation operator is directly
+  given by the non zero elements.  See
+  also \ref{format_oper}. 
+\item \code{ObsXXX.variables} and \code{ObsXXX.HperObs}: the non zero
+  elements of the observation operator for each variable are given
+  separately. The first column in $n \times 9$ matrix is ignored. See
+  also \ref{format_oper}. 
+\item \code{ObsXXX.variables}, \code{ObsXXX.gridX},
+  \code{ObsXXX.gridY} and \code{ObsXXX.gridZ}: the observation
+  operator is created by a trilinear interpolation using the module \code{grids}. 
+\end{enumerate}   
+
+
+\subsubsubsection{Format of the observation operator}\label{format_oper}
+
+Only the non-zero elements of the observation operator are specified
+in the $n \times 9$ matrix where n is the number of non-zero
+elements. Each line has the following structure:
+
+\begin{tabular}{*{4}{|p{.085\textwidth}}|*{4}{|p{.085\textwidth}}||p{.08\textwidth} |}  
+\hline 
+\multicolumn{4}{|c||}{Observations} & 
+\multicolumn{4}{c||}{Model} &  \\
+\hline \hline 
+var. index &
+i-index &
+j-index &
+k-index &
+var. index &
+i-index &
+j-index &
+k-index &
+Inter-polation coefficient \\
+\hline
+\end{tabular}
+
+The first integer value are related to the observation. The index of
+the variable is the position where the observed variable appears 
+in \code{ObsXXX.value} and i,j,k-index are the three spatial indexes
+of a single scalar observation. \\
+
+The integer in column 5 to 8
+are related to the model state vector. Again the index of
+the variable is the position where the observed variable appears 
+in \code{Model.variables} and  i,j,k-index are the three spatial indexes
+of a single scalar model forecast.
+If one of the model indexes is -1 the corresponding observation is
+treated "out of grid" and the associated weight will be zero.
+
+The column 9 is a real value between 0 and 1 in the case of a simple a
+trilinear interpolation. 
+The observation operator can be generated offline using a trilinear interpolation 
+with the tool "\code{genobsoper}".
+
+\subsubsection{Diagnostics}
+
+All diagnostics are optional and the corresponding files are output.
+
+\begin{keytabular}
+\code{DiagXXX.xf} & vector of strings & the model forecast
+\\
+\code{DiagXXX.Hxf} & vector of strings & the observed part of the model forecast
+\\
+\code{DiagXXX.Sf} & vector of strings & Each string is a Fortran
+format. For the conversion into filenames see the key
+\code{ErrorSpace.init}. The files represent
+the error modes of the model forecast.
+\\
+\code{DiagXXX.diagPf} & vector of strings & The diagonal elements of error
+covariance of the model forecast.
+\\
+\code{DiagXXX.diagHPfHT} & vector of strings & The diagonal elements of error
+covariance of the observed part of the model forecast 
+\\
+\code{DiagXXX.stddevxf} & vector of strings & Standard deviation of
+the error of the model forecast.
+\\
+\code{DiagXXX.stddevHxf} & vector of strings & Standard deviation of
+the error of the observed part of the model forecast.
+\\
+\code{DiagXXX.path} & string & The path is prepended to all filenames
+specified in \code{DiagXXX.*}. The current path is used by default.
+\\
+\hline
+\code{DiagXXX.xa} & vector of strings & the analysis
+\\
+\code{DiagXXX.Hxa} & vector of strings & the observed part of the analysis
+\\
+\code{DiagXXX.Sa} & vector of strings & Each string is a Fortran
+format. For the conversion into filenames see the key
+\code{ErrorSpace.init}. The files represent
+the error modes of the analysis.
+\\
+\code{DiagXXX.diagPa} & vector string & The diagonal elements of error
+covariance of the analysis.
+\\
+\code{DiagXXX.diagHPaHT} & vector of strings & The diagonal elements of error
+covariance of the observed part of the analysis 
+\\
+\code{DiagXXX.stddevxa} & vector of strings & Standard deviation of
+the error of the analysis.
+\\
+\code{DiagXXX.stddevHxa} & vector of strings & Standard deviation of
+the error of the observed part of the analysis.
+\\
+\hline
+\code{DiagXXX.H} & strings & the observation operator
+\\
+\code{DiagXXX.yo} & vector of strings & The observations.
+\\
+\code{DiagXXX.invsqrtR} & vector of strings & The inverse of the root mean
+square error of the observations. If a scalar observation point has
+been eliminated (out of the model grid for example) its weight is zero.
+\\
+\code{DiagXXX.xa-xf} & vector of strings & The analysis increment
+\\
+\code{DiagXXX.yo-Hxf} & vector of strings & the observation minus the
+model forecast at the observation points
+\\
+\code{DiagXXX.yo-Hxa} & vector of strings & the observation minus the
+model analysis at the observation points
+\\
+\code{DiagXXX.Hxa-Hxf} & vector of strings & analysis increment 
+at the observation points
+\\
+\code{DiagXXX.path} & string & The path is prepended to all filenames
+specified in \code{DiagXXX.*}. The current path is used by default.
+\\
+\hline
+\end{keytabular}
+
+\subsubsection{miscellaneous flags}
+
+\begin{keytabular}
+\code{nbnest} & integer &  Number of nested grids 
+\\
+\code{assimnum} & integer & Number between 1 and \code{nbnest}
+different for each model. The model with \code{assimnum} does the assimilation
+\\
+\code{runtype} & integer & 
+possible values of \code{runtype} are:
+\begin{description}
+\item[0:] do nothing, i.e. a pure run of the model  
+\item[1:] still do not assimilate, but compare model to observations
+\item[2:] assimilate observations
+\end{description}
+\\
+\code{moderrtype} & integer &
+possible values of \code{moderrtype} are:
+\begin{description}
+\item[0:] optimal interpolation Pf constant
+\item[1:] forgetting factor approximantion
+\end{description}
+\\
+\code{biastype} & integer &
+possible values of \code{biastype} are: 
+\begin{description}
+\item[0:] standard bias-blind analysis
+\item[1:]  A fraction of the error (gamma) is a systematic error 
+and the rest (1-gamma) is random \citep{dee98}
+\end{description}
+\\
+\code{Bias.gamma} & real & fraction of the error with is systematic
+\\
+\code{Bias.init} & vector of string & the initial estimation of the bias
+\\
+\code{joinvectors} & integer & If joinvectors is 1 then the variables of the nested grids will be assembled to one multigrid state vector
+\\
+\code{logfile} & string & File contains simple diagnostics such as rmse with observations 
+\\
+\code{debugfile} & string & 
+File contains debugging information is the code was compiled with the flag \code{-DDEBUG}
+\\
+\hline
+\end{keytabular}
+
+\section{Standalone programs}\label{sec_standalone}
+
+\subsection{Program \code{assim}}\label{prog_assim}
+
+The standalone program \code{assim} can be used to test the assimilation. The program can be called from the command line:
+
+\begin{verbatim}
+assim <initfile> <time index>
+\end{verbatim}
+
+The first argument is the initialisation file and the second argument is the time index of the observation to assimilate. All keys descibed in \ref{sec_config} have the same meaning for the program \code{assim}. But the forecast has to be specified by the following keys.
+
+\begin{keytabular}
+\code{ForecastXXX.value} & vector of strings & the forecast
+\\
+\code{ForecastXXX.path} & string &  The path is prepended to all filenames
+specified in \code{ForecastXXX.value}. The current path is used by default.
+\\
+\hline
+\end{keytabular}
+
+If the program is called with three arguments:
+
+\begin{verbatim}
+assim <initfile> <start time index>  <end time index>
+\end{verbatim}
+
+All assimilation cycles be between the two time indexes are performed in chronical order.
+
+\subsection{Program \code{genobsoper}}
+
+The standalone program \code{genobsoper} generate the observation matrix.
+
+\begin{verbatim}
+genobsoper <initfile> <time index>
+\end{verbatim}
+
+The first argument is the initialisation file and the second argument is the time index of the observation for witch the observation operator has to be created. All keys descibed in \ref{sec_config} have the same meaning for the program \code{genobsoper}. But the only diagnostic key used is \code{DiagXXX.H}.
+
+If the program is called with three arguments:
+
+\begin{verbatim}
+genobsoper <initfile> <start time index>  <end time index>
+\end{verbatim}
+
+The action is repeated for all time indexes between the start and end time index.
+
+\subsection{Program \code{applyobsoper}}
+
+The standalone program \code{applyobsoper} extract from a state vector the observations.
+
+\begin{verbatim}
+applyobsoper <initfile> <time index>
+\end{verbatim}
+
+The first argument is the initialisation file and the second argument is the time index of the observation for witch the observation operator has to be created. All keys descibed in \ref{sec_config} have the same meaning for the program \code{applyobsoper}. But the only diagnostic key used are \code{DiagXXX.Hxf} and \code{DiagXXX.invsqrtR}. If a scalar observation point has
+been eliminated (out of the model grid for example) its weight in \code{DiagXXX.invsqrtR} is zero. The state vector is specified as it is descibed in \ref{prog_assim}.
+
+If the program is called with three arguments:
+
+\begin{verbatim}
+applyobsoper <initfile> <start time index>  <end time index>
+\end{verbatim}
+
+The action is repeated for all time indexes between the start and end time index.
+
+\subsection{Program \code{filteroper}}
+
+The standalone program \code{filteroper} generates a sparse matrix witch acts as a spatial filter in the model space. 
+
+\begin{verbatim}
+filteroper <initfile>
+\end{verbatim}
+
+For each variable the filter is a gaussian function:
+
+\begin{equation} \label{eqn_filter}
+f(x,y,z,x',y',z') = N e^{-\frac{(x-x')^2}{L_x^2}-\frac{(y-y')^2}{L_y^2}-\frac{(z-z')^2}{L_z^2}}
+\end{equation}
+
+$N$ is a normalisation factor taking in to account the land-sea mask. The parameters $L_x$, $L_y$ and $L_z$ may be space dependent and have thus the same dimension as the state vector.
+The required keys are: \\
+
+\begin{keytabular}
+\code{Model.mask} & vector of strings &  sea-land mask of each variable 
+\\
+\code{Model.gridX} & vector of strings & longitude of each variable (degenerated file)
+\\
+\code{Model.gridY} & vector of strings & latitude of each variable (degenerated file)
+\\
+\code{Model.gridZ} & vector of strings & depth 
+\\
+\code{Model.path} & string & The path is prepended to all filenames
+specified in \code{Model.*}. The current path is used by default.
+\\
+\code{Correlation.lenx} & vector of strings & parameter $L_x$ in equation \ref{eqn_filter}
+\\
+\code{Correlation.leny} & vector of strings & parameter $L_y$ in equation \ref{eqn_filter}
+\\
+\code{Correlation.lenz} & vector of strings & parameter $L_z$ in equation \ref{eqn_filter}
+\\
+\code{Correlation.path} & string & The path is prepended to all filenames
+specified in \code{Correlation.*}. The current path is used by default.
+\\
+\code{Filter} & string & filename of the filter
+\\
+\hline
+\end{keytabular}
+
+\subsection{Program \code{opermul}}
+
+\code{opermul} is a general purpose program witch muliply two sparse operators. It can be used for example for mulipling a filter operator and a observation operator.
+
+\begin{equation}
+{\cal O}_3 = {\cal O}_2 {\cal O}_1  
+\end{equation}
+
+${\cal O}_1$ is a operator mapping from space $S_1$ to $S_2$, ${\cal O}_2$ from $S_2$ to $S_3$ and thus the product from  $S_1$ to $S_3$.
+ 
+\begin{verbatim}
+opermul <initfile>
+\end{verbatim}
+
+The required keys are: \\
+
+\begin{keytabular}
+\code{Space1.mask} & vector of strings &  sea-land mask of space $S_1$ 
+\\
+\code{Space1.path} & string & The path is prepended to all filenames
+specified in \code{Space1.mask}. The current path is used by default.
+\\
+\code{Space2.mask} & vector of strings &  sea-land mask of space $S_1$ 
+\\
+\code{Space2.path} & string & The path is prepended to all filenames
+specified in \code{Space2.mask}. The current path is used by default.
+\\
+\code{Space3.mask} & vector of strings &  sea-land mask of space $S_1$ 
+\\
+\code{Space3.path} & string & The path is prepended to all filenames
+specified in \code{Space2.mask}. The current path is used by default.
+\\
+\code{Term1} & string & filename of operator ${\cal O}_1$
+\\
+\code{Term2} & string & filename of operator ${\cal O}_2$
+\\
+\code{Product} & string & filename of the product ${\cal O}_3$
+\\
+\hline
+\end{keytabular}
+
+\subsection{Matlab utility GenObsFile}
+
+The utility "GenObsFile" provides an easy way to save all the observations, coming from various sources, in a few files with the netcdf format, and creates the .INIT file requiered by the assimilation routines.
+
+Options for GenObsFile must be specified in the header of the Matlab routine, as described below:
+
+\begin{itemize}
+\item initheader: complete path \& filename, of the file that must be copied on top of the .INIT file. This could be the "model" part of the .INIT file.
+
+\item diags: complete path \& file of a sample "diagnostic" part of the .INIT file. The observation number should be replaced with $<$INDEX$>$ and variable names with $<$EXT$>$. This part will be (adapted and) copied for each 
+observation set.
+
+Example: 
+\begin{verbatim}
+Diag<INDEX>.Hxf =  ['xf.<EXT>']
+\end{verbatim}
+
+\item Outdir : path where to store the new observations and .INIT file.
+
+\item Outfile : prefix of the new observation files
+
+\item maxX, minX, maxY, ..., minMJD: observations not within these ranges will be ignored when creating the new observation files
+
+\item rmse : vector containing errors on the observations, in the
+  following order:
+
+\begin{verbatim}
+[TEM SAL ETA other]=[...]
+\end{verbatim}
+It will only be used by the assimilation routine if no other observation error covariance"R" matrix is specified. GenObsFile only uses values corresponding to variables present in your observations list.
+
+\item obstime : time of the day at which observations should be assimilated
+
+\item listfile : complete path+filename for the listfile, which contains the original observations. It is build using sections. There must be at least one section in the listfile. Each section contains a "config" line followed by an arbitrary amount of data lines.
+The config line starts with the keyword 'config', and has the
+following format: config VAR X Y Z MJD\\
+\begin{itemize}
+\item VAR indicates how the observed data should be named in the .INIT file (TEM ...)\\
+\item X might be (a) a complete path+filename with the longitude data, correspondig to the observations, (b) the keyword 'file' if the longitude data is written in a file with the same filename as the actual data, with extention .X\\
+\item Y (idem)\\
+\item Z (idem)\\
+\item MJD points to the file containing the MJD-time corresponding to the
+\item observations, and might be (a) a complete path+filename, (b) the
+\item keyword 'file', (c) a datum in the format 1999-12-31, (d) a datum in
+\item the MJD format '51251', (e) character limits to be found in the
+\item actual observations filename.\\
+\end{itemize}
+For example, if the actual filename is /home/johndoe/51657.TEM , MJD could be 15-19 as those are the indexes pointing to 51657 in the filename.
+After each config line, an arbitrary amount of observation files may be given.
+The filenames may contain matrix delimiters, as in (1:100,2:5,:)\\
+\end{itemize}
+
+Example listfile:
+\begin{verbatim}
+config TEM ./Lion.X ./Lion.Y ./Lion.Z 1998-01-01
+/home/johndoe/observations/Lion00000480.TEM.gz(:,:,end)
+config SAL ./Lion.X ./Lion.Y ./Lion.Z 1998-01-01
+/home/johndoe/observations/Lion00000480.SAL.gz(:,:,end)
+config TEM file file file file
+/home/johndoe/observations/ctd02.1_03_aug_2241.TEM
+/home/johndoe/observations/ctd03.1_03_aug_1840.TEM
+/home/johndoe/observations/ctd04.1_04_aug_0747.TEM
+config TEM ./ligur.SST.X ./ligur.SST.Y ./ligur.SST.Z 32-41
+/scratch/johndoe/observtn/ligur1999-07-02.SST.gz
+/scratch/johndoe/observtn/ligur1999-07-03.SST.gz
+/scratch/johndoe/observtn/ligur1999-07-04.SST.gz
+/scratch/johndoe/observtn/ligur1999-07-10.SST.gz
+/scratch/johndoe/observtn/ligur1999-07-11.SST.gz
+\end{verbatim}
+
+\section{API}
+\subsection{ufileformat}
+
+\begin{description}
+\item[\code{uload(filename,matrix,exclusion\_value)}] ~\newline
+\begin{description}
+\item[\code{filename}]: character of strings, input. The filename of
+ the matrix to load with
+  the extensions descibed in \ref{subsec_use_ufileformat}.
+\item[\code{matrix}]: 1D, 2D or 3D unallocated real pointer, output. The
+  allocation of the output matrix is done inside the subroutine.
+\item[\code{exclusion\_value}]: real, output: The exclusion value
+\end{description}
+\item[\code{usave(filename,matrix,exclusion\_value)}] ~\newline
+\begin{description}
+\item[\code{filename}]: character of strings, input. The filename of
+ the matrix to save.
+\item[\code{matrix}]: 1D, 2D or 3D real matrix, input. The matrix to
+  save.
+\item[\code{exclusion\_value}]: real, input: The exclusion value
+\end{description}
+
+\end{description}
+
+
+\bibliographystyle{plainnat}
+\bibliography{\bibdir barth,\bibdir beckers,\bibdir rixen,\bibdir dee}
+
+\end{document}
