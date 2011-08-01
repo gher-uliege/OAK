@@ -357,6 +357,8 @@ contains
         CALL NCAGT(NCID,cid, 'shape',vshape, RCODE)
       elseif (name.eq.'missing_value') then
         rcode = nf90_get_att(ncid, cid,'missing_value', valex)
+      elseif (name.eq.'_FillValue') then
+        rcode = nf90_get_att(ncid, cid,'_FillValue', valex)
       end if
     end do
 
@@ -578,6 +580,8 @@ contains
         CALL NCAGT(NCID,cid, 'shape',vshape, RCODE)
       elseif (name.eq.'missing_value') then
         rcode = nf90_get_att(ncid, cid,name, valex)
+      elseif (name.eq.'_FillValue') then
+        rcode = nf90_get_att(ncid, cid,'_FillValue', valex)
       elseif (name.eq.'scale_factor') then
         rcode = nf90_get_att(ncid, cid, name, scale_factor)
       elseif (name.eq.'add_offset') then
