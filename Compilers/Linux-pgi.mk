@@ -9,28 +9,6 @@ LD := $(F90C)
 LDFLAGS := 
 MPI := on
 
-
-#
-# Library locations
-#
-
-# If all libraries are in one folder
-
-INCDIR ?= /usr/local/include
-LIBDIR ?= /usr/local/lib
-
-NETCDF_INCDIR ?= $(INCDIR)
-NETCDF_LIBDIR ?= $(LIBDIR)
-
-MPI_INCDIR ?= $(INCDIR)
-MPI_LIBDIR ?= $(LIBDIR)
-
-LAPACK_LIBDIR ?= $(LIBDIR)
-
-EXTRA_F90FLAGS ?=
-EXTRA_LDFLAGS ?=
-
-
 OpenMP := 
 ifdef OpenMP
   F90FLAGS += -mp
@@ -51,10 +29,4 @@ ifeq ($(FORMAT),big_endian)
   F90FLAGS += -byteswapio
 endif  
 
-
-# Append library locations
-
-F90FLAGS += -I$(NETCDF_INCDIR)
-LIBS += -L$(NETCDF_LIBDIR) -lnetcdf
-
-LIBS += -L$(LAPACK_LIBDIR) -llapack -lblas
+include Compilers/libs.mk

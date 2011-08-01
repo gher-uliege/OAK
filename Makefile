@@ -62,8 +62,9 @@ all: $(PROG)
 clean:
 	rm -f $(PROG) $(OBJS) *.mod
 
+
 print:
-	echo $(PROG) $(OBJS) *.mod
+	echo $(LIBS) $(F90FLAGS)
 
 #---------------#
 #  Executables  #

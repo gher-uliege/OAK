@@ -1,4 +1,4 @@
-! Copyright(c) 2002-2009 Alexander Barth and Luc Vandenblucke
+! Copyright(c) 2002-2012 Alexander Barth and Luc Vandenblucke
 
 
 
@@ -1575,6 +1575,8 @@ contains
 
   call loadVector(trim(prefix)//'rmse',ObsML,invsqrtR)
 
+
+# ifdef LIMIT_iR  
   if (any(invsqrtR < min_rmse .and. ObsML%mask == 1)) then
     write(stdlog,*) 'loadObs: warning observations with too small errors'
   end if
@@ -1582,6 +1584,7 @@ contains
   where (invsqrtR < min_rmse .and. ObsML%mask == 1)
      invsqrtR = min_rmse
   end where
+# endif
 
 # ifdef DEBUG
   write(stddebug,*) 'assim invsqrtR',sum(invsqrtR),count(invsqrtR.eq.0) 
@@ -2547,7 +2550,7 @@ contains
         else
 
 !!! FIXME flag of ensemble
-    write(6,*) 'innov ',yo_Hxf
+!    write(6,*) 'innov ',yo_Hxf
  
  !         call ensAnalysis(Sf,H.x.Sf,yo,invsqrtR,Sa,amplitudes)
           call analysis(xf,Hxf,yo,Sf,HSf,invsqrtR, xa,Sa,amplitudes)
@@ -2657,6 +2660,9 @@ contains
 
     if (presentInitValue(initfname,'Diag'//infix//'xf')) &
          call saveVector('Diag'//infix//'xf',ModMLParallel,xf)
+
+    if (presentInitValue(initfname,'Diag'//infix//'test')) &
+         call saveVector('Diag'//infix//'test',ModMLParallel,Sf(:,2))
 
     if (presentInitValue(initfname,'Diag'//infix//'Hxf')) &
          call saveVector('Diag'//infix//'Hxf',ObsML,Hxf,invsqrtR.ne.0.)
