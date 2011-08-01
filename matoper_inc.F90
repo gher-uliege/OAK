@@ -62,9 +62,9 @@ if (size(A,2).ne.size(B,1)) then
 end if
 
 
-call gemm_TYPE ('n','n',size(A,1),size(B,2),size(A,2),1._4, &
+call gemm_TYPE ('n','n',size(A,1),size(B,2),size(A,2),1., &
   A, size(A,1), B, size(B,1), &
-  0._4, C, size(A,1))
+  0., C, size(A,1))
 
 end function
 
@@ -83,8 +83,8 @@ if (size(A,2).ne.size(B)) then
   stop
 end if
 
-call gemv_TYPE('n',size(A,1),size(A,2),1._4,A,size(A,1), &
-     B,1, 0._4,C,1)
+call gemv_TYPE('n',size(A,1),size(A,2),1.,A,size(A,1), &
+     B,1, 0.,C,1)
 
 end function
 
@@ -130,8 +130,8 @@ REAL_TYPE :: C(size(B,2))
 
 ! B' A
 
-call gemv_TYPE('t',size(B,1),size(B,2),1._4,B,size(B,1), &
-     A,1, 0._4,C,1)
+call gemv_TYPE('t',size(B,1),size(B,2),1.,B,size(B,1), &
+     A,1, 0.,C,1)
 
 end function
 
@@ -253,9 +253,9 @@ implicit none
 REAL_TYPE, intent(in) :: A(:,:), B(:,:)
 REAL_TYPE :: C(size(A,1),size(B,1))
 
-call gemm_TYPE('n','t',size(A,1),size(B,1),size(A,2),1._4, &
+call gemm_TYPE('n','t',size(A,1),size(B,1),size(A,2),1., &
   A, size(A,1), B, size(B,1), &
-  0._4, C, size(A,1))
+  0., C, size(A,1))
 
 end function
 
@@ -318,9 +318,9 @@ implicit none
 REAL_TYPE, intent(in) :: A(:,:), B(:,:)
 REAL_TYPE :: C(size(A,2),size(B,2))
 
-call gemm_TYPE ('t','n',size(A,2),size(B,2),size(A,1),1._4, &
+call gemm_TYPE ('t','n',size(A,2),size(B,2),size(A,1),1., &
   A, size(A,1), B, size(B,1), &
-  0._4, C, size(A,2))
+  0., C, size(A,2))
 
 end function
 
