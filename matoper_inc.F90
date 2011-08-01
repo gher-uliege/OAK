@@ -62,9 +62,9 @@ if (size(A,2).ne.size(B,1)) then
 end if
 
 
-call gemm_TYPE ('n','n',size(A,1),size(B,2),size(A,2),1., &
+call gemm_TYPE ('n','n',size(A,1),size(B,2),size(A,2),real(1.,kind(A)), &
   A, size(A,1), B, size(B,1), &
-  0., C, size(A,1))
+  real(0.,kind(A)), C, size(A,1))
 
 end function
 
@@ -83,8 +83,8 @@ if (size(A,2).ne.size(B)) then
   stop
 end if
 
-call gemv_TYPE('n',size(A,1),size(A,2),1.,A,size(A,1), &
-     B,1, 0.,C,1)
+call gemv_TYPE('n',size(A,1),size(A,2),real(1.,kind(A)),A,size(A,1), &
+     B,1, real(0.,kind(A)),C,1)
 
 end function
 
@@ -130,8 +130,8 @@ REAL_TYPE :: C(size(B,2))
 
 ! B' A
 
-call gemv_TYPE('t',size(B,1),size(B,2),1.,B,size(B,1), &
-     A,1, 0.,C,1)
+call gemv_TYPE('t',size(B,1),size(B,2),real(1.,kind(A)),B,size(B,1), &
+     A,1, real(0.,kind(A)),C,1)
 
 end function
 
@@ -253,9 +253,9 @@ implicit none
 REAL_TYPE, intent(in) :: A(:,:), B(:,:)
 REAL_TYPE :: C(size(A,1),size(B,1))
 
-call gemm_TYPE('n','t',size(A,1),size(B,1),size(A,2),1., &
+call gemm_TYPE('n','t',size(A,1),size(B,1),size(A,2),real(1.,kind(A)), &
   A, size(A,1), B, size(B,1), &
-  0., C, size(A,1))
+  real(0.,kind(A)), C, size(A,1))
 
 end function
 
@@ -318,9 +318,9 @@ implicit none
 REAL_TYPE, intent(in) :: A(:,:), B(:,:)
 REAL_TYPE :: C(size(A,2),size(B,2))
 
-call gemm_TYPE ('t','n',size(A,2),size(B,2),size(A,1),1., &
+call gemm_TYPE ('t','n',size(A,2),size(B,2),size(A,1),real(1.,kind(A)), &
   A, size(A,1), B, size(B,1), &
-  0., C, size(A,2))
+  real(0.,kind(A)), C, size(A,2))
 
 end function
 
@@ -630,7 +630,7 @@ do jp=1,n
   enddo
 enddo
 
-call spevx_TYPE('V','I','U',n,P,-1.,-1.,n-r+1,n,2*lamch_TYPE('S'),idummy,S,V,n,work,iwork,ifail,info)
+call spevx_TYPE('V','I','U',n,P,real(-1.,kind(X)),real(-1.,kind(X)),n-r+1,n,2*lamch_TYPE('S'),idummy,S,V,n,work,iwork,ifail,info)
 
 do k=1,r
   do i=1,m
@@ -767,14 +767,14 @@ copyA = A
 
 ! determine the optimal size of work
 
-call syevx_TYPE(JOBZ,'I','U',n,copyA,n,-1.,-1.,ind(1),ind(2),     &
+call syevx_TYPE(JOBZ,'I','U',n,copyA,n,real(-1.,kind(A)),real(-1.,kind(A)),ind(1),ind(2),     &
      2*SLAMCH('S'),idummy,E,pV,n,rlWORK,-1, IWORK,   &
      IFAIL, myINFO )
 
 lwork = rlwork+0.5
 allocate(work(lwork))
 
-call syevx_TYPE(JOBZ,'I','U',n,copyA,n,-1.,-1.,ind(1),ind(2),     &
+call syevx_TYPE(JOBZ,'I','U',n,copyA,n,real(-1.,kind(A)),real(-1.,kind(A)),ind(1),ind(2),     &
      2*SLAMCH('S'),idummy,E,pV,n, WORK, LWORK, IWORK,   &
      IFAIL, myINFO )
 
