@@ -91,7 +91,7 @@ contains
   real, intent(out), optional :: Sa(:,:)
   real, intent(out), optional :: amplitudes(size(Sf,2))
 
-  real :: lambda(size(Sf,2)), UT(size(Sf,2),size(Sf,2)), &
+  real :: lambda(size(Sf,2)), sqrt_lambda(size(Sf,2)), UT(size(Sf,2),size(Sf,2)), &
        ampl(size(Sf,2)), isR(size(invsqrtR))
   real :: dummy(1,1)
   integer :: info,r
@@ -117,8 +117,6 @@ contains
     end do
   end do
 
-!  write (6,*) 'sum svd ',sum(temp),sum(HSf),sum(invsqrtR)
-
   call gesvd('n','a',temp,lambda,dummy,UT,info)
 
 ! decomposition satisfies:
@@ -132,20 +130,29 @@ contains
 
   ampl = (UT.tx.(lambda.dx.(UT.x.(HSf.tx.(invsqrtR**2*(yo-Hxf))))))
 
-! check if any element of ampl is nan
+! check if any element of ampl is NaN
   if (any(ampl /= ampl)) then
     write (0,*) 'error in ',__FILE__,__LINE__
     write (0,*) 'ampl ',ampl
     stop
   end if
+
   xa_xf = Sf.x.ampl
-!    write (0,*) 'ampl ',sum(ampl)
 
-
-#ifndef ROTATE_ENSEMBLE
-  if (present(Sa)) Sa = Sf.x.(UT.tx.(sqrt(lambda).dx.UT))
-#else
   if (present(Sa)) then
+!
+! PGI compiler need a intermediate variable with the square root of lambda
+! otherwise it produced an error
+! PGF90-F-0000-Internal compiler error. fill_argt: dimensionality doesn't match       1
+! on lines like: Sa = Sf.x.(UT.tx.(sqrt(lambda).dx.UT))
+!
+
+    sqrt_lambda = sqrt(lambda)
+
+#   ifndef ROTATE_ENSEMBLE
+    Sa = Sf.x.(UT.tx.(sqrt_lambda.dx.UT))
+#   else
+
 !
 ! rotate Sa such that the sum of all columns is equal to the sum of all colums of Sf
 ! If Sf is constructed directly from an emsemble by substracting the ensemble mean,
@@ -157,14 +164,13 @@ contains
 !
 
     w = 1./sqrt(1.*r)
-    v = UT.tx.(sum(UT,2)/sqrt(lambda))
+    v = UT.tx.(sum(UT,2)/sqrt_lambda)
     v = normate(v)
 
-    Sa = Sf.x.(UT.tx.(sqrt(lambda).dx.(UT.x.RotateVector(w,v))))
-
-
+    Sa = Sf.x.(UT.tx.(sqrt_lambda.dx.(UT.x.RotateVector(w,v))))
+    
+#   endif
   end if
-#endif
 
   if (present(amplitudes)) amplitudes = ampl
  end subroutine analysisIncrement
