@@ -58,8 +58,10 @@ end function
 
     ! eat blanks
 
-    do while ((first_index.le.len(buffer)).and.(buffer(first_index:first_index).eq.' '))
+    do while (buffer(first_index:first_index).eq.' ')
        first_index = first_index + 1
+
+       if (first_index.gt.len(buffer)) exit
     enddo
 
     if (first_index.le.len(buffer)) then

@@ -313,10 +313,13 @@ contains
   ! loop over each zone    
 !$omp do schedule(dynamic)
   zonesLoop: do zi=zi1,zi2
+!  zonesLoop: do zi=zi1,200
     i1 = startIndex(zi) + baseIndex
     i2 =   endIndex(zi) + baseIndex
 
-!    write(stdout,*) 'zi ',zi
+!$omp critical
+    write(stdout,*) 'zi ',zi
+!$omp end critical
 
     call selectObservations(startIndex(zi),weight,relevantObs)
 
@@ -362,9 +365,10 @@ contains
 !$omp end critical
   end do zonesLoop
 
+!$omp master
   write(stdout,*) 'nbselectedZones ',nbselectedZones,NZones,sum(xa_xf)
-
 !$omp end master
+
 !$omp barrier
 
  end subroutine locAnalysisIncrement

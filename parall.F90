@@ -28,6 +28,9 @@ module parall
 !  integer, allocatable ::  startIndex(:),endIndex(:)
 
 !  integer :: mystartIndex, myendIndex
+
+
+
 #endif
 
 
@@ -201,7 +204,7 @@ end subroutine
 # endif
 
 ! only master get the complete x
-  call mpi_gatherv(x(i1(procnum):i2(procnum)),rcount(procnum),mpi_real,x,rcount,rdispls,mpi_real,0, mpi_comm_world, ierr)
+  call mpi_gatherv(x(i1(procnum):i2(procnum)),rcount(procnum),DEFAULT_REAL,x,rcount,rdispls,DEFAULT_REAL,0, mpi_comm_world, ierr)
 
 
   deallocate(rcount,rdispls)
@@ -476,6 +479,8 @@ end subroutine
   integer, allocatable :: rcount(:),rdispls(:)
   integer          :: ierr,k,j1,j2,baseIndex
 
+  real :: dummy(1)
+
 #ifdef ASSIM_PARALLEL
   j1 = startIndexZones(startZIndex(procnum))
   j2 =   endIndexZones(  endZIndex(procnum))
@@ -494,7 +499,13 @@ end subroutine
 # endif
 
   ! only master get the complete x
-  call mpi_gatherv(xf,rcount(procnum),mpi_real,xt,rcount,rdispls,mpi_real,0, mpi_comm_world, ierr)
+
+  if (procnum == 1) then
+    call mpi_gatherv(xf,rcount(procnum),DEFAULT_REAL,xt,rcount,rdispls,DEFAULT_REAL,0, mpi_comm_world, ierr)
+  else
+    call mpi_gatherv(xf,rcount(procnum),DEFAULT_REAL,dummy,rcount,rdispls,DEFAULT_REAL,0, mpi_comm_world, ierr)
+  end if
+    
   deallocate(rcount,rdispls)
 
 #endif

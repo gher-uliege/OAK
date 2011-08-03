@@ -32,7 +32,7 @@
 
 #define flush(unit,stat) FLUSH(unit)
 
-  ! uncomment this line for parallel execution
+! uncomment this line for parallel execution
 !#define ASSIM_PARALLEL
 
 #ifndef ASSIM_PARALLEL
@@ -42,3 +42,5 @@
 #endif
 
 #define NETCDF
+
+#define DEFAULT_REAL MPI_REAL

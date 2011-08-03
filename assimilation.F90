@@ -2301,8 +2301,7 @@ contains
 
    if (procnum.eq.1) allocate(xt(H%n))
 
-!  write(stdout,*) 'xt ',__FILE__,__LINE__,size(xt),procnum,H%n
-
+!  write(stdout,*) 'xt ',__FILE__,__LINE__,size(xt),size(xf),procnum,H%n
 !   allocate(xt(H%n))
 
   call parallGather(xf,xt,startIndexZones,endIndexZones)
@@ -2313,7 +2312,7 @@ contains
   end if
 !    deallocate(xt)
 
-  call mpi_bcast(Hx,H%m,mpi_real,0,mpi_comm_world,ierr)
+  call mpi_bcast(Hx,H%m,DEFAULT_REAL,0,mpi_comm_world,ierr)
 
 #else
 
@@ -2331,7 +2330,7 @@ contains
     end if
   end do
 
-  call mpi_allreduce(tmp, Hx, H%m, mpi_real,mpi_sum, mpi_comm_world, ierr)
+  call mpi_allreduce(tmp, Hx, H%m, DEFAULT_REAL,mpi_sum, mpi_comm_world, ierr)
 
 #endif
 #endif
@@ -2517,9 +2516,13 @@ contains
 
 
   if (runtype.ne.AssimRun) then
+!$omp master
     write(stdlog,*) 'Compare model with observation: ',ntime
+!$omp end master
   else
+!$omp master
     write(stdlog,*) 'Assimilate observation: ',ntime
+!$omp end master
 
 
     if (schemetype.eq.LocalScheme) then

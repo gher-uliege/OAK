@@ -20,11 +20,18 @@
 #  Platform specific variables  #
 #-------------------------------#
 
-OS?=Linux
+OS ?= Linux
 
-FORT?=gfortran
+FORT ?= gfortran
 
-FORMAT=big_endian
+FORMAT ?= big_endian
+
+PRECISION ?= double
+USE_MPIF90 ?= on
+MPI ?= 
+OPENMP ?= 
+DEBUG ?= 
+
 
 include Compilers/$(OS)-$(strip $(FORT)).mk
 
@@ -32,7 +39,7 @@ include Compilers/$(OS)-$(strip $(FORT)).mk
 #  assim  #
 #---------#
 
-ASSIM_PROG = assim
+ASSIM_PROG ?= assim
 
 ASSIM_SRCS = anamorphosis.F90 assim.F90 assimilation.F90 date.F90 grids.F90 \
 	initfile.F90 matoper.F90 ndgrid.F90 parall.F90 rrsqrt.F90 \
@@ -64,7 +71,7 @@ clean:
 
 
 print:
-	echo $(LIBS) $(F90FLAGS)
+	echo $(LIBS) $(F90FLAGS) $(PRECISION)
 
 #---------------#
 #  Executables  #

@@ -4,7 +4,7 @@
 
 
 F90C := mpif90
-F90FLAGS :=  -I/home/abarth/local64/netcdf-pgi/include/ 
+F90FLAGS := 
 LD := $(F90C)
 LDFLAGS := $(F90FLAGS)
 
@@ -23,7 +23,6 @@ DEBUG :=
 ifdef DEBUG
   F90FLAGS += -g -C
 else
-#  F90FLAGS += -u -Bstatic -fastsse -Mipa=fast
   F90FLAGS += -O3
 endif
 

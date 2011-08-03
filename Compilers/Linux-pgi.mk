@@ -3,19 +3,16 @@
 #
 
 
-F90C := pgf90
-F90FLAGS :=
-LD := $(F90C)
-LDFLAGS := 
-MPI := on
+F90C ?= pgf90
+F90FLAGS ?=
+LD ?= $(F90C)
+LDFLAGS ?= 
 
-OpenMP := 
-ifdef OpenMP
+ifdef OPENMP
   F90FLAGS += -mp
   LDFLAGS += -mp
 endif
 
-DEBUG := 
 ifdef DEBUG
   F90FLAGS += -g -C
 else
@@ -23,10 +20,13 @@ else
   F90FLAGS += -O3 -Bstatic -Mflushz
 endif
 
-MPI := on
+ifeq ($(PRECISION),double)
+  F90FLAGS += -r8
+endif
 
 ifeq ($(FORMAT),big_endian)
   F90FLAGS += -byteswapio
 endif  
+
 
 include Compilers/libs.mk
