@@ -16,8 +16,8 @@ endif
 ifdef DEBUG
   F90FLAGS += -g -C
 else
-#  F90FLAGS += -u -Bstatic -fastsse -Mipa=fast
-  F90FLAGS += -O3 -Bstatic -Mflushz
+#  F90FLAGS += -u -fastsse -Mipa=fast
+  F90FLAGS += -O3 -Mflushz
 endif
 
 ifeq ($(PRECISION),double)
@@ -28,5 +28,8 @@ ifeq ($(FORMAT),big_endian)
   F90FLAGS += -byteswapio
 endif  
 
+ifdef STATIC
+  F90FLAGS += -Bstatic
+endif
 
 include Compilers/libs.mk

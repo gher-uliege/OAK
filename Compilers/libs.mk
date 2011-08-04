@@ -21,10 +21,15 @@ MPI_INCDIR ?= $(INCDIR)
 MPI_LIBDIR ?= $(LIBDIR)
 MPI_LIB ?= -llamf77mpi -lmpi -llam -lutil -lpthread -ldl
 
-# LAPACK and BLAS configuration
+# LAPACK configuration
 
 LAPACK_LIBDIR ?= $(LIBDIR)
-LAPACK_LIB ?= -llapack -lblas
+LAPACK_LIB ?= -llapack
+
+# BLAS configuration
+
+BLAS_LIBDIR ?= $(LIBDIR)
+BLAS_LIB ?= -lblas
 
 # Extra parameters
 
@@ -52,9 +57,14 @@ endif
 
 endif
 
-# LAPACK and BLAS
+# LAPACK
 
 LIBS += -L$(LAPACK_LIBDIR) $(LAPACK_LIB)
+
+# BLAS
+
+LIBS += -L$(BLAS_LIBDIR) $(BLAS_LIB)
+
 
 
 # netCDF library
