@@ -43,6 +43,13 @@ else
   F90FLAGS += -I$(MPI_INCDIR)
   LIBS += -L$(MPI_LIBDIR) $(MPI_LIB)
 endif
+
+ifeq ($(PRECISION),double)
+  F90FLAGS += -DDEFAULT_REAL=MPI_DOUBLE_PRECISION 
+else
+  F90FLAGS += -DDEFAULT_REAL=MPI_REAL
+endif
+
 endif
 
 # LAPACK and BLAS

@@ -43,4 +43,3 @@
 
 #define NETCDF
 
-#define DEFAULT_REAL MPI_REAL

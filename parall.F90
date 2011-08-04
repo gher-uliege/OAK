@@ -204,7 +204,8 @@ end subroutine
 # endif
 
 ! only master get the complete x
-  call mpi_gatherv(x(i1(procnum):i2(procnum)),rcount(procnum),DEFAULT_REAL,x,rcount,rdispls,DEFAULT_REAL,0, mpi_comm_world, ierr)
+  call mpi_gatherv(x(i1(procnum):i2(procnum)),rcount(procnum),DEFAULT_REAL,x,rcount, &
+     rdispls,DEFAULT_REAL,0, mpi_comm_world, ierr)
 
 
   deallocate(rcount,rdispls)
