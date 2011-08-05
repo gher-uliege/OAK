@@ -211,7 +211,7 @@ end function
     integer, intent(out) :: error
     character(len=*), intent(out) :: errormsg
 
-    integer dim, ParseError,fi,li,i,istat
+    integer :: dim, ParseError,fi,li,i,istat
 
     dim = countElements(string,ParseError)
     if (ParseError.ne.0) then

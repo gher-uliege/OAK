@@ -1482,31 +1482,62 @@ contains
 
   write(prefix,'(A,I3.3,A)') 'Obs',ntime,'.'
 
-  if (presentInitValue(initfname,trim(prefix)//'date')) then
 
-    !
-    !  ObsXXX.date
-    !
-
-    call getInitValue(initfname,trim(prefix)//'date',str)
-    read(str(1:2),*) day
-    read(str(4:5),*) month
-    read(str(7:),*) year
+  if (presentInitValue(initfname,trim(prefix)//'time')) then
 
     !
     !  ObsXXX.time
     !
 
     call getInitValue(initfname,trim(prefix)//'time',str)
-    read(str(1:2),*) h
-    read(str(4:5),*) min
-    read(str(7:),*) s
-    seconds = 60 * (60*h + min) + s
 
-    mjd0 = mjd(year,month,day,seconds)
+
+    
+    if (index(str,'T') /= 0) then
+      ! ISO 8601 time format: YYYY-MM-DDThh:mm:ss
+
+      read(str(1:4),*) year
+      read(str(6:7),*) month
+      read(str(9:10),*) day
+
+      read(str(12:13),*) h
+      read(str(15:16),*) min
+      read(str(18:),*) s
+
+      seconds = 60 * (60*h + min) + s
+      mjd0 = mjd(year,month,day,seconds)
+
+    elseif (index(str,':') /= 0) then      
+      ! time: hh:mm:ss
+
+      read(str(1:2),*) h
+      read(str(4:5),*) min
+      read(str(7:),*) s
+
+      !
+      !  ObsXXX.date
+      !
+
+      call getInitValue(initfname,trim(prefix)//'date',str)
+
+      ! date: dd/mm/yyyy 
+      read(str(1:2),*) day
+      read(str(4:5),*) month
+      read(str(7:),*) year
+
+      seconds = 60 * (60*h + min) + s
+      mjd0 = mjd(year,month,day,seconds)
+
+    else
+      ! time is directly in mjd
+      read(str,*) mjd0
+
+    end if
+
 
     !  write(stdout,*) str, seconds
 
+    
     if (present(error)) error = 0
 
   else
