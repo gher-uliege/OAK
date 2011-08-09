@@ -249,6 +249,14 @@ contains
   call getInitValue(initfname,'schemetype',schemetype,default=GlobalScheme)
   call getInitValue(initfname,'anamorphosistype',anamorphosistype,default=NoAnamorphosis)
 
+
+# ifdef ASSIM_PARALLEL
+  if (schemetype /= LocalScheme) then
+    write(stderr,*) 'Error: for parallel version schemetype should be 1 (local assimilation)'
+    ERROR_STOP
+  end if
+# endif
+
   if (anamorphosistype.ne.NoAnamorphosis) then
     call initAnamorphosis(fname)
   end if
@@ -490,13 +498,18 @@ contains
   zoneSize = 0
   do j=1,StateVectorSizeSea
     zi = partition(j)
+
+    if (zi < 1) then
+      write(stderr,*) 'Error: all values in partition vector must be greater than one ',j,zi
+      ERROR_STOP
+    end if
+
     zoneSize(zi) = zoneSize(zi)+1
   end do
 
   if (any(zoneSize.eq.0)) then
-    write(stderr,*) 'assimilation: ERROR in partition'
-    write(stderr,*) 'all number in partition file have to be integer, starting with 1 and must follow without gap'
-    stop
+    write(stderr,*) 'Error: all number in partition file have to be integer, starting with 1 and must follow without gap'
+    ERROR_STOP
   end if
 
 ! start index of each zone in vector zoneIndex

@@ -1,3 +1,23 @@
+# name of executable
+
+
+ASSIM_PROG ?= assim-$(FORT)-$(PRECISION)
+
+ifdef MPI
+  ASSIM_PROG := $(ASSIM_PROG)-mpi
+endif
+
+ifdef OPENMP
+  ASSIM_PROG := $(ASSIM_PROG)-openmp
+endif
+
+ifdef DEBUG
+  ASSIM_PROG := $(ASSIM_PROG)-debug
+endif
+
+
+
+
 #
 # Library locations
 #
