@@ -368,7 +368,6 @@ contains
 
     ncid = ncopn (unzipfname,ncnowrit,rcode)
 
-
     call check_error(nf90_inq_varid(ncid, var, cid), &
         'Error while accessing variable "' // trim(var) // '" in file "' // trim(filename) // '".')
 
@@ -388,9 +387,9 @@ contains
         ndim = ndimattr
         CALL NCAGT(NCID,cid, 'shape',vshape, RCODE)
       elseif (name.eq.'missing_value') then
-        rcode = nf90_get_att(ncid, cid,'missing_value', valex)
+        call check_error(nf90_get_att(ncid, cid,'missing_value', valex))
       elseif (name.eq.'_FillValue') then
-        rcode = nf90_get_att(ncid, cid,'_FillValue', valex)
+        call check_error(nf90_get_att(ncid, cid,'_FillValue', valex))
       end if
     end do
 
@@ -499,7 +498,7 @@ contains
  !
 
 
- subroutine uread_prim(filename,c,valex,ndim,vshape,isdegen,extraction)
+ subroutine uread_prim(filename,c,valex,ndim,vshape,isdegen,extraction,check_numel)
 #ifdef NETCDF
   use netcdf
 #endif 
@@ -513,11 +512,13 @@ contains
   integer, intent(out) :: ndim, vshape(*)
   logical, intent(out) :: isdegen
   integer, optional, intent(in) :: extraction(:,:)
+  integer, optional, intent(in) :: check_numel
 
   character(len=256) :: fname,unzipfname
   logical :: isNetcdf, isZipped
   integer ::  kb, nbmots,length,iu, stat, pos, iprec
   integer, parameter :: kblanc=10
+  integer :: numel
 
 #ifdef NETCDF
   integer :: i,ncid,rcode, ndims, nvars, natts, recdim, cid, &
@@ -635,6 +636,17 @@ contains
       vshape(1:ndim) = extraction(2,1:ndim)-extraction(1,1:ndim)+1
     end if
 
+    numel = product(vshape(1:ndim))
+
+    ! check number of elements
+    if (present(check_numel)) then
+      if (check_numel /= numel) then
+        write(stderr,*) 'Error while reading "',trim(filename),'".'
+        write(stderr,*) 'Expecting ',check_numel,' elemensts while ',numel,' found '
+        ERROR_STOP        
+      end if
+    end if
+
     iprec = 4
 
     !  write(stdout,*) 'imaxc,jmaxc,kmaxc ',imaxc,jmaxc,kmaxc
@@ -653,9 +665,9 @@ contains
       end if
     else
       if (.not.present(extraction)) then
-        rcode = nf90_get_var(ncid, cid, c(1:product(vshape(1:ndim))), spread(1,1,ndim), vshape(1:ndim))
+        rcode = nf90_get_var(ncid, cid, c(1:numel), spread(1,1,ndim), vshape(1:ndim))
       else
-        rcode = nf90_get_var(ncid, cid, c(1:product(vshape(1:ndim))), extraction(1,:), vshape(1:ndim))
+        rcode = nf90_get_var(ncid, cid, c(1:numel), extraction(1,:), vshape(1:ndim))
       end if
     end if
 
@@ -667,9 +679,8 @@ contains
     !
 
     if ((scale_factor.ne.1.or.add_offset.ne.0).and..not.isdegen) then
-      i = product(vshape(1:ndim))
-      where (c(1:i).ne.valex)
-        c(1:i) = c(1:i) * scale_factor + add_offset
+      where (c(1:numel).ne.valex)
+        c(1:numel) = c(1:numel) * scale_factor + add_offset
       end where
     end if
   end if
@@ -698,13 +709,14 @@ contains
  !
 
 
- subroutine uread(filename,c,valex,ndim,vshape,isdegen)
+ subroutine uread(filename,c,valex,ndim,vshape,isdegen,check_numel)
   implicit none
   character(len=*), intent(in) :: filename
   real :: c(*)
   real,    optional, intent(out) :: valex
   integer, optional, intent(out) :: ndim, vshape(*)
   logical, optional, intent(out) :: isdegen
+  integer, optional, intent( in) :: check_numel
 
   integer :: indp,j,prec,nbmots
   integer :: e(2,MaxDimensions),lentot,ip,jp,kp,l,lp,d,ndimc,vshapec(MaxDimensions)
@@ -717,12 +729,12 @@ contains
   vshapec = 1
 
   if (indp.eq.0) then
-    call uread_prim(filename,c,valexc,ndimc,vshapec,isdegenc)
+    call uread_prim(filename,c,valexc,ndimc,vshapec,isdegenc,check_numel=check_numel)
   else
     e = 1
     call uinquire(filename(1:indp-1),valexc,prec,ndimc,e(2,:),isdegenc)
     call parseExtraction(filename,e,extraction)
-    call uread_prim(filename(1:indp-1),c,valexc,ndimc,vshapec,isdegenc,extraction)
+    call uread_prim(filename(1:indp-1),c,valexc,ndimc,vshapec,isdegenc,extraction,check_numel=check_numel)
     deallocate(extraction)
   end if
 
@@ -802,13 +814,14 @@ contains
  !
 
 
- subroutine ureadfull(filename,c,valex,ndim,vshape,isdegen)
+ subroutine ureadfull(filename,c,valex,ndim,vshape,isdegen,check_numel)
   implicit none
   character(len=*), intent(in) :: filename
   real :: c(*)
   real,    optional, intent(out) :: valex
   integer, optional, intent(out) :: ndim, vshape(*)
   logical, optional, intent(out) :: isdegen
+  integer, optional, intent( in) :: check_numel
 
   integer :: indp,j,prec,nbmots
   integer :: e(2,MaxDimensions),lentot,ip,jp,kp,l,lp,d,ndimc,vshapec(MaxDimensions)
@@ -817,7 +830,7 @@ contains
   real, pointer :: tmp(:)
   logical :: isdegenc
 
-  call uread(filename,c,valexc,ndimc,vshapec,isdegenc)
+  call uread(filename,c,valexc,ndimc,vshapec,isdegenc,check_numel)
   if (isdegenc) call uexplo(c,ndimc,vshapec)
 
   if (present(ndim))    ndim = ndimc
@@ -1463,11 +1476,12 @@ contains
  !____________________________________________________________________
  !
 
- subroutine uload_Real3D(filename,c,valex)
+ subroutine uload_Real3D(filename,c,valex,check_vshape)
   implicit none
   character(len=*), intent(in) :: filename
   real, pointer  :: c(:,:,:)
   real, intent(out), optional :: valex
+  integer, intent(in), optional  :: check_vshape(3)
 
   character(len=len(filename)) :: tmpname
   integer  :: prec,ndim,vshape(MaxDimensions)
@@ -1478,13 +1492,19 @@ contains
   call gunzipFile(filename,tmpname)
   call uinquire(tmpname,valexc,prec,ndim,vshape,isdegen)
 
-  !  if (isdegen) then
-  !    write(stderr,*) 'uload_Real3D: Error: "',trim(filename),'" is degenerated'
-  !    ERROR_STOP
-  !  end if
+  ! flatten all dimensions beyond the 3rd dimension
+  vshape(3) = product(vshape(3:ndim))
+  vshape(4:) = 1
 
-  !write(stderr,*) 'shape ',vshape,ndim
-  allocate(c(vshape(1),vshape(2),product(vshape(3:ndim))))
+  if (present(check_vshape)) then
+    if (any(vshape(1:3) /= check_vshape)) then
+      write(stderr,*) 'Error while reading "',trim(filename),'".'
+      write(stderr,*) 'Expecting size ',check_vshape,' while size ',vshape(1:ndim),' found '
+      ERROR_STOP        
+    end if
+  end if
+
+  allocate(c(vshape(1),vshape(2),vshape(3)))
   call uread(tmpname,c,valexc)
   call rmgunzipFile(filename,tmpname)
 

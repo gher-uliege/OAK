@@ -1,7 +1,6 @@
 ! Copyright(c) 2002-2012 Alexander Barth and Luc Vandenblucke
 
 
-
 ! include the fortran preprocessor definitions
 #include "ppdef.h"
 
@@ -591,7 +590,7 @@ contains
 !!$omp end critical
 #endif
 !!$omp critical (readfull)
-    call ureadfull(trim(path)//filenames(v),x(ML%StartIndex(v)),valex)
+    call ureadfull(trim(path)//filenames(v),x(ML%StartIndex(v)),valex,check_numel=ML%varsize(v))
 !!$omp end critical (readfull)
   end do
 
