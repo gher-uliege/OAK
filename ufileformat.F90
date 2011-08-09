@@ -249,6 +249,34 @@ contains
 #endif
  end subroutine rmgunzipFile
 
+
+ !____________________________________________________________________
+ !
+ ! checks return code of netCDF calls
+ !____________________________________________________________________
+ !
+
+#ifdef NETCDF
+
+ subroutine check_error(status,message)
+  use netcdf
+  integer, intent ( in) :: status
+  character (len = *), optional, intent(in) :: message
+
+
+  if (status /= nf90_noerr) then
+    write(6,*) 'NetCDF error: ',trim(nf90_strerror(status))
+
+    if (present(message)) then
+      write(6,*) message
+    end if
+
+    ERROR_STOP
+  end if
+ end subroutine check_error
+
+#endif 
+
  !____________________________________________________________________
  !
 
@@ -339,8 +367,12 @@ contains
     var = filename(pos+1:)
 
     ncid = ncopn (unzipfname,ncnowrit,rcode)
-    cid  = ncvid (ncid,var,rcode)
-    call ncvinq (ncid,cid,name,vtype,ndim,cdim,natts,rcode)
+
+
+    call check_error(nf90_inq_varid(ncid, var, cid), &
+        'Error while accessing variable "' // trim(var) // '" in file "' // trim(filename) // '".')
+
+    call check_error(nf90_inquire_variable(ncid, cid, name, vtype, ndim, cdim, natts))
 
     valex = DefaultValex
     isdegen = .false.
@@ -558,7 +590,9 @@ contains
     var = filename(pos+1:)
 
     ncid = ncopn (unzipfname,ncnowrit,rcode)
+
     cid  = ncvid (ncid,var,rcode)
+    
     call ncvinq (ncid,cid,name,vtype,ndim,cdim,natts,rcode)
 
     ! default value for attributes
