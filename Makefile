@@ -20,6 +20,10 @@
 #  Platform specific variables  #
 #-------------------------------#
 
+include config.mk
+
+# default settings
+
 OS ?= Linux
 
 FORT ?= gfortran

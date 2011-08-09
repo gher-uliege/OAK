@@ -2329,6 +2329,7 @@ contains
 !  real :: xt(H%n)
    real, allocatable :: xt(:)
 
+
    if (procnum.eq.1) allocate(xt(H%n))
 
 !  write(stdout,*) 'xt ',__FILE__,__LINE__,size(xt),size(xf),procnum,H%n
