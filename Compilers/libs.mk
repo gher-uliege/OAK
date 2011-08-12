@@ -15,8 +15,9 @@ ifdef DEBUG
   ASSIM_PROG := $(ASSIM_PROG)-debug
 endif
 
-
-
+ifdef EXEC_SUFFIX
+  ASSIM_PROG := $(ASSIM_PROG)-$(EXEC_SUFFIX)
+endif
 
 #
 # Library locations

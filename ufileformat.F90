@@ -810,6 +810,161 @@ contains
 
  end subroutine makeSubset
 
+
+ !______________________________________________________________________________
+ !
+ ! "smart" replication of an array
+ !
+ ! elements of x represent an array of size szx are copied in y which 
+ ! represents an array of size szy. x is assumed to be constant along dimensions
+ ! which are in y but not in x.
+ !
+ !______________________________________________________________________________
+ !
+
+
+ subroutine srepmat(szx,x,szy,y)
+
+  implicit none
+  integer, intent( in) :: szx(:)
+  real,    intent( in) :: x(*)
+  integer, intent( in) :: szy(:)
+  real,    intent(out) :: y(*)
+
+  integer, dimension(size(szx)) :: imap, offsetx, ix
+  integer, dimension(size(szy)) :: map, offsety, iy
+
+
+  integer :: i,j,js,ndimx,ndimy,k,lx,ly
+
+
+  map = 0
+
+  ndimx = size(szx)
+  ndimy = size(szy)
+
+  js = -1
+
+  ! make mapping between dimensions
+
+  do i=1,ndimx
+
+    if (szx(i) /= 1) then
+      j = -1;
+
+      do k=1,ndimy
+        if (szx(i) == szy(k) .and. map(k) == 0) then
+          j = k;
+          exit
+        end if
+      end do
+
+
+      if (j /= -1) then
+
+        if (j < js) then
+          stop 'permutation is not supported';
+        else
+          map(j) = i;
+          imap(i) = j
+          js = j;
+        end if
+
+      else
+        stop 'unexpected dimension'
+      end if
+    end if
+  end do
+
+
+  offsetx(1) = 1;
+  do i=2,ndimx
+    offsetx(i) = offsetx(i-1) * szx(i-1);    
+  end do
+
+  offsety(1) = 1;
+  do i=2,ndimy
+    offsety(i) = offsety(i-1) * szy(i-1);
+  end do
+
+  print *, 'map ',map
+
+  do ly=0,product(szy)-1
+    ! convert linear index ly to index tuple iy
+    iy = mod(ly / offsety,szy);
+
+    ! select only indexes which vary in x
+    ! select only indexes which vary in x
+    ix = 0
+    do j=1,ndimy
+        if (map(j) > 0) then
+            ix(map(j)) = iy(j)
+        end if
+    end do
+
+    ! convert index tuple ix to linear index lx    
+    lx = sum(offsetx * ix);
+
+    ! copy data
+    y(ly+1)  = x(lx+1);
+    !print *, 'x', lx,ly,ix,offsetx
+    !print *, 'x', lx,' - ',iy,' - ',ix,' - ',offsetx
+    !stop
+    !print *, 'x', x(lx+1);
+  end do
+
+
+
+ end subroutine srepmat
+
+
+
+ subroutine ureadfull_srepmat(filename,c,valex,ndim,vshape,isdegen,check_numel,force_shape)
+
+  implicit none
+  character(len=*), intent(in) :: filename
+  real :: c(*)
+  real,    optional, intent(out) :: valex
+  integer, optional, intent(out) :: ndim, vshape(*)
+  logical, optional, intent(out) :: isdegen
+  integer, optional, intent( in) :: check_numel
+  integer, optional, intent( in) :: force_shape(:)
+
+
+  integer :: ndimc,vshapec(MaxDimensions),prec
+  real :: valexc
+  real, pointer :: x(:,:,:)
+  logical :: isdegenc
+
+
+  if (present(force_shape)) then
+    ! replicate dimensions if necessary
+
+    call uinquire(filename,valexc,prec,ndimc,vshapec)
+
+    if (product(vshapec(1:ndimc)) == product(force_shape)) then
+      call ureadfull(filename,c,valexc,isdegen = isdegenc)
+    else
+      ! try to be smart about the array 
+      call uload(filename,x,valexc)     
+      write(6,*) 'vshapec ',vshapec(1:ndimc)
+      write(6,*) 'force_shape ',force_shape
+      call srepmat(vshapec(1:ndimc),x,force_shape,c)
+      deallocate(x)     
+    end if
+  else
+    call ureadfull(filename,c,valexc,ndimc,vshapec,isdegenc,check_numel)
+  end if
+
+  if (present(ndim))    ndim = ndimc
+  if (present(vshape))  vshape(1:ndimc) = vshapec(1:ndimc)
+  if (present(isdegen)) isdegen = isdegenc
+  if (present(valex))   valex = valexc
+
+ end subroutine 
+
+
+
  !____________________________________________________________________
  !
 
@@ -823,11 +978,8 @@ contains
   logical, optional, intent(out) :: isdegen
   integer, optional, intent( in) :: check_numel
 
-  integer :: indp,j,prec,nbmots
-  integer :: e(2,MaxDimensions),lentot,ip,jp,kp,l,lp,d,ndimc,vshapec(MaxDimensions)
+  integer :: ndimc,vshapec(MaxDimensions)
   real :: valexc
-  integer, pointer :: i(:,:), ind(:), cummul(:)
-  real, pointer :: tmp(:)
   logical :: isdegenc
 
   call uread(filename,c,valexc,ndimc,vshapec,isdegenc,check_numel)

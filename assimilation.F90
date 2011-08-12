@@ -43,7 +43,7 @@ module assimilation
  
  character(len=maxLen) :: initfname, localInitfname, globalInitfname
 
- character(len=64), pointer :: ModelVariables(:)
+ character(len=maxLen), pointer :: ModelVariables(:)
 
  type(grid), allocatable :: ModelGrid(:)
 
@@ -146,6 +146,10 @@ module assimilation
    integer, pointer :: ndim(:), varshape(:,:), varsize(:), varsizesea(:), &
         mask(:),startIndex(:),endIndex(:),startIndexSea(:),endIndexSea(:), &
         seaindex(:),invindex(:)
+
+   ! names of individual variables
+   character(len=maxLen), pointer :: varnames(:)
+
    logical :: removeLandPoints 
    logical :: permute
 
@@ -592,19 +596,26 @@ contains
          ' variables, but ',size(filenames), ' filenames are found: '
     write(stderr,*) (trim(filenames(v))//' ',v=1,size(filenames))
     call flush(stderr,istat)
-    stop
+    ERROR_STOP
   end if
 
   do v=1,size(filenames)
 #ifdef DEBUG
 !!$omp critical
     write(stddebug,*) 'load ',trim(path)//trim(filenames(v))
+    write(6,*) 'load here ',trim(ML%varnames(v)), trim(path)//trim(filenames(v))
     call flush(stddebug,istat)
 !!$omp end critical
 #endif
-!!$omp critical (readfull)
-    call ureadfull(trim(path)//filenames(v),x(ML%StartIndex(v)),valex,check_numel=ML%varsize(v))
-!!$omp end critical (readfull)
+
+    i = ML%ndim(v)
+
+!    call ureadfull(trim(path)//filenames(v),x(ML%StartIndex(v)),valex,check_numel=ML%varsize(v))
+
+    call ureadfull_srepmat(trim(path)//filenames(v),x(ML%StartIndex(v)),valex,      &
+       check_numel = ML%varsize(v),                                                 &
+       force_shape = ML%varshape(1:i,v))
+
   end do
 
 # ifdef ASSIM_PARALLEL
@@ -1330,6 +1341,9 @@ contains
   call getInitValue(initfname,trim(prefix)//'path',path,default='')
   call getInitValue(initfname,trim(prefix)//'mask',filenames)
   call MemoryLayout_byfilenames(path,filenames,la,packed)
+
+  call getInitValue(initfname,trim(prefix)//'variables',la%varnames)
+
   deallocate(filenames)
  end subroutine MemoryLayout_byinitval
 

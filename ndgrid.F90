@@ -1,4 +1,4 @@
-! Copyright(c) 2002-2009 Alexander Barth and Luc Vandenblucke
+! Copyright(c) 2002-2011 Alexander Barth and Luc Vandenblucke
 
 !
 ! interpolation of arbitrary N-dimentional grids
@@ -6,11 +6,6 @@
 ! coordinate can be givem explicetly (as a variable) or implicitly (as a function)
 ! 
 !
-! Alexander Barth
-! 11 February 2005
-! 
-!
-! Copyright Alexander Barth 2005
 !
 
 
@@ -574,6 +569,115 @@ contains
   end do
 
  end function linindex2index
+
+
+ !_______________________________________________________
+ !
+ ! "smart" replication of an array
+ !
+ ! elements of x represent an array of size szx are copied in y which 
+ ! represents an array of size szy. x is assumed to be constant along dimensions
+ ! which are in y but not in x.
+ !
+ !_______________________________________________________
+ !
+
+ subroutine srepmat(szx,x,szy,y)
+
+  implicit none
+  integer, intent( in) :: szx(:)
+  real,    intent( in) :: x(*)
+  integer, intent( in) :: szy(:)
+  real,    intent(out) :: y(*)
+
+  integer, dimension(size(szx)) :: imap, offsetx, ix
+  integer, dimension(size(szy)) :: map, offsety, iy
+
+
+  integer :: i,j,js,ndimx,ndimy,k,lx,ly
+
+
+  map = 0
+
+  ndimx = size(szx)
+  ndimy = size(szy)
+
+  js = -1
+
+  ! make mapping between dimensions
+
+  do i=1,ndimx
+
+    if (szx(i) /= 1) then
+      j = -1;
+
+      do k=1,ndimy
+        if (szx(i) == szy(k) .and. map(k) == 0) then
+          j = k;
+          exit
+        end if
+      end do
+
+
+      if (j /= -1) then
+
+        if (j < js) then
+          stop 'permutation is not supported';
+        else
+          map(j) = i;
+          imap(i) = j
+          js = j;
+        end if
+
+      else
+        stop 'unexpected dimension'
+      end if
+    end if
+  end do
+
+
+  offsetx(1) = 1;
+  do i=2,ndimx
+    offsetx(i) = offsetx(i-1) * szx(i-1);    
+  end do
+
+  offsety(1) = 1;
+  do i=2,ndimy
+    offsety(i) = offsety(i-1) * szy(i-1);
+  end do
+
+  print *, 'map ',map
+
+  do ly=0,product(szy)-1
+    ! convert linear index ly to index tuple iy
+    iy = mod(ly / offsety,szy);
+
+    ! select only indexes which vary in x
+    ! select only indexes which vary in x
+    ix = 0
+    do j=1,ndimy
+        if (map(j) > 0) then
+            ix(map(j)) = iy(j)
+        end if
+    end do
+
+    ! convert index tuple ix to linear index lx    
+    lx = sum(offsetx * ix);
+
+    ! copy data
+    y(ly+1)  = x(lx+1);
+    !print *, 'x', lx,ly,ix,offsetx
+    !print *, 'x', lx,' - ',iy,' - ',ix,' - ',offsetx
+    !stop
+    !print *, 'x', x(lx+1);
+  end do
+
+
+
+ end subroutine srepmat
+
+
+
  !_______________________________________________________
  !
  ! deallocate data box
@@ -734,17 +838,29 @@ contains
 
   integer :: ndim,gshape(MaxDimensions),prec
   real :: valex
+  real, pointer :: x(:,:,:)
 
    call uinquire(fname,valex,prec,ndim,gshape)
 
-   if (product(gshape(1:ndim)).ne.g%endindex(nd)-g%startindex(nd)+1 ) then
-     write(0,*) 'incomptaible sizes ',trim(fname)
-     write(0,*) 'expected ',g%endindex(nd)-g%startindex(nd)+1
-     write(0,*) 'found ',gshape(1:ndim),' or a total size of ',product(gshape(1:ndim))
-     ERROR_STOP
+   if (product(gshape(1:ndim)) == g%endindex(nd)-g%startindex(nd)+1 ) then
+     call ureadfull(fname,g%data(g%startindex(nd):),valex)
+   else
+     ! try to be smart about the array 
+     call uload(fname,x,valex)     
+     write(6,*) 'gshape(1:ndim) ,g%gshape ',gshape(1:ndim)
+     write(6,*) 'gshape(1:ndim) ,g%gshape ',g%gshape
+     call srepmat(gshape(1:ndim),x,g%gshape,g%data(g%startindex(nd):))
+     deallocate(x)     
    end if
 
-   call ureadfull(fname,g%data(g%startindex(nd):),valex)
+!   if (product(gshape(1:ndim)).ne.g%endindex(nd)-g%startindex(nd)+1 ) then
+!     write(0,*) 'incomptaible sizes ',trim(fname)
+!     write(0,*) 'expected ',g%endindex(nd)-g%startindex(nd)+1
+!     write(0,*) 'found ',gshape(1:ndim),' or a total size of ',product(gshape(1:ndim))
+!     ERROR_STOP
+!   end if
+
+   
 
  end subroutine 
 
