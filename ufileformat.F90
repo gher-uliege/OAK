@@ -81,7 +81,7 @@ module ufileformat
 
  ! default record length is 10 MB
  integer, parameter :: MaxRecordLength = 10*1024*1024 
- integer, parameter :: MaxDimensions = 10
+ integer, parameter :: MaxDimensions = 50
  integer, parameter :: MaxFNameLength = 256
  real, parameter :: DefaultValex = -9999.
 

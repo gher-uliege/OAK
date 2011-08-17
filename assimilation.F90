@@ -43,8 +43,6 @@ module assimilation
  
  character(len=maxLen) :: initfname, localInitfname, globalInitfname
 
- character(len=maxLen), pointer :: ModelVariables(:)
-
  type(grid), allocatable :: ModelGrid(:)
 
  real, allocatable          :: maxCorrection(:)
@@ -277,12 +275,6 @@ contains
   StateVectorSize = ModML%EndIndex(vmax)
   StateVectorSizeSea = ModML%totsizesea
 
-  !
-  ! Model.variables
-  !
-
-  call getInitValue(initfname,'Model.variables',ModelVariables)  
-
   allocate( &
        ModelGrid(vmax), &
        hres(vmax), &
@@ -454,7 +446,7 @@ contains
 
   call MemoryLayoutDone(ModML)
 
-  deallocate(ModelVariables,biasf,biasa,maxCorrection)
+  deallocate(biasf,biasa,maxCorrection)
   deallocate(ModelGrid,hres)
 
    if (schemetype.eq.LocalScheme) then
@@ -601,11 +593,9 @@ contains
 
   do v=1,size(filenames)
 #ifdef DEBUG
-!!$omp critical
-    write(stddebug,*) 'load ',trim(path)//trim(filenames(v))
-    write(6,*) 'load here ',trim(ML%varnames(v)), trim(path)//trim(filenames(v))
+    !write(stddebug,*) 'load ',trim(path)//trim(filenames(v))
+    write(stddebug,*) 'load ',trim(ML%varnames(v)), trim(path)//trim(filenames(v))
     call flush(stddebug,istat)
-!!$omp end critical
 #endif
 
     i = ML%ndim(v)
@@ -1423,6 +1413,7 @@ contains
   deallocate( &
        la%StartIndex,la%EndIndex,la%VarSize,&
        la%StartIndexSea,la%EndIndexSea,la%VarSizeSea,&
+       la%varnames, &
        la%ndim, la%varshape, &
        la%Mask, la%SeaIndex, la%invindex)
 
@@ -1986,8 +1977,8 @@ contains
     ! priliminary check if variable is known
     v = -1 
 
-    do tv=1,size(ModelVariables)
-      if (varNames(m).eq.ModelVariables(tv)) then
+    do tv=1,size(ModML%varnames)
+      if (varNames(m).eq.ModML%varnames(tv)) then
         v = tv
         exit
       end if
@@ -1995,10 +1986,9 @@ contains
 
     ! unknown variable
     if (v.eq.-1) then
-      !     if (any(varNames(m).eq.ModelVariables)) then
       write(stderr,*) 'genObservationOper: WARNING ',trim(varNames(m)),' is unknown !'
       write(stderr,*) 'known variables are:', &
-           (trim(ModelVariables(tv))//' ',tv=1,size(ModelVariables))
+           (trim(ModML%varnames(tv))//' ',tv=1,size(ModML%varnames))
       write(stderr,*) 'unknown variables are treated as absent.'
       call flush(stderr,istat)
     end if
@@ -2027,8 +2017,8 @@ contains
             v = -1
             n = -1
 
-            do tv=1,size(ModelVariables)
-              if (varNames(m).eq.ModelVariables(tv).and.minres.ge.hres(tv)) then
+            do tv=1,size(ModML%varnames)
+              if (varNames(m).eq.ModML%varnames(tv).and.minres.ge.hres(tv)) then
                 ! known variable
                 v = tv
 
@@ -3323,10 +3313,10 @@ MahalanobisLen=0
 ! return
 
   do while (v.lt.ModML%nvar)
-   if ((ModelVariables(v).eq.'TEM'.and.ModelVariables(v+1).eq.'SAL').or. &
-       (ModelVariables(v).eq.'SAL'.and.ModelVariables(v+1).eq.'TEM')) then
+   if ((ModML%varnames(v).eq.'TEM'.and.ModML%varnames(v+1).eq.'SAL').or. &
+       (ModML%varnames(v).eq.'SAL'.and.ModML%varnames(v+1).eq.'TEM')) then
 
-     if (ModelVariables(v).eq.'TEM') then
+     if (ModML%varnames(v).eq.'TEM') then
        vT = v
        vS = v+1
      else
@@ -3387,10 +3377,10 @@ MahalanobisLen=0
 ! return
 
   do while (v.lt.ModML%nvar)
-   if ((ModelVariables(v).eq.'TEM'.and.ModelVariables(v+1).eq.'SAL').or. &
-       (ModelVariables(v).eq.'SAL'.and.ModelVariables(v+1).eq.'TEM')) then
+   if ((ModML%varnames(v).eq.'TEM'.and.ModML%varnames(v+1).eq.'SAL').or. &
+       (ModML%varnames(v).eq.'SAL'.and.ModML%varnames(v+1).eq.'TEM')) then
 
-     if (ModelVariables(v).eq.'TEM') then
+     if (ModML%varnames(v).eq.'TEM') then
        vT = v
        vS = v+1
      else

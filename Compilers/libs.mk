@@ -19,6 +19,15 @@ ifdef EXEC_SUFFIX
   ASSIM_PROG := $(ASSIM_PROG)-$(EXEC_SUFFIX)
 endif
 
+ifdef PROFILING
+  ASSIM_PROG := $(ASSIM_PROG)-profiling
+  F90FLAGS += $(PROFILING_F90FLAGS)
+  LDFLAGS += $(PROFILING_LDFLAGS)
+endif
+
+
+
+
 #
 # Library locations
 #

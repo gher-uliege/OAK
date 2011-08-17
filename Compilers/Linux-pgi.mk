@@ -8,6 +8,14 @@ F90FLAGS ?=
 LD ?= $(F90C)
 LDFLAGS ?= 
 
+#PROFILING_F90FLAGS ?= -Mprof=dwarf
+#PROFILING_LDFLAGS ?= -Mprof=dwarf
+# -Mprof=hwcts  -Mprof=func -Mprof=lines -Mprof=time
+PROFILING_F90FLAGS ?= -Minfo=ccff
+PROFILING_LDFLAGS ?= $(PROFILING_F90FLAGS)
+
+
+
 ifdef OPENMP
   F90FLAGS += -mp
   LDFLAGS += -mp

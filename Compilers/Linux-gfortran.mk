@@ -7,7 +7,10 @@ F90C ?= gfortran
 F90FLAGS ?=
 LD ?= $(F90C)
 LDFLAGS ?= 
- 
+
+PROFILING_F90FLAGS ?= -pg
+PROFILING_LDFLAGS ?= -pg
+
 ifdef OPENMP
   F90FLAGS += -fopenmp
   LDFLAGS += -fopenmp

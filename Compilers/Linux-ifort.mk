@@ -12,7 +12,8 @@ LDFLAGS ?=
 # http://software.intel.com/en-us/articles/intel-fortran-compiler-increased-stack-usage-of-80-or-higher-compilers-causes-segmentation-fault/
 
 F90FLAGS += -heap-arrays 
-
+PROFILING_F90FLAGS ?= -p
+PROFILING_LDFLAGS ?= -p
 
 ifdef OPENMP
   F90FLAGS += -openmp
