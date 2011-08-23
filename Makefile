@@ -38,6 +38,7 @@ DEBUG ?=
 
 
 include Compilers/$(OS)-$(strip $(FORT)).mk
+include Compilers/libs.mk
 
 #---------#
 #  assim  #
