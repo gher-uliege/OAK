@@ -2332,7 +2332,7 @@ contains
   real             :: Hx(H%m), tmp(H%m)
   integer          :: ierr,k,j1,j2,baseIndex
 
-#define EXACT_OBS_OPER
+!#define EXACT_OBS_OPER
 
 
 #ifndef ASSIM_PARALLEL
@@ -2378,6 +2378,7 @@ contains
     end if
   end do
 
+!  write(stdout,*) ' allreduce '
   call mpi_allreduce(tmp, Hx, H%m, DEFAULT_REAL,mpi_sum, mpi_comm_world, ierr)
 
 #endif

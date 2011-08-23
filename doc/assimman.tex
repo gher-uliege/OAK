@@ -408,7 +408,7 @@ observation operator.
   also \ref{format_oper}. 
 \item \code{ObsXXX.variables} and \code{ObsXXX.HperObs}: the non zero
   elements of the observation operator for each variable are given
-  separately. The first column in $n \times 9$ matrix is ignored. See
+  separately. The first column in $9 \times x$ matrix is ignored. See
   also \ref{format_oper}. 
 \item \code{ObsXXX.variables}, \code{ObsXXX.gridX},
   \code{ObsXXX.gridY} and \code{ObsXXX.gridZ}: the observation
@@ -419,7 +419,7 @@ observation operator.
 \subsubsubsection{Format of the observation operator}\label{format_oper}
 
 Only the non-zero elements of the observation operator are specified
-in the $n \times 9$ matrix where n is the number of non-zero
+in the $9 \times n$ matrix where n is the number of non-zero
 elements. Each line has the following structure:
 
 \begin{tabular}{*{4}{|p{.085\textwidth}}|*{4}{|p{.085\textwidth}}||p{.08\textwidth} |}  

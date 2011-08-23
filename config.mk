@@ -4,7 +4,7 @@ OS ?= Linux
 
 # Compiler (gfortran (default), ifort, pgi, g95)
 
-FORT ?= ifort
+FORT ?= gfortran
 
 # Binary format (big_endian (default) or little_endian)
 
@@ -73,6 +73,7 @@ USE_MPIF90 ?= on
 
 
 ifeq ($(FORT),ifort)
+
 MPIF90 ?= /cvos/shared/apps/openmpi/intel/64/1.3.0/bin/mpif90
 LDFLAGS ?= -Wl,-R/u/mc/opt/intel-11.1/netcdf-4.1.2/lib -Wl,-R/u/mc/opt/intel-11.1/lapack-3.3.1/lib/ -Wl,-R/cvos/shared/apps/gotoblas/penryn/64/1.26
 NETCDF_CONFIG=/u/mc/opt/intel-11.1/netcdf-4.1.2/bin/nc-config
@@ -87,14 +88,9 @@ LAPACK_LIBDIR ?= /u/mc/opt/pgi-9.0/lapack-3.3.1/lib/
 endif
 
 ifeq ($(FORT),gfortran)
-MPIF90 ?= /cvos/shared/apps/openmpi/gcc/64/1.3.0/bin/mpif90
-LDFLAGS ?= -Wl,-R/u/mc/opt/netcdf-4.1.2/lib -Wl,-R/u/mc/opt/lapack-3.3.1/lib/ -Wl,-R/cvos/shared/apps/gotoblas/penryn/64/1.26
-NETCDF_CONFIG=/u/mc/opt/netcdf-4.1.2/bin/nc-config
-LAPACK_LIBDIR ?= /u/mc/opt/lapack-3.3.1-goto/lib/ 
+
 endif
 
-BLAS_LIBDIR ?= /cvos/shared/apps/gotoblas/penryn/64/1.26 
-BLAS_LIB ?= -lgoto 
 
 
 
