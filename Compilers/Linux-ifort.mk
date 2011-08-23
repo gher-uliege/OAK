@@ -34,5 +34,3 @@ ifeq ($(FORMAT),big_endian)
   F90FLAGS += -convert big_endian
 endif  
 
-
-sinclude Compilers/libs.mk

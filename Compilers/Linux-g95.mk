@@ -26,4 +26,3 @@ ifeq ($(FORMAT),big_endian)
   F90FLAGS += -fendian=big
 endif  
 
-include Compilers/libs.mk
