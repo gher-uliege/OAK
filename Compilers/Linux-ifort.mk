@@ -35,4 +35,4 @@ ifeq ($(FORMAT),big_endian)
 endif  
 
 
-include Compilers/libs.mk
+sinclude Compilers/libs.mk
