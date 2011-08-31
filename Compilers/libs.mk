@@ -34,8 +34,8 @@ endif
 
 # If all libraries are in one folder
 
-INCDIR ?= /usr/local/include
-LIBDIR ?= /usr/local/lib
+INCDIR ?= /usr/include
+LIBDIR ?= /usr/lib
 
 # netCDF configuration
 
