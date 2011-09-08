@@ -340,22 +340,24 @@ contains
   real, intent(out) :: coeff(n+1)
   logical, intent(out) :: out
 
+  ! better force double precision here
   ! precision of the inverse
-  real, parameter :: eps=1e-8
+  real(8), parameter :: eps = 1e-8
   ! local variables
 
-  real :: M(n+1,n+1)
-  real :: determ
+  real(8) :: M(n+1,n+1), c(n+1)
+  real(8) :: determ
 
   M = 1
-  coeff = 1
+  c = 1
 
   M(2:n+1,:) = X
+  c(2:n+1) = xi
 
-  coeff(2:n+1) = xi
-  coeff = matmul(inv(M,determ),coeff)
+  c = matmul(inv(M,determ),c)
 
-  out = .not.all(coeff.ge.0-eps.and.coeff.le.1+eps)
+  out = .not.all(c.ge.0d0-eps.and.c.le.1d0+eps)
+  coeff = c
 
   !write(6,*) 'determ ',determ
   !write(6,*) 'coeff ',coeff
