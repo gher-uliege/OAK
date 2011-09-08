@@ -1,4 +1,4 @@
-! Copyright(c) 2002-2009 Alexander Barth and Luc Vandenblucke
+! Copyright(c) 2002-2009,2011 Alexander Barth and Luc Vandenblucke
 
 !
 ! Simple module to load binary data in GHER and NetCDF format
@@ -265,10 +265,10 @@ contains
 
 
   if (status /= nf90_noerr) then
-    write(6,*) 'NetCDF error: ',trim(nf90_strerror(status))
+    write(stderr,*) 'NetCDF error: ',trim(nf90_strerror(status))
 
     if (present(message)) then
-      write(6,*) message
+      write(stderr,*) message
     end if
 
     ERROR_STOP
@@ -863,7 +863,8 @@ contains
       if (j /= -1) then
 
         if (j < js) then
-          stop 'permutation is not supported';
+          write(stderr,*) 'Error: permutation is not supported';
+          ERROR_STOP
         else
           map(j) = i;
           imap(i) = j
@@ -871,7 +872,8 @@ contains
         end if
 
       else
-        stop 'unexpected dimension'
+        write(stderr,*) 'Error: unexpected dimension'
+        ERROR_STOP
       end if
     end if
   end do
@@ -887,7 +889,6 @@ contains
     offsety(i) = offsety(i-1) * szy(i-1);
   end do
 
-  print *, 'map ',map
 
   do ly=0,product(szy)-1
     ! convert linear index ly to index tuple iy
@@ -907,10 +908,6 @@ contains
 
     ! copy data
     y(ly+1)  = x(lx+1);
-    !print *, 'x', lx,ly,ix,offsetx
-    !print *, 'x', lx,' - ',iy,' - ',ix,' - ',offsetx
-    !stop
-    !print *, 'x', x(lx+1);
   end do
 
 
@@ -1246,7 +1243,7 @@ contains
 
   ! error section
 
-99 write(0,*) 'Data error in UREADC, not a conform file'
+99 write(stderr,*) 'Data error in UREADC, not a conform file'
   ERROR_STOP
  end subroutine read_stream
 
