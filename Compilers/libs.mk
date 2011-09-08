@@ -34,8 +34,8 @@ endif
 
 # If all libraries are in one folder
 
-INCDIR ?= /usr/include
-LIBDIR ?= /usr/lib
+INCDIR ?=
+LIBDIR ?=
 
 # netCDF configuration
 
@@ -76,7 +76,12 @@ ifdef USE_MPIF90
   F90FLAGS += -DASSIM_PARALLEL
 else
   F90FLAGS += -I$(MPI_INCDIR)
-  LIBS += -L$(MPI_LIBDIR) $(MPI_LIB)
+
+  # use MPI_LIBDIR only if it is non-empty
+  ifneq ($(strip $(MPI_LIBDIR)),)
+    LIBS += -L$(MPI_LIBDIR)
+  endif
+  LIBS += $(MPI_LIB)
 endif
 
 ifeq ($(PRECISION),double)
@@ -88,12 +93,20 @@ endif
 endif
 
 # LAPACK
+# use LAPACK_LIBDIR only if it is non-empty
 
-LIBS += -L$(LAPACK_LIBDIR) $(LAPACK_LIB)
+ifneq ($(strip $(LAPACK_LIBDIR)),)
+  LIBS += -L$(LAPACK_LIBDIR)
+endif
+LIBS += $(LAPACK_LIB)
 
 # BLAS
+# use BLAS_LIBDIR only if it is non-empty
 
-LIBS += -L$(BLAS_LIBDIR) $(BLAS_LIB)
+ifneq ($(strip $(BLAS_LIBDIR)),)
+  LIBS += -L$(BLAS_LIBDIR)
+endif
+LIBS += $(BLAS_LIB)
 
 
 
@@ -107,8 +120,17 @@ NETCDF_VERSION := $(shell $(NETCDF_CONFIG) --version)
 ### check presense of nc-config script
 ifeq ($(NETCDF_VERSION),)
   F90FLAGS += -I$(NETCDF_INCDIR)
-  LIBS += -L$(NETCDF_LIBDIR) $(NETCDF_LIB)
+
+  # use NETCDF_LIBDIR only if it is non-empty
+  ifneq ($(strip $(NETCDF_LIBDIR)),)
+    LIBS += -L$(NETCDF_LIBDIR)
+  endif
+  LIBS += $(NETCDF_LIB)
 else
   F90FLAGS += -I$(shell $(NETCDF_CONFIG) --includedir)
   LIBS += $(shell $(NETCDF_CONFIG) --flibs)
 endif
+
+
+F90FLAGS += $(EXTRA_F90FLAGS)
+LDFLAGS += $(EXTRA_LDFLAGS)

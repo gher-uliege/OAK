@@ -301,8 +301,26 @@ contains
     ! set the coordinates of the model grid
     call setCoord(ModelGrid(v),1,trim(path)//filenamesX(v))
     call setCoord(ModelGrid(v),2,trim(path)//filenamesY(v))
-    if (n.eq.3) call setCoord(ModelGrid(v),3,trim(path)//filenamesZ(v))
 
+    if (n > 2) then
+      call setCoord(ModelGrid(v),3,trim(path)//filenamesZ(v))
+
+
+      if (n > 3) then
+        write(stderr,*) 'The dimension of variable ',trim(ModML%varnames(v)),' is ',n
+        write(stderr,*) 'Error: Only 3-d grids are supported for now. '
+
+        ERROR_STOP 
+
+
+        deallocate(filenamesZ)
+        call getInitValue(initfname,'Model.gridT',filenamesZ)
+        call setCoord(ModelGrid(v),4,trim(path)//filenamesZ(v))
+
+
+      end if
+    end if
+    
 
 !   what to do with hres ?
 !    hres(v) = cx**2
@@ -1235,7 +1253,16 @@ contains
     call uinquire(trim(path)//filenames(m),valex,prec,la%ndim(m), &
          la%varshape(:,m), isdegen)
 
-    if (la%varshape(3,m).eq.1) la%ndim(m)=2
+
+    ! make code more general
+
+    if (la%ndim(m) == 4) then
+      if (la%varshape(4,m).eq.1) la%ndim(m) = 3
+
+    elseif (la%ndim(m) == 3) then
+
+      if (la%varshape(3,m).eq.1) la%ndim(m) = 2
+    end if
 
     la%VarSize(m) = product(la%varshape(1:la%ndim(m),m))
     la%EndIndex(m) = la%StartIndex(m) + la%VarSize(m)-1 
@@ -2022,20 +2049,7 @@ contains
                 ! known variable
                 v = tv
 
-!!$                ! compute interpolation coefficients
-!!$                if (ModML%ndim(v).eq.2) then
-!!$                  call cinterp(ModelGrid2D(v), gridX(i,j,k),gridY(i,j,k), &
-!!$                       ti,tj,tc,tn)
-!!$                  tk(1:tn) = 1
-!!$                else
-!!$                  call cinterp(ModelGrid3D(v), gridX(i,j,k),gridY(i,j,k),gridZ(i,j,k), &
-!!$                       ti,tj,tk,tc,tn)
-!!$
-!!$                  !                      if (i.eq.96.and.j.eq.56) then
-!!$                  !               write(stdout,*) 'i,j,k,nz ',i,j,k,nz, &
-!!$                  !                  gridX(i,j,k),gridY(i,j,k),gridZ(i,j,k), n
-!!$                  !                      end if
-!!$                end if
+                ! compute interpolation coefficients
 
 
                 tindexes=1
