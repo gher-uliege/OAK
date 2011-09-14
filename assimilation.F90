@@ -2400,6 +2400,29 @@ contains
 
  end function obsoper
 
+!_______________________________________________________
+!
+! error standard deviation
+!_______________________________________________________
+!
+
+function stddev(S) result(R)
+ implicit none
+ real, intent(in) :: S(:,:)
+
+ real :: R(size(S,1))
+ integer :: i
+
+ R = 0
+
+ do i=1,size(S,2)
+   R = R + S(:,i)**2
+ end do
+
+ R = sqrt(R)
+end function 
+
+
  !_______________________________________________________
  !
 
@@ -2676,7 +2699,7 @@ contains
     write(stdlog,*) 'Nb_rejected_observations ',count(invsqrtR.eq.0.)
     write(stdlog,*) 'Nb_valid_observations ',ingrid
 !    write(stdlog,*) 'amplitudes: ',amplitudes
-    write(stdlog,*) 'ensamplitudes: ',ensampl
+!    write(stdlog,*) 'ensamplitudes: ',ensampl
 
 
     call report(stdlog,infix//'forecast.',mjd,ingrid,invsqrtR,HSf,yo_Hxf)
@@ -2743,16 +2766,16 @@ contains
          call saveErrorSpace('Diag'//infix//'Sf',Sf)
 
     if (presentInitValue(initfname,'Diag'//infix//'diagHPfHT')) & 
-         call saveVector('Diag'//infix//'diagHPfHT',ObsML,sum((HSf)**2,2),invsqrtR.ne.0.)
+         call saveVector('Diag'//infix//'diagHPfHT',ObsML,stddev(HSf),invsqrtR.ne.0.)
 
     if (presentInitValue(initfname,'Diag'//infix//'stddevHxf')) &
-         call saveVector('Diag'//infix//'stddevHxf',ObsML,sqrt(sum(HSf**2,2)),invsqrtR.ne.0.)
+         call saveVector('Diag'//infix//'stddevHxf',ObsML,stddev(HSf),invsqrtR.ne.0.)
 
     if (presentInitValue(initfname,'Diag'//infix//'diagPf')) &
-         call saveVector('Diag'//infix//'diagPf',ModMLParallel,sum(Sf**2,2))
+         call saveVector('Diag'//infix//'diagPf',ModMLParallel,stddev(Sf))
 
     if (presentInitValue(initfname,'Diag'//infix//'stddevxf')) &
-         call saveVector('Diag'//infix//'stddevxf',ModMLParallel,sqrt(sum(Sf**2,2)))
+         call saveVector('Diag'//infix//'stddevxf',ModMLParallel,stddev(Sf))
 
     if (presentInitValue(initfname,'Diag'//infix//'invsqrtR'))  &
          call saveVector('Diag'//infix//'invsqrtR',ObsML,invsqrtR)
@@ -2816,16 +2839,16 @@ contains
            call saveVector('Diag'//infix//'xa-xf',ModMLParallel,xa-xf)
 
       if (presentInitValue(initfname,'Diag'//infix//'diagPa')) &
-           call saveVector('Diag'//infix//'diagPa',ModMLParallel,sum(Sa**2,2))
+           call saveVector('Diag'//infix//'diagPa',ModMLParallel,stddev(Sa))
 
       if (presentInitValue(initfname,'Diag'//infix//'stddevxa')) &
-           call saveVector('Diag'//infix//'stddevxa',ModMLParallel,sqrt(sum(Sa**2,2)))
+           call saveVector('Diag'//infix//'stddevxa',ModMLParallel,stddev(Sa))
 
       if (presentInitValue(initfname,'Diag'//infix//'diagHPaHT')) &
-           call saveVector('Diag'//infix//'diagHPaHT',ObsML,sum((HSa)**2,2),invsqrtR.ne.0.)
+           call saveVector('Diag'//infix//'diagHPaHT',ObsML,stddev(HSa),invsqrtR.ne.0.)
 
       if (presentInitValue(initfname,'Diag'//infix//'stddevHxa')) &
-           call saveVector('Diag'//infix//'stddevHxa',ObsML,sqrt(sum(HSa**2,2)),invsqrtR.ne.0.)
+           call saveVector('Diag'//infix//'stddevHxa',ObsML,stddev(HSa),invsqrtR.ne.0.)
 
       if (presentInitValue(initfname,'Diag'//infix//'Sa')) &
            call saveErrorSpace('Diag'//infix//'Sa',Sa)
@@ -2918,8 +2941,9 @@ contains
   real :: MahalanobisLen
 
 !  MahalanobisLen = MahalanobisLength(yo_Hx,HS,invsqrtR)
-MahalanobisLen=0
-  write(unit,*) prefix,'mjd                      ',mjd
+  MahalanobisLen=0
+
+  write(unit,'(A,A,F15.4)') prefix,'mjd                      ',mjd
   write(unit,form) prefix,'rms_yo-Hx                ',sqrt(sum( (yo_Hx)**2,invsqrtR.ne.0.)/ingrid)
   write(unit,form) prefix,'bias_yo-Hx               ',sum(yo_Hx,invsqrtR.ne.0.)/ingrid
 
@@ -2929,14 +2953,14 @@ MahalanobisLen=0
 
   write(unit,form) prefix,'rms_invsqrtR_yo-Hx       ',sqrt(sum( (invsqrtR*(yo_Hx))**2)/ingrid)
   write(unit,form) prefix,'bias_invsqrtR_yo-Hx      ',sum(invsqrtR*(yo_Hx))/ingrid
-  write(unit,*) prefix,'projection_coeff         ',innov_projection
+  !write(unit,*) prefix,'projection_coeff         ',innov_projection
   write(unit,form) prefix,'projection_yo-Hx_into_HSf',sqrt(sum(innov_projection**2)/ingrid)
 
 
   ! [(yo-Hx)^T (H P H^T + R)^-1 (yo-Hx)]^(1/2) 
-  write(unit,form) prefix,'MahalanobisLength_yo-Hx  ', MahalanobisLen
+  !write(unit,form) prefix,'MahalanobisLength_yo-Hx  ', MahalanobisLen
 
-  write(unit,form) prefix,'chi2_yo-Hx               ', MahalanobisLen**2
+  !write(unit,form) prefix,'chi2_yo-Hx               ', MahalanobisLen**2
 
  end subroutine report
 

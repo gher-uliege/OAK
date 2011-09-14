@@ -3,9 +3,6 @@
 ! include the fortran preprocessor definitions
 #include "ppdef.h"
 
-!#define DEBUG
-!#define MPI
-
 module parall
 # ifdef MPI  
   include 'mpif.h'
@@ -19,18 +16,9 @@ module parall
  integer, save, allocatable :: procid(:), procSpeed(:), cumulProcSpeed(:)
 
 
-! indices for parallelisation
+! indices for parallelisation (zones)
 
-! indices for zones
  integer, allocatable :: startZIndex(:), endZIndex(:)
-
-! indices for state vector
-!  integer, allocatable ::  startIndex(:),endIndex(:)
-
-!  integer :: mystartIndex, myendIndex
-
-
-
 #endif
 
 
@@ -266,6 +254,7 @@ end subroutine
 
  !_______________________________________________________
 
+
  subroutine parallSyncronise2(myi1,myi2,myx,allx,tag,whoRecieves)
   implicit none
 
@@ -278,10 +267,8 @@ end subroutine
 
   integer :: otheri1,otheri2,j,info,k,istat
 
+#ifdef PVM
   write(stdout,*) 'parallSyncronise2'
-
-# ifdef PVM
-
 
   if (present(whoRecieves)) then
     do j=1,nbprocs
@@ -351,12 +338,15 @@ end subroutine
       end if
     end do
   end if
-
+#else
+  write(stderr,*) 'Error: not implemented',__FILE__,__LINE__
+  allx = 0
 #endif
 
  end subroutine parallSyncronise2
 
  !_______________________________________________________
+
 
 
  subroutine parallJoinParts(localSVsize,localxf,xf)
@@ -409,7 +399,9 @@ end subroutine
     call flush(stdout,istat)
 #   endif
   end if
-
+#else
+  write(stderr,*) 'Error: not implemented',__FILE__,__LINE__
+  xf = 0
 #endif
 
  end subroutine parallJoinParts
@@ -464,8 +456,10 @@ end subroutine
 #   endif
   end if
 
+#else
+  write(stderr,*) 'Error: not implemented',__FILE__,__LINE__
+  localxa = 0
 #endif
-
 
  end subroutine parallSplitParts
 
@@ -509,6 +503,8 @@ end subroutine
     
   deallocate(rcount,rdispls)
 
+#else
+  xt = xf
 #endif
  end subroutine
 
