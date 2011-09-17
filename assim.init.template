@@ -1,9 +1,10 @@
-#
 # Configuration file for the Ocean Assimilation Kit (OAK)
 # http://modb.oce.ulg.ac.be/mediawiki/index.php/Ocean_Assimilation_Kit
 #
 # Lines starting with # or ! are comments.
 # See comments at the end of this file.
+
+# State vector definition
 
 Model.variables     = [          'var1',          'var2']
 Model.gridX         = [ 'domain.nc#lon', 'domain.nc#lon']
@@ -12,11 +13,12 @@ Model.gridZ         = [   'domain.nc#z',   'domain.nc#z']
 Model.mask          = ['domain.nc#mask','domain.nc#mask']
 Model.path          = 'Common/'
 
+# Error space of the state vector
+
 ErrorSpace.dimension = 10
 ErrorSpace.path      = './'
 ErrorSpace.init      = ['("Ens",I3.3,"/model.nc#var1")','("Ens",I3.3,"/model.nc#var2")'']
 ErrorSpace.type      = 2
-
 
 # runtype = integer: possible values of runtype are:
 #   0 = do nothing, i.e. a pure run of the model 
@@ -43,13 +45,6 @@ Zones.path = 'Common/'
 logfile = 'assim.log'
 debugfile = 'assim.debug'
 
-# common declaration for all observations
-
-Diag*.stddevxf  =  ['stddevxf.nc#var1','stddevxf.nc#var2']
-Diag*.stddevxa  =  ['stddevxa.nc#var1','stddevxa.nc#var2']
-Diag*.xf        =  ['forecast.nc#var1','forecast.nc#var2']
-Diag*.xa-xf     =  [     'inc.nc#var1',     'inc.nc#var2']
-Analysis*.value =  ['analysis.nc#var1','analysis.nc#var2']
 
 #------------------------------------------------------------------------------------
 #
@@ -68,15 +63,24 @@ Obs001.rmse       = [      'obs1.nc#rmse']
 
 # diagnostics
 
+# common declaration for all observations
+
+Diag*.stddevxf  =  ['stddevxf.nc#var1','stddevxf.nc#var2']
+Diag*.stddevxa  =  ['stddevxa.nc#var1','stddevxa.nc#var2']
+Diag*.xf        =  ['forecast.nc#var1','forecast.nc#var2']
+Diag*.xa-xf     =  [     'inc.nc#var1',     'inc.nc#var2']
+
 Diag001.Hxf       = [       'diag1.nc#xf']
 Diag001.Hxa       = [       'diag1.nc#xa']
 Diag001.yo        = [       'diag1.nc#yo']
 Diag001.invsqrtR  = [ 'diag1.nc#invsqrtR']
 Diag001.stddevHxf = ['diag1.nc#stddevHxf']
 Diag001.stddevHxa = ['diag1.nc#stddevHxa']
-
-# directories where to save diagnostic files and the analysis
 Diag001.path   = 'Analysis001/'
+
+# Analysis
+
+Analysis*.value =  ['analysis.nc#var1','analysis.nc#var2']
 Analysis001.path  =  'Analysis001/'
 
 
