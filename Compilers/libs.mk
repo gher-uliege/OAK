@@ -115,7 +115,7 @@ LIBS += $(BLAS_LIB)
 # NETCDF_CONFIG environement variable)
 # * if not use variables NETCDF_LIBDIR, NETCDF_INCDIR and NETCDF_LIB
 
-NETCDF_VERSION := $(shell $(NETCDF_CONFIG) --version)
+NETCDF_VERSION := $(shell $(NETCDF_CONFIG) --version 2> /dev/null)
 
 ### check presense of nc-config script
 ifeq ($(NETCDF_VERSION),)

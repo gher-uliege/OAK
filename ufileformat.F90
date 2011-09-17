@@ -944,8 +944,8 @@ contains
     else
       ! try to be smart about the array 
       call uload(filename,x,valexc)     
-      write(6,*) 'vshapec ',vshapec(1:ndimc)
-      write(6,*) 'force_shape ',force_shape
+      !write(6,*) 'vshapec ',vshapec(1:ndimc)
+      !write(6,*) 'force_shape ',force_shape
       call srepmat(vshapec(1:ndimc),x,force_shape,c)
       deallocate(x)     
     end if
