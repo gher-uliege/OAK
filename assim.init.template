@@ -17,7 +17,7 @@ Model.path          = 'Common/'
 
 ErrorSpace.dimension = 10
 ErrorSpace.path      = './'
-ErrorSpace.init      = ['("Ens",I3.3,"/model.nc#var1")','("Ens",I3.3,"/model.nc#var2")'']
+ErrorSpace.init      = ['("Ens",I3.3,"/model.nc#var1")','("Ens",I3.3,"/model.nc#var2")']
 ErrorSpace.type      = 2
 
 # runtype = integer: possible values of runtype are:
