@@ -1,3 +1,3 @@
 
 html:
-	htlatex assimman.tex "assimman,xhtml,jsmath" " -cmozhtf"
+	htlatex oak.tex "oak,xhtml,jsmath" " -cmozhtf"
