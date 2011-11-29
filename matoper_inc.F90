@@ -115,7 +115,7 @@ implicit none
 REAL_TYPE, intent(in)       :: A(:)
 type(SparseMatrix), intent(in) :: B
 REAL_TYPE :: C(B%n)
-integer :: k,l
+integer :: k
 
 if (B%m.ne.size(A)) then
   write(stderr,*) 'svec_mult_ssparsemat: size not conform: A.x.B '
@@ -463,8 +463,7 @@ function det_TYPE(A) result(det)
  REAL_TYPE, intent(in) :: A(:,:)
 
  REAL_TYPE :: B(size(A,1),size(A,2))
- integer :: IPIV(min(size(A,1),size(A,2))), info, lwork,i
- REAL_TYPE :: worksize
+ integer :: IPIV(min(size(A,1),size(A,2))), info, i
  REAL_TYPE :: det
  REAL_TYPE, allocatable :: work(:)
 
