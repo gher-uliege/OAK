@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 import subprocess
 import sys
 import getopt
@@ -68,9 +70,13 @@ def benchmark(output=None,comp=False):
                 if comp:
                     compile(compiler,opt,optim,bin)
                 else:
-                    time = run(bin)
-                    print bin, ':' , time                    
-                    row.append(time)
+                    time = [run(bin) for i in range(5)]
+                    time = sorted(time)
+                    
+                    # min max and median
+                    print bin, ':' , time[0],time[-1],time[len(time)/2]
+
+                    row.append('%.3f' % time[len(time)/2])
 
 
         table.append(row)

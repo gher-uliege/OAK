@@ -53,7 +53,7 @@ program test_matoper
 
   call cpu_time(finish)
 
-  write(6,*) 'check sum ',sum(ampl)
+!  write(6,*) 'check sum ',sum(ampl)
   write(6,*) finish-start
 
 
