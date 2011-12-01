@@ -1470,6 +1470,10 @@ contains
 
  !____________________________________________________________________
  !
+ !
+ ! indexes(1,ndim): start index
+ ! indexes(2,ndim): end index
+ ! indexes(3,ndim): step
 
  subroutine parseExtraction(str,extrems,indexes)
   implicit none
