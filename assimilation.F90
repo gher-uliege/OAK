@@ -1987,6 +1987,220 @@ contains
        gridXnames(:),gridYnames(:),gridZnames(:)
   character(len=maxLen)    :: path
   real, pointer, dimension(:,:,:) :: gridX,gridY,gridZ
+  real, pointer, dimension(:) :: obsX, obsY, obsZ
+
+  character(len=maxLen)   :: prefix,str
+  type(MemLayout), intent(in) :: ObsML
+
+  integer              :: ti(8),tj(8),tk(8), &
+       i,j,k, istat, &
+       v,tv,vmax,m,mmax,omaxSea,n,tn,nz,linindex, &
+       tindexes(3,8), tmpm
+  real                 :: tc(8), valex, minres
+  logical              :: isdegen
+
+  write(prefix,'(A,I3.3,A)') 'Obs',ntime,'.'
+  call getInitValue(initfname,trim(prefix)//'path',path,default='')
+
+  mmax = size(ObsML%VarSize)
+  omaxSea = ObsML%effsize
+
+  !write(stdout,*) 'imax,jmax,kmax ',imax,jmax,kmax,StateVectorSizeSea,StateVectorSize
+
+
+  allocate(tmpHindex(8,8*omaxSea),tmpHcoeff(8*omaxSea))
+  nz = 0
+
+  call getInitValue(initfname,trim(prefix)//'variables',varNames)
+
+
+
+  call getInitValue(initfname,trim(prefix)//'gridX',gridXNames)
+  call getInitValue(initfname,trim(prefix)//'gridY',gridYNames)
+  call getInitValue(initfname,trim(prefix)//'gridZ',gridZNames)
+
+  allocate(obsX(ObsML%effsize),obsY(ObsML%effsize),obsZ(ObsML%effsize))
+
+  call loadVector(trim(prefix)//'gridX',ObsML,obsX)
+  call loadVector(trim(prefix)//'gridY',ObsML,obsY)
+  call loadVector(trim(prefix)//'gridZ',ObsML,obsZ)
+
+  do m=1, mmax
+    ! priliminary check if variable is known
+    v = -1 
+
+    do tv=1,size(ModML%varnames)
+      if (varNames(m).eq.ModML%varnames(tv)) then
+        v = tv
+        exit
+      end if
+    end do
+
+    ! unknown variable
+    if (v.eq.-1) then
+      write(stderr,*) 'genObservationOper: WARNING ',trim(varNames(m)),' is unknown !'
+      write(stderr,*) 'known variables are:', &
+           (trim(ModML%varnames(tv))//' ',tv=1,size(ModML%varnames))
+      write(stderr,*) 'unknown variables are treated as absent.'
+      call flush(stderr,istat)
+    end if
+
+    call uload(trim(path)//gridXNames(m),gridX,valex)
+    call uload(trim(path)//gridYNames(m),gridY,valex)
+    call uload(trim(path)//gridZNames(m),gridZ,valex)
+
+    !       write(stdout,*) 'trim(path)//gridXNames(m) ',trim(path)//gridXNames(m)
+    !        write(stdout,*) 'gridX ',(gridX(1,1,1)+100)
+
+    ! loop over all non-masked observation in the mth observation
+
+    do linindex = ObsML%StartIndex(m),ObsML%EndIndex(m)
+
+    !do k=1,ObsML%varshape(3,m)
+    !  do j=1,ObsML%varshape(2,m)
+    !    do i=1,ObsML%varshape(1,m)
+    !      linindex = ObsML%StartIndex(m) + i-1 + ObsML%varshape(1,m) * (j-1 + ObsML%varshape(2,m) * (k-1))
+
+      call ind2sub(ObsML,linindex,tmpm,i,j,k)
+
+      if (ObsML%mask(linindex).eq.1) then
+            ! the observation is a valid sea point
+
+            !               write(stdout,*) 'i,j,k,nz ',i,j,k,nz, &
+            !                  gridX(i,j,k),gridY(i,j,k),gridZ(i,j,k)
+
+            minres = huge(minres)
+            v = -1
+            n = -1
+
+            do tv=1,size(ModML%varnames)
+              if (varNames(m).eq.ModML%varnames(tv).and.minres.ge.hres(tv)) then
+                ! known variable
+                v = tv
+
+                ! compute interpolation coefficients
+
+
+                tindexes=1
+                if (ModML%ndim(v).eq.2) then
+                  call cinterp_nd(ModelGrid(v), (/ gridX(i,j,k),gridY(i,j,k) /), &
+                       tindexes(1:2,1:4),tc(1:4),tn)
+                  ti(1:tn) =  tindexes(1,1:tn)
+                  tj(1:tn) =  tindexes(2,1:tn)
+                  tk(1:tn) = 1
+                else
+                  call cinterp_nd(ModelGrid(v), (/ gridX(i,j,k),gridY(i,j,k),gridZ(i,j,k) /), &
+                       tindexes,tc,tn)
+
+                  ti(1:tn) =  tindexes(1,1:tn)
+                  tj(1:tn) =  tindexes(2,1:tn)
+                  tk(1:tn) =  tindexes(3,1:tn)
+                end if
+
+
+                if (tn.ne.0) then
+                  ! ok variable v is a candidate
+                  minres = hres(v)
+                  n = tn
+                  tmpHindex(5,nz+1:nz+n) = v
+                  tmpHindex(6,nz+1:nz+n) = ti(1:n)
+                  tmpHindex(7,nz+1:nz+n) = tj(1:n)
+                  tmpHindex(8,nz+1:nz+n) = tk(1:n)
+
+                  tmpHcoeff(nz+1:nz+n) = tc(1:n)                  
+                end if
+              end if
+            end do
+
+            if (v.eq.-1) then
+              ! unknown variable
+              n=1
+
+              tmpHindex(5,nz+1:nz+n) = -1
+              tmpHindex(6,nz+1:nz+n) = 0
+              tmpHindex(7,nz+1:nz+n) = 0
+              tmpHindex(8,nz+1:nz+n) = 0
+              tmpHcoeff(nz+1:nz+n) = 0
+            elseif (n.eq.-1) then
+              ! out of domain
+              n=1
+
+              tmpHindex(5,nz+1:nz+n) = v
+              tmpHindex(6,nz+1:nz+n) = -1
+              tmpHindex(7,nz+1:nz+n) = -1
+              tmpHindex(8,nz+1:nz+n) = -1
+              tmpHcoeff(nz+1:nz+n) = 0
+            end if
+
+            ! observation part
+
+            tmpHindex(1,nz+1:nz+n) = m
+            tmpHindex(2,nz+1:nz+n) = i
+            tmpHindex(3,nz+1:nz+n) = j
+            tmpHindex(4,nz+1:nz+n) = k
+            !                write(stdout,*) 'n,tc ',n,(tc(1:n))
+
+            nz = nz+n
+
+#            ifdef DEBUG
+            !             if (any(tmpHindex(5,1:nz).eq.0)) then
+            !               write(stdout,*) 'genObservationOper: ERROR: '
+            !               write(stdout,*) 'i,j,k,nz ',i,j,k,nz, &
+            !                    gridX(i,j,k),gridY(i,j,k),gridZ(i,j,k)
+            !               call flush(stdout,istat)
+            !             end if
+
+            if (nz.gt.size(tmpHcoeff)) then
+              write(stderr,*) 'genObservationOper: ERROR: ', &
+                   'buffer variable too small!!! '
+              call flush(stderr,istat)
+            end if
+#            endif
+
+          end if
+       ! end do
+      !end do
+    end do
+
+    deallocate(gridX,gridY,gridZ)
+  end do
+
+
+  allocate(Hindex(8,nz),Hcoeff(nz))
+  do j=1,nz
+    do i=1,8
+      Hindex(i,j) = tmpHindex(i,j)
+    end do
+    Hcoeff(j) = tmpHcoeff(j)
+  end do
+!  Hindex = tmpHindex(:,1:nz)
+!  Hcoeff = tmpHcoeff(1:nz)
+
+!  write(stddebug,*) 'count(Hindex(1,:).eq.0) ',count(Hindex(1,:).eq.0)
+!  write(stddebug,*) 'count(Hindex(5,:).eq.0) ',count(Hindex(5,:).eq.0)
+
+  deallocate(tmpHindex,tmpHcoeff,varNames,gridXNames,gridYNames,gridZNames)
+  deallocate(obsX,obsY,obsZ)
+ end subroutine genObservationOper
+
+
+
+
+ subroutine genObservationOper_OLD(ntime,ObsML,Hindex,Hcoeff)
+  use initfile
+!  use grids
+  use ufileformat
+  implicit none
+  integer, intent(in)  :: ntime
+  integer, pointer     :: Hindex(:,:)
+  real, pointer        :: Hcoeff(:)
+
+  integer, allocatable :: tmpHindex(:,:)
+  real, allocatable    :: tmpHcoeff(:)
+  character(len=maxLen), pointer :: varNames(:), &
+       gridXnames(:),gridYnames(:),gridZnames(:)
+  character(len=maxLen)    :: path
+  real, pointer, dimension(:,:,:) :: gridX,gridY,gridZ
 
   character(len=maxLen)   :: prefix,str
   type(MemLayout), intent(in) :: ObsML
@@ -2168,7 +2382,7 @@ contains
 !  write(stddebug,*) 'count(Hindex(5,:).eq.0) ',count(Hindex(5,:).eq.0)
 
   deallocate(tmpHindex,tmpHcoeff,varNames,gridXNames,gridYNames,gridZNames)
- end subroutine genObservationOper
+ end subroutine genObservationOper_OLD
 
 
  !_______________________________________________________
