@@ -2345,7 +2345,7 @@ contains
   type(SparseMatrix), intent(in) :: H
   real, intent(in) :: xf(:)
   real             :: Hx(H%m), tmp(H%m)
-  integer          :: ierr,k,j1,j2,baseIndex
+  integer          :: ierr,k,j1,j2
 
 !#define EXACT_OBS_OPER
 
@@ -2514,8 +2514,8 @@ end function
   integer :: bindex=1
 # endif
 
-  integer :: ierr,i
-  real,allocatable :: temp(:)
+
+
 
 # ifdef _OPENMP
   ! shared local variables among the OpenMP threads
@@ -3226,7 +3226,7 @@ end function
   logical, optional, intent(out), dimension(:) :: valid1, valid2
   !    logical, intent(out), dimension(:) :: valid1, valid2
 
-  integer :: i,v,nz,linindex1,linindex2,istat
+  integer :: i,nz,linindex1,linindex2
   logical :: val1, val2
 
   if (present(valid1)) valid1 = .true.
