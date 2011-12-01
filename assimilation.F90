@@ -1961,7 +1961,7 @@ contains
 
  !_______________________________________________________
  !
- ! routines for constructing obsjects
+ ! routines for constructing objects
  !
  !  
 
