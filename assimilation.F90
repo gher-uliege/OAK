@@ -2120,8 +2120,7 @@ contains
 #            ifdef DEBUG
             !             if (any(tmpHindex(5,1:nz).eq.0)) then
             !               write(stdout,*) 'genObservationOper: ERROR: '
-            !               write(stdout,*) 'i,j,k,nz ',i,j,k,nz, &
-            !                    gridX(i,j,k),gridY(i,j,k),gridZ(i,j,k)
+            !               write(stdout,*) 'i,j,k,nz ',i,j,k,nz
             !               call flush(stdout,istat)
             !             end if
 
@@ -2151,8 +2150,7 @@ contains
 !  write(stddebug,*) 'count(Hindex(1,:).eq.0) ',count(Hindex(1,:).eq.0)
 !  write(stddebug,*) 'count(Hindex(5,:).eq.0) ',count(Hindex(5,:).eq.0)
 
-  deallocate(tmpHindex,tmpHcoeff,varNames)
-  deallocate(obsX,obsY,obsZ)
+  deallocate(tmpHindex,tmpHcoeff,varNames,obsX,obsY,obsZ)
  end subroutine genObservationOper
 
 
