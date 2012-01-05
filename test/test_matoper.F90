@@ -34,7 +34,7 @@ program test_matoper
 
   call cpu_time(start)
 
-  do i=1,100
+  do i=1,1000
 
 #ifdef WITH_OPERATORS
     ampl = UT.tx.(lambda.dx.(UT.x.(HSf.tx.(invsqrtR**2*(yo-Hxf)))))

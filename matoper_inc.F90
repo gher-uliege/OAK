@@ -69,6 +69,7 @@ implicit none
 REAL_TYPE, intent(in) :: A(:,:), B(:,:)
 REAL_TYPE :: C(size(A,1),size(B,2))
 
+#ifdef DEBUG
 if (size(A,2).ne.size(B,1)) then
   write(stderr,*) 'smat_mult_smat: size not conform: A.x.B '
   write(stderr,*) 'shape(A) ',shape(A)
@@ -76,7 +77,7 @@ if (size(A,2).ne.size(B,1)) then
   call abort()
   stop
 end if
-
+#endif
 
 call gemm_TYPE ('n','n',size(A,1),size(B,2),size(A,2),real(1.,kind(A)), &
   A, size(A,1), B, size(B,1), &
@@ -92,12 +93,14 @@ implicit none
 REAL_TYPE, intent(in) :: A(:,:), B(:)
 REAL_TYPE :: C(size(A,1))
 
+#ifdef DEBUG
 if (size(A,2).ne.size(B)) then
   write(stderr,*) 'smat_mult_svec: size not conform: A.x.B '
   write(stderr,*) 'shape(A) ',shape(A)
   write(stderr,*) 'shape(B) ',shape(B)
   stop
 end if
+#endif
 
 call gemv_TYPE('n',size(A,1),size(A,2),real(1.,kind(A)),A,size(A,1), &
      B,1, real(0.,kind(A)),C,1)
@@ -117,12 +120,14 @@ type(SparseMatrix), intent(in) :: B
 REAL_TYPE :: C(B%n)
 integer :: k
 
+#ifdef DEBUG
 if (B%m.ne.size(A)) then
   write(stderr,*) 'svec_mult_ssparsemat: size not conform: A.x.B '
   write(stderr,*) 'shape(A) ',shape(A)
   write(stderr,*) 'shape(B) ',B%m,B%n
   stop
 end if
+#endif
 
 C = 0
 
@@ -159,12 +164,14 @@ implicit none
 REAL_TYPE, intent(in) :: A(:), B(size(A))
 REAL_TYPE :: C, dot_TYPE
 
+#ifdef DEBUG
 if (size(A).ne.size(B)) then
   write(stderr,*) 'svec_mult_svec: size not conform: A.x.B '
   write(stderr,*) 'shape(A) ',shape(A)
   write(stderr,*) 'shape(B) ',shape(B)
   stop
 end if
+#endif
 
 C = dot_TYPE(size(A), A, 1, B, 1)
 end function
@@ -182,12 +189,14 @@ REAL_TYPE, intent(in) :: B(:)
 REAL_TYPE :: C(A%m)
 integer :: k
 
+#ifdef DEBUG
 if (A%n.ne.size(B)) then
   write(stderr,*) 'ssparcemat_mult_svec: size not conform: A.x.B '
   write(stderr,*) 'shape(A) ',A%m,A%n
   write(stderr,*) 'shape(B) ',shape(B)
   stop
 end if
+#endif
 
 C = 0
 
@@ -207,12 +216,14 @@ REAL_TYPE, intent(in) :: B(:,:)
 REAL_TYPE :: C(A%m,size(B,2))
 integer :: k,l
 
+#ifdef DEBUG
 if (A%n.ne.size(B,1)) then
   write(stderr,*) 'ssparcemat_mult_smat: size not conform: A.x.B '
   write(stderr,*) 'shape(A) ',A%m,A%n
   write(stderr,*) 'shape(B) ',shape(B)
   stop
 end if
+#endif
 
 C = 0
 
@@ -234,12 +245,14 @@ type(SparseMatrix), intent(in) :: B
 REAL_TYPE :: C(size(A,1),B%n)
 integer :: k,l
 
+#ifdef DEBUG
 if (B%m.ne.size(A,2)) then
   write(stderr,*) 'smat_mult_ssparsemat: size not conform: A.x.B '
   write(stderr,*) 'shape(A) ',shape(A)
   write(stderr,*) 'shape(B) ',B%m,B%n
   stop
 end if
+#endif
 
 C = 0
 
@@ -285,12 +298,14 @@ type(SparseMatrix), intent(in) :: B
 REAL_TYPE :: C(size(A,1),B%m)
 integer :: k,l
 
+#ifdef DEBUG
 if (B%n.ne.size(A,2)) then
   write(stderr,*) 'smat_mult_ssparsematT: size not conform: A.xt.B '
   write(stderr,*) 'shape(A) ',shape(A)
   write(stderr,*) 'shape(B) ',B%m,B%n
   stop
 end if
+#endif
 
 C = 0
 
@@ -465,7 +480,6 @@ function det_TYPE(A) result(det)
  REAL_TYPE :: B(size(A,1),size(A,2))
  integer :: IPIV(min(size(A,1),size(A,2))), info, i
  REAL_TYPE :: det
- REAL_TYPE, allocatable :: work(:)
 
  B = A
  call getrf_TYPE(size(B,1),size(B,2), B, size(B,1), IPIV, INFO )
@@ -501,7 +515,7 @@ function svd_TYPE(A,U,V,VT,work,INFO) result(S)
  REAL_TYPE, pointer :: pU(:,:), pVT(:,:), pwork(:)
  REAL_TYPE, target :: dummy(1,1)
  REAL_TYPE :: rlwork
- integer :: lwork, myinfo,ldU,ldVT
+ integer :: lwork, myinfo
 
 #ifndef ALLOCATE_LOCAL_VARS
  REAL_TYPE :: copyA(size(A,1),size(A,2))
@@ -510,22 +524,22 @@ function svd_TYPE(A,U,V,VT,work,INFO) result(S)
  allocate(copyA(size(A,1),size(A,2)))
 #endif
 
- jobu='n'
- jobvt='n'
+ jobu = 'n'
+ jobvt = 'n'
  pU => dummy
  pVT => dummy
 
  if (present(U)) then
-   jobu='a'
+   jobu = 'a'
    pU => U
  end if
 
  if (present(VT)) then
-   jobvt='a'
+   jobvt = 'a'
    pVT => VT 
  else
    if (present(V)) then
-     jobvt='a'
+     jobvt = 'a'
      pVT => V   
    end if
  end if
@@ -693,7 +707,7 @@ REAL_TYPE, intent(in) :: A(:,:)
 REAL_TYPE, intent(out) :: S(:), U(:,:), VT(:,:)
 integer, intent(out) :: info
 
-REAL_TYPE :: dummy,rlwork
+REAL_TYPE :: rlwork
 integer :: lwork
 REAL_TYPE, allocatable :: work(:)
 
