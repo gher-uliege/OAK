@@ -1,6 +1,6 @@
 % class representing a model
 
-function prep(self,t0,t1,ic,bc,forcing,workdir)
+function self = prep(self,t0,t1,ic,bc,forcing,workdir)
 
 self.workdir = workdir;
 

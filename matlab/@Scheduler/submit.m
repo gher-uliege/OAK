@@ -1,4 +1,4 @@
-function j = submit(self,args)
+function job = submit(self,args)
 
 
 cmd = self.command;

@@ -1,6 +1,11 @@
 % class representing a model
 
-function run(self,t0,t1,ic,bc,forcing)
+function job = run(self,scheduler)
 
-prep(self,t0,t1,ic,bc,forcing);
+olddir = pwd;
+cd(self.workdir);
+
+job = submit(scheduler,{self.script, 'ocean.in'});
+
+cd(olddir);
 
