@@ -24,11 +24,18 @@ if ~isa(obs,'DataSetInitFile')
   E(:,:) = E * info.A;
 
 else
+  'fortran'
   initfile = obs.filename;
   init = InitFile(initfile);
   masks = mask(E);
   
   exec = '/home/abarth/Assim/OAK/assim-gfortran-single';
+
+  fmt = get(init,'ErrorSpace.init');
+  path = get(init,'ErrorSpace.path');
+  Eic = SVector(path,fmt,masks,1:Nens);
+  %Eic(:,:) = full(E);
+  Eic(:,:) = E;
 
   syscmd('%s %s %d',exec,initfile,n);
 

@@ -76,3 +76,29 @@ maxdiff(X2 * A,sv * A)
 maxdiff(X2([2:end 1],:),full(sv([2:end 1],:)))
 maxdiff(X2([2:20000 1],:),full(sv([2:20000 1],:)))
 
+
+names2 = {'bar%03g.nc#a','bar%03g.nc#b'};
+clear a b
+a{1} = single(randn(100,100));
+b{1} = single(randn(100,100));
+a{2} = single(randn(100,100));
+b{2} = single(randn(100,100));
+
+for i=1:Nens
+  gwrite(fullfile(path,sprintf(names2{1},i)),a{i});
+  gwrite(fullfile(path,sprintf(names2{2},i)),b{i});
+end
+
+sv2 = SVector(path,names2,{mask,mask},1:Nens);
+sv(:,:) = sv2;
+
+maxdiff(full(sv2),full(sv))
+
+
+names3 = {'foobar%03g.nc#a','foobar%03g.nc#b'};
+save(sv,path,names3);
+
+maxdiff(gread('/tmp/foobar001.nc#a'),a{1});
+
+
+

@@ -1,3 +1,5 @@
+system('rm -R Ens0*');
+
 initfile = 'test_assim.init';
 init = InitFile(initfile);
 
@@ -35,10 +37,11 @@ fmt = get(init,'ErrorSpace.init');
 path = get(init,'ErrorSpace.path');
 
 Eic = SVector(path,fmt,mask,1:Nens);
+%full(Eic)(1,1)
 
 E = randn(size(Eic));
 Eic(:,:) = E;
-
+assert(rms(E,full(Eic)) < 1e-5)
 
 obs = [];
 
@@ -81,23 +84,7 @@ Eforcing = zeros(0,Nens);
 
 data = DataSetInitFile(initfile,1:length(time));
 
-if 0
-exec = '/home/abarth/Assim/OAK/assim-gfortran-single';
-
-n = 1;
-syscmd('%s %s %d',exec,initfile,n);
-
-path = get(init,sprintf('Diag%03g.path',n));
-Eaname = get(init,sprintf('Diag%03g.Ea',n));
-
-Ean = SVector(path,Eaname,mask,1:Nens);
-end
-
-
-
 Ef = runoak(t0,data,model,Eic,Ebc,Eforcing);
-
-
 
 iR = spdiag(1./(obs(1).RMSE.^2));
 
@@ -110,6 +97,10 @@ end
 [inc,info1] = ensemble_analysis(E,HE,obs(1).yo,iR);
 E2 = E * info1.A;
 
+%rms(E2,full(Ef))
+%rms (mean(E2,2), mean(full (Ef),2))
+%return
+
 E2 = fun([],[],E2);
 
 for i=1:Nens
@@ -120,6 +111,8 @@ end
 
 E3 = E2 * info2.A;
 
-assert(rms(E3,full(Ef)) < 1e-5);
 
+%assert(rms(E3,full(Ef)) < 1e-5);
+rms(E3,full(Ef))
 rms (mean(E3,2), mean(full (Ef),2))
+
