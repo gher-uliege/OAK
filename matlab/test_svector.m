@@ -100,5 +100,8 @@ save(sv,path,names3);
 
 maxdiff(gread('/tmp/foobar001.nc#a'),a{1});
 
+assert(isequal(var(sv),names))
+sv = var(sv,names2);
+assert(isequal(var(sv),names2))
 
 

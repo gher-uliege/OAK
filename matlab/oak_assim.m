@@ -36,10 +36,11 @@ else
   Eic = SVector(path,fmt,masks,1:Nens);
   %Eic(:,:) = full(E);
   Eic(:,:) = E;
-
+  %save(E,path,fmt);
+  
   syscmd('%s %s %d',exec,initfile,n);
 
-  path = get(init,sprintf('Diag%03g.path',n));
+  path = realpath(get(init,sprintf('Diag%03g.path',n)));
   Eaname = get(init,sprintf('Diag%03g.Ea',n));
 
   E = SVector(path,Eaname,masks,1:Nens); 

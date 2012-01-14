@@ -1,5 +1,3 @@
-system('rm -R Ens0*');
-
 initfile = 'test_assim.init';
 init = InitFile(initfile);
 
@@ -37,11 +35,10 @@ fmt = get(init,'ErrorSpace.init');
 path = get(init,'ErrorSpace.path');
 
 Eic = SVector(path,fmt,mask,1:Nens);
-%full(Eic)(1,1)
 
 E = randn(size(Eic));
 Eic(:,:) = E;
-assert(rms(E,full(Eic)) < 1e-5)
+
 
 obs = [];
 
@@ -51,7 +48,7 @@ zobs = prctile(z(:),[40 60]);
 
 h = @(v) interpn(x,y,reshape(v(1:numel(x)),size(x)),xobs,yobs);
 
-v = gread('Ens001/model.nc#var1');
+v = gread(fullfile(path,'Ens001/model.nc#var1'));
 assert(rms(h(E(:,1)),interpn(x,y,v,xobs,yobs)) < 1e-6)
 
 
@@ -79,15 +76,33 @@ for n=1:length(time)
 end
 
 t0 = 0;
+Ebc = zeros(0,Nens);
 Eforcing = zeros(0,Nens);
 
 data = DataSetInitFile(initfile,1:length(time));
 
-Ef = runoak(t0,data,model,Eic,Eforcing);
+n = 1;
+Ef = oak_assim(Eic,n,data);
+
+
+
+if 0
+exec = '/home/abarth/Assim/OAK/assim-gfortran-single';
+
+n = 1;
+syscmd('%s %s %d',exec,initfile,n);
+
+path = get(init,sprintf('Diag%03g.path',n));
+Eaname = get(init,sprintf('Diag%03g.Ea',n));
+
+Ean = SVector(path,Eaname,mask,1:Nens);
+end
+
+
+
+
 
 iR = spdiag(1./(obs(1).RMSE.^2));
-
-E = fun([],[],E);
 
 for i=1:Nens
   HE(:,i) = h(E(:,i));
@@ -96,22 +111,7 @@ end
 [inc,info1] = ensemble_analysis(E,HE,obs(1).yo,iR);
 E2 = E * info1.A;
 
-%rms(E2,full(Ef))
-%rms (mean(E2,2), mean(full (Ef),2))
-%return
+%assert(rms(E2,full(Ef)) < 1e-5);
 
-E2 = fun([],[],E2);
-
-for i=1:Nens
-  HE2(:,i) = h(E2(:,i));
-end
-
-[inc,info2] = ensemble_analysis(E2,HE2,obs(2).yo,iR);
-
-E3 = E2 * info2.A;
-
-
-%assert(rms(E3,full(Ef)) < 1e-5);
-rms(E3,full(Ef))
-rms (mean(E3,2), mean(full (Ef),2))
-
+rms (mean(E2,2), mean(full (Ef),2))
+rms(E2,full(Ef))

@@ -29,11 +29,10 @@ obs(2).RMSE = [1 1]';
 t0 = 0;
 
 Eic = E;
-Ebc = zeros(0,Nens);
 Eforcing = zeros(0,Nens);
 
 data = DataSet(obs);
-Ef = runoak(t0,data,model,Eic,Ebc,Eforcing);
+Ef = runoak(t0,data,model,Eic,Eforcing);
 
 
 iR = spdiag(1./(obs(1).RMSE.^2));
