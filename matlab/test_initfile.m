@@ -1,4 +1,4 @@
-initfname = '/home/abarth/Assim/OAK/assim.init.template';
+initfname = '../assim.init.template';
 
 
 init = InitFile(initfname);

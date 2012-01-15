@@ -29,7 +29,7 @@ else
   init = InitFile(initfile);
   masks = mask(E);
   
-  exec = '/home/abarth/Assim/OAK/assim-gfortran-single';
+  exec = fullfile(getenv('HOME'),'Assim','OAK','assim-gfortran-single');
 
   fmt = get(init,'ErrorSpace.init');
   path = get(init,'ErrorSpace.path');

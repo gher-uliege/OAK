@@ -1,4 +1,4 @@
-fun = @(t0,t1,x) x([2:end 1],:);
+fun = @(t0,t1,x,forcing) x([2:end 1],:);
 %fun = @(t0,t1,x) x;
 
 h = @(x) x([1 5],:);

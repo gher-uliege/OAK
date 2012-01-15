@@ -18,3 +18,4 @@ end
 job.id = T{1}{1};
 job.name = T{1}{2};
 job.args = args;
+job.scheduler = self;

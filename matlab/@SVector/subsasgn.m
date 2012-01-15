@@ -10,7 +10,7 @@ assert(strcmp(idx.subs{1},':'))
 
 m = idx.subs{2};
 
-if strcmp(m = idx.subs{2},':')
+if strcmp(m,':')
   m = 1:size(self,2);
 end
 

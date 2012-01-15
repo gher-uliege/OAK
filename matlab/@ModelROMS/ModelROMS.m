@@ -18,7 +18,6 @@ function retval = ModelROMS(dt,template,param,scheduler)
 self.dt = dt;
 self.template = template;
 self.p = param;
-self.workdir = '';
 self.scheduler = scheduler;
 
 retval = class(self,'ModelROMS',Model(dt));

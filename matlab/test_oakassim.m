@@ -10,7 +10,7 @@ zname = get(init,'Model.gridZ');
 path = get(init,'Model.path');
 maskname = get(init,'Model.mask');
 
-mask = cell();
+mask = {};
 
 for i=1:length(xname)
   gwrite(fullfile(path,xname{i}),x);

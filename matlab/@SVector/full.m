@@ -3,7 +3,7 @@
 
 function x = full(self)
 
-v = cell();
+v = {};
 
 for i=1:length(self.variables)  
   if ischar(self.variables{i})
