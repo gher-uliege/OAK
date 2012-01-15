@@ -16,6 +16,7 @@ for i=1:length(self.variables)
       for j=1:size(self,2)
         %disp(['load ' name(self,i,j)]);
         tmp{j} = gread(name(self,i,j));
+        %size(tmp{i})
         
         %if j==self.members(1)
           % make allocation

@@ -24,7 +24,7 @@ for i=1:length(xname)
 end
 
 
-fun = @(t0,t1,x) x;
+fun = @(t0,t1,x,forcing) x;
 
 model = ModelFun(1,fun);
 
