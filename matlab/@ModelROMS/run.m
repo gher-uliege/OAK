@@ -29,24 +29,30 @@ freplace(self.template,fullfile(workdir,'ocean.in'), ...
 
 % create symbolic links for necessary files
 
-symlink(self.p.varname,workdir,'delete');
-symlink(self.p.grdname,workdir,'delete');
+%symlink(self.p.varname,workdir,'delete');
+%symlink(self.p.grdname,workdir,'delete');
 
 for i=1:nvars(forcing)
   frcname = gfilename(name(forcing,i));
-  symlink(frcname,workdir,'delete');
+
+  if ~strcmp(realpath(frcname),realpath(fullfile(workdir,basename(frcname))))
+    symlink(frcname,workdir,'delete');
+  end
 end
 
-symlink(icname,fullfile(workdir,'ic.nc'),'delete');
 
+if ~strcmp(realpath(icname),realpath(fullfile(workdir,'ic.nc')))
+  symlink(icname,fullfile(workdir,'ic.nc'),'delete');
+end
 
 
 simulation.workdir = workdir;
 olddir = pwd;
 cd(workdir);
 
-simulation.job = submit(scheduler,{self.script, 'ocean.in'});
+simulation.job = submit(self.scheduler,{self.script, 'ocean.in'});
 
+ls('-l',workdir)
 rstname = 'ocean_rst.nc';
 variables = {[rstname '#zeta'],...
              [rstname '#temp'],...
@@ -56,6 +62,7 @@ variables = {[rstname '#zeta'],...
 
 % replace the variables in SVector ic 
 simulation.result = var(ic,variables);
+ls('-l',workdir)
 
 cd(olddir);
 

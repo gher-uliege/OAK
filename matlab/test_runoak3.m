@@ -1,4 +1,9 @@
 system('rm -R Ens0*');
+mkdir('Common');
+mkdir('Obs');
+mkdir('Analysis001');
+mkdir('Analysis002');
+
 
 initfile = 'test_assim.init';
 init = InitFile(initfile);
