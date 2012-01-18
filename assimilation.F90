@@ -2345,7 +2345,7 @@ contains
   type(SparseMatrix), intent(in) :: H
   real, intent(in) :: xf(:)
   real             :: Hx(H%m), tmp(H%m)
-  integer          :: ierr,k,j1,j2
+  integer          :: ierr,k,j1,j2,baseIndex
 
 !#define EXACT_OBS_OPER
 
