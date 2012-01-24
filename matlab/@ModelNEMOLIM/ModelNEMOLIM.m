@@ -14,12 +14,13 @@
 %% grdname (string)
 %% frcname (cell array)
 
-function retval = ModelROMS(dt,script,template,param,scheduler)
+function retval = ModelNEMOLIM(dt,script,experiment,torigin,cal,scheduler)
 
 self.dt = dt;
-self.template = template;
-self.p = param;
-self.scheduler = scheduler;
 self.script = script;
+self.experiment = experiment;
+self.torigin = torigin;
+self.cal = cal;
+self.scheduler = scheduler;
 
 retval = class(self,'ModelROMS',Model(dt));

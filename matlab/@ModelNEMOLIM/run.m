@@ -7,24 +7,26 @@
 
 function simulation = run(self,t0,t1,ic,forcing)
 
-str = name(ic,1);
-% assume first element is zeta (surface elevation)
-assert(~isempty(strfind(str,'zeta'))); 
-icname = gfilename(str);
-workdir = dirname(icname);
+% find OPA and LIM restart file
+for i=1:length(var(ic))
+  str = name(ic,i);
+  % tn is temperature
+  if endswith(str,'tn')
+    opa_restart = gfilename(str);
+  elseif endswith(str,'sxice')
+    lim_restart = gfilename(str);
+  end
+end
+  
+% fix me ? which workdir?
+workdir = dirname(opa_restart);
 
 ntimes = 24*60*60*(t1 - t0)/self.dt;
 
-[success,message,messageid] = mkdir(workdir);
 
-freplace(self.template,fullfile(workdir,'ocean.in'), ...
-        '<NtileI>',self.p.NtileI,...
-        '<NtileJ>',self.p.NtileJ,...
-        '<NTIMES>',ntimes,...
-        '<NHIS>',self.p.nhis,...
-        '<NAVG>',self.p.navg,...
-        '<DT>',self.dt, ...
-        '<DSTART>',t0 );
+n0 = (t0 - self.torigin)*24*60*60/self.dt + 1
+n1 = (t1 - self.torigin)*24*60*60/self.dt 
+
 
 
 % create symbolic links for necessary files
@@ -32,25 +34,23 @@ freplace(self.template,fullfile(workdir,'ocean.in'), ...
 %symlink(self.p.varname,workdir,'delete');
 %symlink(self.p.grdname,workdir,'delete');
 
-for i=1:nvars(forcing)
-  frcname = gfilename(name(forcing,i));
-
-  if ~strcmp(realpath(frcname),realpath(fullfile(workdir,basename(frcname))))
-    symlink(frcname,workdir,'delete');
-  end
-end
-
-
-if ~strcmp(realpath(icname),realpath(fullfile(workdir,'ic.nc')))
-  symlink(icname,fullfile(workdir,'ic.nc'),'delete');
-end
 
 
 simulation.workdir = workdir;
 olddir = pwd;
 cd(workdir);
 
-simulation.job = submit(self.scheduler,{self.script, 'ocean.in'});
+simulation.job = submit(self.scheduler,{self.script, 
+                    '--run-number',48,...
+                    '--first-step',n0,...
+                    '--last-step', n1,...
+                    '--member', 102,...
+                    '--experiment', self.experiment,...
+                    '--ic-opa', opa_restart,...
+                    '--ic-lim', lim_restart,...
+                    '--out-restart-opa','~/tmp/NEMO/ORCA2/Ensemble-test_1p8_20_70_short/Ens102/restart.nc',...
+                    '--out-restart-lim','~/tmp/NEMO/ORCA2/Ensemble-test_1p8_20_70_short/Ens102/restart_ice_in.nc'...
+                   });    
 
 ls('-l',workdir)
 rstname = 'ocean_rst.nc';

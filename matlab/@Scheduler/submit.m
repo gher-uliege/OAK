@@ -4,7 +4,7 @@ function job = submit(self,args)
 cmd = self.command;
 
 for i = 1:length(args)
-  cmd = [cmd ' ' args{i}];
+  cmd = [cmd ' ' num2str(args{i})];
 end
 
 [status, output] = system(cmd);
