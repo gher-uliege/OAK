@@ -1,11 +1,20 @@
 % simulation = run(self,t0,t1,ic,forcing)
-% make a model simulation
-% ic: must be a SVector (containing the initial condition)
+% make a simulation of the model self from time t0 to time t1 using
+% the initial condition ic and the forcing fields forcing
+%
+% ic: must be a SVector (containing the initial condition). It containts EnsXXX where XXX is the 
+%   ensemble member number
 % forcing: must be a SVector (containing the stochastic forcing: boundary condition or atmospheric forcing)
-
+%
 % the model is run in the directory containing the initial condition
+% fix me: run number is set to 48
 
 function simulation = run(self,t0,t1,ic,forcing)
+
+
+% get ensemble member number from initial condition
+[S, E, TE, M, T, NM] = regexp(name(ic,1),'.*Ens([0-9]*).*');
+member = str2double(T{1});
 
 % find OPA and LIM restart file
 for i=1:length(var(ic))
@@ -13,56 +22,52 @@ for i=1:length(var(ic))
   % tn is temperature
   if endswith(str,'tn')
     opa_restart = gfilename(str);
-  elseif endswith(str,'sxice')
-    lim_restart = gfilename(str);
+%  elseif endswith(str,'sxice')
+%    lim_restart = gfilename(str);
   end
 end
   
-% fix me ? which workdir?
+% working directory 
+lim_restart = strrep(opa_restart,'restart','restart_ice_in');
 workdir = dirname(opa_restart);
 
-ntimes = 24*60*60*(t1 - t0)/self.dt;
+n0 = (t0 - self.torigin)*24*60*60/self.dt + 1;
+n1 = (t1 - self.torigin)*24*60*60/self.dt;
 
 
-n0 = (t0 - self.torigin)*24*60*60/self.dt + 1
-n1 = (t1 - self.torigin)*24*60*60/self.dt 
-
-
-
-% create symbolic links for necessary files
-
-%symlink(self.p.varname,workdir,'delete');
-%symlink(self.p.grdname,workdir,'delete');
-
-
+opa_restart_new = strrep(opa_restart,'restart','forecast');
+lim_restart_new = strrep(lim_restart,'restart','forecast');
 
 simulation.workdir = workdir;
 olddir = pwd;
-cd(workdir);
 
-simulation.job = submit(self.scheduler,{self.script, 
-                    '--run-number',48,...
-                    '--first-step',n0,...
-                    '--last-step', n1,...
-                    '--member', 102,...
-                    '--experiment', self.experiment,...
-                    '--ic-opa', opa_restart,...
-                    '--ic-lim', lim_restart,...
-                    '--out-restart-opa','~/tmp/NEMO/ORCA2/Ensemble-test_1p8_20_70_short/Ens102/restart.nc',...
-                    '--out-restart-lim','~/tmp/NEMO/ORCA2/Ensemble-test_1p8_20_70_short/Ens102/restart_ice_in.nc'...
-                   });    
+launchdir = '/u/abarth/NEMO/SIMUL/ORCA2-L053-Ens';
 
-ls('-l',workdir)
-rstname = 'ocean_rst.nc';
-variables = {[rstname '#zeta'],...
-             [rstname '#temp'],...
-             [rstname '#salt'],...
-             [rstname '#u'],...
-             [rstname '#v']};
+cd(launchdir);
+
+simulation.job = submit(self.scheduler,{self.script, ...
+                    '--run-number',     48,...
+                    '--first-step',     n0,...
+                    '--last-step',      n1,...
+                    '--member',         member,...
+                    '--experiment',     self.experiment,...
+                    '--ic-opa',         opa_restart,...
+                    '--ic-lim',         lim_restart,...
+                    '--out-restart-opa',opa_restart_new,...
+                    '--out-restart-lim',lim_restart_new...
+                   },'name',sprintf('member%03g',member));    
+
+cd(olddir);
+
+
+variables = var(ic);
+
+for i = 1:length(variables)
+  variables{i} = strrep(variables{i},'restart','forecast');
+end
 
 % replace the variables in SVector ic 
 simulation.result = var(ic,variables);
-ls('-l',workdir)
 
-cd(olddir);
+
 

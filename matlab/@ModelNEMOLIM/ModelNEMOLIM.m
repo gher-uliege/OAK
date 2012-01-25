@@ -23,4 +23,4 @@ self.torigin = torigin;
 self.cal = cal;
 self.scheduler = scheduler;
 
-retval = class(self,'ModelROMS',Model(dt));
+retval = class(self,'ModelNEMOLIM',Model(dt));

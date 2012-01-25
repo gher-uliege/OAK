@@ -1,12 +1,24 @@
-function job = submit(self,args)
+function job = submit(self,args,varargin)
+
+name = 'member';
+
+for i=1:2:length(varargin)
+  if strcmp(varargin{i},'name')
+    name = varargin{i+1};
+  else
+    error(['unknown property: ' varargin{i}]);
+  end
+end
 
 
-cmd = self.command;
+cmd = [self.command ' -N ' name];
 
 for i = 1:length(args)
   cmd = [cmd ' ' num2str(args{i})];
 end
 
+disp(cmd)
+%error('stop');
 [status, output] = system(cmd);
 
 if status ~= 0

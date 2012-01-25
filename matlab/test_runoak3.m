@@ -1,4 +1,4 @@
-system('rm -R Ens0*');
+%system('rm -R Ens0*');
 mkdir('Common');
 mkdir('Obs');
 mkdir('Analysis001');

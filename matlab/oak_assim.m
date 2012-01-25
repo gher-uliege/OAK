@@ -26,11 +26,10 @@ if ~isa(obs,'DataSetInitFile')
 else
   'fortran'
   initfile = obs.filename;
+  exec = obs.exec;
   init = InitFile(initfile);
   masks = mask(E);
   
-  exec = fullfile(getenv('HOME'),'Assim','OAK','assim-gfortran-single');
-
   fmt = get(init,'ErrorSpace.init');
   path = get(init,'ErrorSpace.path');
   Eic = SVector(path,fmt,masks,1:Nens);
@@ -42,6 +41,5 @@ else
 
   path = realpath(get(init,sprintf('Diag%03g.path',n)));
   Eaname = get(init,sprintf('Diag%03g.Ea',n));
-
   E = SVector(path,Eaname,masks,1:Nens); 
 end
