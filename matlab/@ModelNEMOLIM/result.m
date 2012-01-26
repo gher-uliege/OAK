@@ -7,3 +7,5 @@ wait(self.scheduler,simulation.job)
 
 % return SVector
 result = simulation.result;
+
+fprintf(1,'time_counter %d\n',gread([simulation.opa_restart_new '#time_counter']));

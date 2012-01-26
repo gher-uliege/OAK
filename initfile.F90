@@ -22,7 +22,7 @@
 
 module InitFile
 
-  integer, parameter :: maxLength = 1024
+  integer, parameter :: maxLength = 1024*4
 
   interface getInitValue
      module procedure getInitValue_integer,   &

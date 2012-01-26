@@ -45,6 +45,9 @@ launchdir = '/u/abarth/NEMO/SIMUL/ORCA2-L053-Ens';
 
 cd(launchdir);
 
+
+fprintf(1,'time_counter old %d\n',gread([opa_restart '#time_counter']));
+
 simulation.job = submit(self.scheduler,{self.script, ...
                     '--run-number',     48,...
                     '--first-step',     n0,...
@@ -68,6 +71,6 @@ end
 
 % replace the variables in SVector ic 
 simulation.result = var(ic,variables);
-
+simulation.opa_restart_new = opa_restart_new;
 
 

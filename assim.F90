@@ -31,21 +31,16 @@ program assimtest
  implicit none
 
  real, allocatable  :: xf(:), xa(:), &
-      Sf(:,:), Sa(:,:), &
-      SfT(:,:), SaT(:,:), W(:)       
- real, pointer      :: yo(:), invsqrtR(:)
- integer            :: mjd, iargc, ntime, startntime, endntime,i
- real               :: seconds
- type(SparseMatrix) :: H
+      Sf(:,:), Sa(:,:)
+
+ integer            :: iargc, ntime, startntime, endntime
  character(len=124) :: str
  character(len=4) :: ntimeindex
-  real,allocatable :: temp(:)
-
 
  if (iargc().ne.2.and.iargc().ne.3) then
    write(stderr,*) 'Usage: assim <init file> <time index> '
    write(stderr,*) 'Usage: assim <init file> <start time index> <end time index> '
-   stop
+   ERROR_STOP
  end if
 
 #ifdef ASSIM_PARALLEL
@@ -70,12 +65,12 @@ program assimtest
  do ntime=startntime,endntime
    write(ntimeindex,'(I3.3,A)') ntime,'.'
 
- if (presentInitValue(initfname,'Forecast'//ntimeindex//'value')) then
-   write(stdlog,*) 'Use forecast xf and ignore ensemble mean'
-   call loadStateVector('Forecast'//ntimeindex//'value',xf)
- else
-   write(stdlog,*) 'Use ensemble mean for xf'
- end if
+   if (presentInitValue(initfname,'Forecast'//ntimeindex//'value')) then
+     write(stdlog,*) 'Use forecast xf and ignore ensemble mean'
+     call loadStateVector('Forecast'//ntimeindex//'value',xf)
+   else
+     write(stdlog,*) 'Use ensemble mean for xf'
+   end if
 
 !$omp parallel
 
@@ -87,7 +82,9 @@ program assimtest
    call assim(ntime,xf,Sf,xa,Sa)
 !$omp end parallel
 
-   call saveStateVector('Analysis'//ntimeindex//'value',xa)
+
+   if (presentInitValue(initfname,'Analysis'//ntimeindex//'value'))  &
+        call saveStateVector('Analysis'//ntimeindex//'value',xa)
 
  end do
 
@@ -97,31 +94,7 @@ program assimtest
  call parallDone()
 #endif
 
- !  deallocate(xf,xa,W,Sa,Sf)
+
+ deallocate(xf,xa,Sa,Sf)
 end program assimtest
 
-!!$
-!!$ do ntime=startntime,endntime
-!!$  write(ntimeindex,'(I3.3,A)') ntime,'.'
-!!$
-!!$!  call loadStateVector('Forecast'//ntimeindex//'value',xf)
-!!$!  call loadStateVector('Model.norm',W)
-!!$
-!!$!$omp parallel
-!!$  do i=1,10
-!!$
-!!$!$omp critical (writeStdout)
-!!$   write(6,*) 'ntime ', ntime
-!!$!$omp end critical (writeStdout)
-!!$  
-!!$  call loadStateVector('Forecast'//ntimeindex//'value',xf)
-!!$
-!!$!$omp critical (writeStdout)
-!!$   write(6,*) 'sum(xf) ',i,sum(xf),omp_get_thread_num()
-!!$!$omp end critical (writeStdout)
-!!$
-!!$  end do
-!!$!  call assim(ntime,xf,Sf,xa,Sa)
-!!$!$omp end parallel
-!!$
-!!$  end do
