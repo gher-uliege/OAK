@@ -1416,6 +1416,7 @@ contains
 
  !_______________________________________________________
  !
+ ! index includes only sea points
 
  subroutine ind2sub(ML,index,v,i,j,k)
   implicit none
@@ -2004,6 +2005,9 @@ contains
   omaxSea = ObsML%effsize
 
 
+  ! assume that land-point are removed 
+  ! ObsML%removeLandPoints == .true.
+
   allocate(tmpHindex(8,8*omaxSea),tmpHcoeff(8*omaxSea))
   nz = 0
 
@@ -2036,104 +2040,97 @@ contains
       call flush(stderr,istat)
     end if
 
-    ! loop over all non-masked observation in the mth observation
+    ! loop over all observation (only non-masked) in the mth observation
+    do linindex = ObsML%StartIndexSea(m),ObsML%EndIndexSea(m)
+        call ind2sub(ObsML,linindex,tmpm,i,j,k)
 
-    do linindex = ObsML%StartIndex(m),ObsML%EndIndex(m)
+        minres = huge(minres)
+        v = -1
+        n = -1
 
-      call ind2sub(ObsML,linindex,tmpm,i,j,k)
+        do tv=1,size(ModML%varnames)
+          if (varNames(m).eq.ModML%varnames(tv).and.minres.ge.hres(tv)) then
+            ! known variable
+            v = tv
 
-      if (ObsML%mask(linindex).eq.1) then
-            ! the observation is a valid sea point
-
-            minres = huge(minres)
-            v = -1
-            n = -1
-
-            do tv=1,size(ModML%varnames)
-              if (varNames(m).eq.ModML%varnames(tv).and.minres.ge.hres(tv)) then
-                ! known variable
-                v = tv
-
-                ! compute interpolation coefficients
-
-                tindexes=1
-                if (ModML%ndim(v).eq.2) then
-                  call cinterp_nd(ModelGrid(v), (/ obsX(linindex),obsY(linindex) /), &
+            ! compute interpolation coefficients
+            
+            tindexes=1
+            if (ModML%ndim(v).eq.2) then
+              call cinterp_nd(ModelGrid(v), (/ obsX(linindex),obsY(linindex) /), &
                        tindexes(1:2,1:4),tc(1:4),tn)
-                  ti(1:tn) =  tindexes(1,1:tn)
-                  tj(1:tn) =  tindexes(2,1:tn)
-                  tk(1:tn) = 1
-                else
-                  call cinterp_nd(ModelGrid(v), (/ obsX(linindex),obsY(linindex),obsZ(linindex) /), &
-                       tindexes,tc,tn)
-
-                  ti(1:tn) =  tindexes(1,1:tn)
-                  tj(1:tn) =  tindexes(2,1:tn)
-                  tk(1:tn) =  tindexes(3,1:tn)
-                end if
-
-
-                if (tn.ne.0) then
-                  ! ok variable v is a candidate
-                  minres = hres(v)
-                  n = tn
-                  tmpHindex(5,nz+1:nz+n) = v
-                  tmpHindex(6,nz+1:nz+n) = ti(1:n)
-                  tmpHindex(7,nz+1:nz+n) = tj(1:n)
-                  tmpHindex(8,nz+1:nz+n) = tk(1:n)
-
-                  tmpHcoeff(nz+1:nz+n) = tc(1:n)
-                end if
-              end if
-            end do
-
-            if (v.eq.-1) then
-              ! unknown variable
-              n=1
-
-              tmpHindex(5,nz+1:nz+n) = -1
-              tmpHindex(6,nz+1:nz+n) = 0
-              tmpHindex(7,nz+1:nz+n) = 0
-              tmpHindex(8,nz+1:nz+n) = 0
-              tmpHcoeff(nz+1:nz+n) = 0
-            elseif (n.eq.-1) then
-              ! out of domain
-              n=1
-
-              tmpHindex(5,nz+1:nz+n) = v
-              tmpHindex(6,nz+1:nz+n) = -1
-              tmpHindex(7,nz+1:nz+n) = -1
-              tmpHindex(8,nz+1:nz+n) = -1
-              tmpHcoeff(nz+1:nz+n) = 0
+              ti(1:tn) =  tindexes(1,1:tn)
+              tj(1:tn) =  tindexes(2,1:tn)
+              tk(1:tn) = 1
+            else
+              call cinterp_nd(ModelGrid(v), (/ obsX(linindex),obsY(linindex),obsZ(linindex) /), &
+                   tindexes,tc,tn)
+              
+              ti(1:tn) =  tindexes(1,1:tn)
+              tj(1:tn) =  tindexes(2,1:tn)
+              tk(1:tn) =  tindexes(3,1:tn)
             end if
 
-            ! observation part
 
-            tmpHindex(1,nz+1:nz+n) = m
-            tmpHindex(2,nz+1:nz+n) = i
-            tmpHindex(3,nz+1:nz+n) = j
-            tmpHindex(4,nz+1:nz+n) = k
-            !                write(stdout,*) 'n,tc ',n,(tc(1:n))
+            if (tn.ne.0) then
+              ! ok variable v is a candidate
+              minres = hres(v)
+              n = tn
+              tmpHindex(5,nz+1:nz+n) = v
+              tmpHindex(6,nz+1:nz+n) = ti(1:n)
+              tmpHindex(7,nz+1:nz+n) = tj(1:n)
+              tmpHindex(8,nz+1:nz+n) = tk(1:n)
 
-            nz = nz+n
+              tmpHcoeff(nz+1:nz+n) = tc(1:n)
+            end if
+          end if
+        end do
 
-#            ifdef DEBUG
+        if (v.eq.-1) then
+          ! unknown variable
+          n=1
+
+          tmpHindex(5,nz+1:nz+n) = -1
+          tmpHindex(6,nz+1:nz+n) = 0
+          tmpHindex(7,nz+1:nz+n) = 0
+          tmpHindex(8,nz+1:nz+n) = 0
+          tmpHcoeff(nz+1:nz+n) = 0
+        elseif (n.eq.-1) then
+          ! out of domain
+          n=1
+          
+          tmpHindex(5,nz+1:nz+n) = v
+          tmpHindex(6,nz+1:nz+n) = -1
+          tmpHindex(7,nz+1:nz+n) = -1
+          tmpHindex(8,nz+1:nz+n) = -1
+          tmpHcoeff(nz+1:nz+n) = 0
+        end if
+
+        ! observation part
+
+        tmpHindex(1,nz+1:nz+n) = m
+        tmpHindex(2,nz+1:nz+n) = i
+        tmpHindex(3,nz+1:nz+n) = j
+        tmpHindex(4,nz+1:nz+n) = k
+        !                write(stdout,*) 'n,tc ',n,(tc(1:n))
+
+        nz = nz+n
+
+#       ifdef DEBUG
             !             if (any(tmpHindex(5,1:nz).eq.0)) then
             !               write(stdout,*) 'genObservationOper: ERROR: '
             !               write(stdout,*) 'i,j,k,nz ',i,j,k,nz
             !               call flush(stdout,istat)
             !             end if
 
-            if (nz.gt.size(tmpHcoeff)) then
-              write(stderr,*) 'genObservationOper: ERROR: ', &
-                   'buffer variable too small!!! '
-              call flush(stderr,istat)
-            end if
-#            endif
+        if (nz.gt.size(tmpHcoeff)) then
+          write(stderr,*) 'genObservationOper: ERROR: ', &
+               'buffer variable too small!!! '
+          call flush(stderr,istat)
+        end if
+#       endif
 
-          end if
     end do
-
   end do
 
 
