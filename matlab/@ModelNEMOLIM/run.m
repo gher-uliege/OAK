@@ -39,6 +39,8 @@ opa_restart_new = strrep(opa_restart,'restart','forecast');
 lim_restart_new = strrep(lim_restart,'restart','forecast');
 
 simulation.workdir = workdir;
+simulation.n0 = n0;
+simulation.n1 = n1;
 olddir = pwd;
 
 launchdir = '/u/abarth/NEMO/SIMUL/ORCA2-L053-Ens';

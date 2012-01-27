@@ -22,7 +22,7 @@ ifdef OPENMP
 endif
 
 ifdef DEBUG
-  F90FLAGS += -g -C
+  F90FLAGS += -g -C -Mchkptr
 else
 #  F90FLAGS += -u -fastsse -Mipa=fast
   F90FLAGS += -O3 -Mflushz

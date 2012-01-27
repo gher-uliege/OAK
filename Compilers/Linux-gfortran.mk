@@ -4,7 +4,7 @@
 # Warning avoid versions 4.0 and 4.1
 
 F90C ?= gfortran
-F90FLAGS ?=
+F90FLAGS ?= -fimplicit-none
 LD ?= $(F90C)
 LDFLAGS ?= 
 

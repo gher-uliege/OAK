@@ -4,7 +4,7 @@
 
 
 F90C ?= ifort
-F90FLAGS ?=
+F90FLAGS ?= -implicitnone
 LD ?= $(F90C)
 LDFLAGS ?= 
 

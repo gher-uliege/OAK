@@ -107,6 +107,9 @@ module assimilation
       TSAnamorphosis = 1    
 
 
+ ! value for the _FillValue attribute
+ real :: FillValue = 9999.
+
  ! fortran unit of logfile
  ! the logfile contains simple diagnostics such as rmse with observations
 
@@ -260,6 +263,7 @@ contains
   initfname = fname
 
   call getInitValue(initfname,'runtype',runtype,default=AssimRun)
+  call getInitValue(initfname,'Config.FillValue',FillValue,default=9999.)
 
   if (runtype.eq.FreeRun) return
 
@@ -605,15 +609,17 @@ contains
   use ufileformat
   use matoper
   use parall
+  implicit none
 
   character(len=*), intent(in) :: path
   character(len=*), intent(in) :: filenames(:)
   type(MemLayout),  intent(in) :: ML
   real, intent(out) :: vector(:)
+  character(len=30) :: infoformat = '(A50,2E14.5)'
 
   real, allocatable :: x(:)
 
-  integer :: v,k,i,l,istat
+  integer :: v,k,i,l,istat,j0,j1
   real :: valex
 
   allocate(x(ML%totsize))
@@ -626,20 +632,29 @@ contains
     ERROR_STOP
   end if
 
-  do v=1,size(filenames)
+
 #ifdef DEBUG
-    !write(stddebug,*) 'load ',trim(path)//trim(filenames(v))
-    write(stddebug,*) 'load ',trim(ML%varnames(v)), trim(path)//trim(filenames(v))
-    call flush(stddebug,istat)
+  write(stddebug, *) 
+  write(stddebug,'(A50,A14,A14)') 'loaded variable','min','max'
 #endif
 
+  do v=1,size(filenames)
     i = ML%ndim(v)
+    j0 = ML%StartIndex(v)
+    j1 = ML%EndIndex(v)
 
 !    call ureadfull(trim(path)//filenames(v),x(ML%StartIndex(v)),valex,check_numel=ML%varsize(v))
 
-    call ureadfull_srepmat(trim(path)//filenames(v),x(ML%StartIndex(v)),valex,      &
+    call ureadfull_srepmat(trim(path)//filenames(v),x(j0),valex,      &
        check_numel = ML%varsize(v),                                                 &
        force_shape = ML%varshape(1:i,v))
+
+#ifdef DEBUG
+    write(stddebug,infoformat) trim(path)//trim(filenames(v)),       &
+         minval(x(j0:j1),x(j0:j1) /= valex),  &
+         maxval(x(j0:j1),x(j0:j1) /= valex)
+    call flush(stddebug,istat)
+#endif
 
   end do
 
@@ -766,6 +781,8 @@ contains
   use ufileformat
   use parall
   use matoper
+  
+  implicit none
   character(len=*), intent(in) :: path
   character(len=*), intent(in) :: filenames(:)
   type(MemLayout),  intent(in) :: ML
@@ -773,8 +790,8 @@ contains
   logical, intent(in), optional :: mask(:)
 
   real, pointer :: x(:),vec(:),tmp1(:),xt(:)
-  integer :: v,istat,j
-  real :: valex=9999.
+  integer :: v,istat,i,j,j0,j1
+  character(len=30) :: infoformat = '(A50,2F14.5)'
 
   if (size(filenames).ne.ML%nvar) then
     write(stderr,*) 'ERROR: Vector to save should be composed by ', &
@@ -792,7 +809,7 @@ contains
     where (mask)
       vec = vector
     elsewhere
-      vec = valex
+      vec = FillValue
     end where
   else
 ! This does not work in PGI, but in g95
@@ -804,6 +821,10 @@ contains
     vec = vector
   end if
 
+#ifdef DEBUG
+  write(stddebug,*) 
+  write(stddebug,'(A50,A14,A14)') 'saved variable','min','max'
+#endif
 
   if (ML%distributed) then
     allocate(xt(ML%effsize))
@@ -820,7 +841,7 @@ contains
 
           do i=1,ML%varsize(v)
             if (ML%Mask(ML%startIndex(v) + i-1).eq.0) then
-              tmp1(i) = valex
+              tmp1(i) = FillValue
             else
               tmp1(i) = xt(invZoneIndex(ML%startIndexSea(v) + j))
               j = j+1
@@ -829,11 +850,13 @@ contains
 
 
 #ifdef DEBUG
-          write(stddebug,*) 'save ',trim(path)//trim(filenames(v))
+          write(stddebug,infoformat) trim(path)//trim(filenames(v)),  &
+               minval(tmp1,tmp1 /= FillValue),                     &
+               maxval(tmp1,tmp1 /= FillValue)
 #endif
 
-            call usave(trim(path)//filenames(v), &
-                       tmp1,valex,3,(/ ML%varshape(1,v),ML%varshape(2,v),ML%varshape(3,v) /),.false.)
+          call usave(trim(path)//filenames(v), &
+               tmp1,FillValue,3,(/ ML%varshape(1,v),ML%varshape(2,v),ML%varshape(3,v) /),.false.)
 
           deallocate(tmp1)
         end do
@@ -847,16 +870,23 @@ contains
 
     if (ML%removeLandPoints) then
       do v=1,size(filenames)
+        j0 = ML%StartIndexSea(v)
+        j1 = ML%EndIndexSea(v)
+
+
 #ifdef DEBUG
-        write(stddebug,*) 'save ',trim(path)//trim(filenames(v))
+        write(stddebug,infoformat) trim(path)//trim(filenames(v)),        &
+             minval(vec(j0:j1)),  &
+             maxval(vec(j0:j1))
 #endif
+
         call usave(trim(path)//filenames(v), &
              reshape( &
-             unpack(vec(ML%StartIndexSea(v):ML%EndIndexSea(v)), &
-             ML%Mask(ML%StartIndex(v):ML%EndIndex(v)).eq.1,valex),  &
+             unpack(vec(j0:j1), &
+             ML%Mask(ML%StartIndex(v):ML%EndIndex(v)).eq.1,FillValue),  &
                                 !                     ML%varshape(1:ML%ndim(v),v)), &
              (/ ML%varshape(1,v),ML%varshape(2,v),ML%varshape(3,v) /) ),  &
-             valex);
+             FillValue);
 
 
       end do
@@ -865,18 +895,24 @@ contains
       where (ML%mask.eq.1)
         x = vec
       elsewhere
-        x = valex
+        x = FillValue
       end where
 
       do v=1,size(filenames)
+        j0 = ML%StartIndex(v)
+        j1 = ML%EndIndex(v)
+
 #ifdef DEBUG
-        write(stddebug,*) 'save ',trim(path)//trim(filenames(v))
+        write(stddebug,infoformat) trim(path)//trim(filenames(v)),  &
+               minval(x(j0:j1),x(j0:j1) /= FillValue),              &
+               maxval(x(j0:j1),x(j0:j1) /= FillValue)
 #endif
+
         call usave(trim(path)//filenames(v), &
-             reshape(x(ML%StartIndex(v):ML%EndIndex(v)), &
+             reshape(x(j0:j1), &
                                 !                     ML%varshape(1:ML%ndim(v),v)), &
              (/ ML%varshape(1,v),ML%varshape(2,v),ML%varshape(3,v) /)), &
-             valex);
+             FillValue);
 
 
 
@@ -1394,7 +1430,9 @@ contains
   logical :: val
   integer :: linindex
 
-  val = 1.le.v.and.v.le.ML%nvar
+  index = -1
+  val = 1 <= v.and.v <= ML%nvar
+
   if (val) then
     val = &
          1.le.i.and.i.le.ML%varshape(1,v).and. &

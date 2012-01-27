@@ -8,4 +8,9 @@ wait(self.scheduler,simulation.job)
 % return SVector
 result = simulation.result;
 
-fprintf(1,'time_counter %d\n',gread([simulation.opa_restart_new '#time_counter']));
+% check time counter
+time_counter = gread([simulation.opa_restart_new '#time_counter']);
+
+if time_counter ~= simulation.n1
+    error('time counter is %d while it should be %d\n',time_counter,simulation.n1);
+end
