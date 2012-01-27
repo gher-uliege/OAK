@@ -634,7 +634,6 @@ contains
 
 
 #ifdef DEBUG
-  write(stddebug, *) 
   write(stddebug,'(A50,A14,A14)') 'loaded variable','min','max'
 #endif
 
@@ -722,6 +721,9 @@ contains
 
 # endif
 
+# ifdef DEBUG
+  write(stddebug, *) 
+# endif
 
   deallocate(x)
  end subroutine loadVector_byfilenames
@@ -740,6 +742,10 @@ contains
   character(len=maxLen) :: path
   real, pointer :: constVal(:)
   integer :: i
+
+# ifdef DEBUG
+  write(stddebug,'("== load Vector (",A,") ==")') str
+# endif
 
   call getInitValue(initfname,str(1:index(str,'.',.true.))//'path',path,default='')
 
@@ -822,7 +828,6 @@ contains
   end if
 
 #ifdef DEBUG
-  write(stddebug,*) 
   write(stddebug,'(A50,A14,A14)') 'saved variable','min','max'
 #endif
 
@@ -922,6 +927,10 @@ contains
     end if
   end if
 
+#ifdef DEBUG
+  write(stddebug,*) 
+#endif
+
 ! Due to bug in PGI
 !  if (present(mask)) deallocate(vec)
   deallocate(vec)
@@ -943,6 +952,10 @@ contains
   character(len=maxLen) :: path
 
 !  write(stdout,*) 'minval(vector) ',__LINE__,minval(vector),size(vector),procnum
+
+# ifdef DEBUG
+  write(stddebug,'("== save Vector (",A,") ==")') str
+# endif
 
   call getInitValue(initfname,str(1:index(str,'.',.true.))//'path',path,default='')
   call getInitValue(initfname,str,filenames)
@@ -974,6 +987,11 @@ contains
   real, pointer                :: spaceScale(:)
   logical                      :: doSpaceScaling = .false.
   real, allocatable            :: ensembleMean(:)
+
+# ifdef DEBUG
+  write(stddebug,'("== load Vector Space (",A,") ==")') str
+# endif
+
 
   prefix = str(1:index(str,'.',.true.))
   call getInitValue(initfname,str,formats)
@@ -1136,19 +1154,12 @@ contains
   call packSparseMatrix(Hindex,Hcoeff,ML1,ML2,H,valid1,valid2)
   deallocate(Hindex,Hcoeff)
 
-#   ifdef DEBUG
-  write(stddebug,*) 'Sparse operator H'
-  write(stddebug,*) 'Matrix shape ',H%m,H%n
-  write(stddebug,*) 'number of non-zero elements ',H%nz
-  write(stddebug,*) 'max(H%i) ',maxval(H%i(1:H%nz)),ML1%effsize
-  write(stddebug,*) 'min(H%i) ',minval(H%i(1:H%nz))
-  write(stddebug,*) 'max(H%j) ',maxval(H%j(1:H%nz)),ML2%effsize
-  write(stddebug,*) 'min(H%j) ',minval(H%j(1:H%nz))
-  write(stddebug,*) 'max(H%s) ',maxval(H%s(1:H%nz))
-  write(stddebug,*) 'min(H%s) ',minval(H%s(1:H%nz))
-  write(stddebug,*) 'sum(H%s) ',sum(H%s(1:H%nz))
+# ifdef DEBUG
+  write(stddebug,*) 
+  write(stddebug,'(A)') '== Sparse operator =='
+  call writeInfoSparseMatrix(stddebug,H)
   call flush(stddebug,istat)
-#   endif
+# endif
 
  end subroutine loadSparseMatrix_byfilenames
 
@@ -1401,8 +1412,6 @@ contains
   la%endIndexParallel = la%effsize
 
 # ifdef DEBUG
-  write(stddebug,'(A)') 
-  write(stddebug,'(A)') '== Memory Layout =='
   write(stddebug,'(A20,A15)') 'path:                ',trim(path)
   write(stddebug,'(A20,I15)') 'removeLandPoints:    ',la%removeLandPoints
   write(stddebug,'(A20,I15)') 'totsize:             ',la%totsize
@@ -1423,6 +1432,7 @@ contains
          la%StartIndexSea(m), &
          la%EndIndexSea(m)
   end do
+  write(stddebug,*)
 
   call flush(stddebug,istat)
 # endif
@@ -1441,6 +1451,10 @@ contains
 
   character(len=maxLen), pointer :: filenames(:)
   character(len=maxLen) :: path
+
+# ifdef DEBUG
+  write(stddebug,'("== Memory Layout (",A,") ==")') prefix
+# endif
 
   call getInitValue(initfname,trim(prefix)//'path',path,default='')
   call getInitValue(initfname,trim(prefix)//'mask',filenames)
@@ -1843,19 +1857,12 @@ contains
   deallocate(validobs)
 
 
-#   ifdef DEBUG
-  write(stddebug,*) 'Correlation Matrix C'
-  write(stddebug,*) 'Matrix shape ',C%m,C%n
-  write(stddebug,*) 'number of non-zero elements ',C%nz
-  write(stddebug,*) 'max(C%i) ',maxval(C%i),ObsML%effsize
-  write(stddebug,*) 'min(C%i) ',minval(C%i)
-  write(stddebug,*) 'max(C%j) ',maxval(C%j),ModML%effsize
-  write(stddebug,*) 'min(C%j) ',minval(C%j)
-  write(stddebug,*) 'max(C%s) ',maxval(C%s)
-  write(stddebug,*) 'min(C%s) ',minval(C%s)
-  write(stddebug,*) 'sum(C%s) ',sum(C%s)
+# ifdef DEBUG
+  write(stddebug,*) 
+  write(stddebug,'(A)') '== Observation Correlation Matrix C =='
+  call writeInfoSparseMatrix(stddebug,C)
   call flush(stddebug,istat)
-#   endif
+# endif
 
  end subroutine loadObservationCorr
 
@@ -2017,20 +2024,44 @@ contains
   endif
 
 #ifdef DEBUG
-  write(stddebug,*) 'Observation operator H'
-  write(stddebug,*) 'Matrix shape ',H%m,H%n
-  write(stddebug,*) 'number of non-zero elements ',H%nz
-  write(stddebug,*) 'max(H%i) ',maxval(H%i(1:H%nz)),ObsML%effsize
-  write(stddebug,*) 'min(H%i) ',minval(H%i(1:H%nz))
-  write(stddebug,*) 'max(H%j) ',maxval(H%j(1:H%nz)),ModML%effsize
-  write(stddebug,*) 'min(H%j) ',minval(H%j(1:H%nz))
-  write(stddebug,*) 'max(H%s) ',maxval(H%s(1:H%nz))
-  write(stddebug,*) 'min(H%s) ',minval(H%s(1:H%nz)) 
-  write(stddebug,*) 'sum(H%s) ',sum(H%s(1:H%nz))
+  write(stddebug,*) 
+  write(stddebug,'(A)') '== Observation operator H =='
+  call writeInfoSparseMatrix(stddebug,H)
   call flush(stddebug,istat)
 #endif
 
  end subroutine loadObservationOper
+
+ !_______________________________________________________
+ !
+ ! writes some information of sparse matrix H on unit
+
+ subroutine writeInfoSparseMatrix(unit,H)
+  use matoper
+  implicit none
+  integer, intent(in) :: unit
+  type(SparseMatrix), intent(in)  :: H
+
+  integer :: maxi, maxj
+
+  maxi = maxval(H%i(1:H%nz))
+  maxj = maxval(H%j(1:H%nz))
+
+  write(unit,'(A,A10)')   'Matrix shape:       ',sizeformat((/H%m,H%n/))
+  write(unit,'(A,I10)')   '# non-zero elements:',H%nz
+  write(unit,'(A,I10)')   'max(H%i):           ',maxi
+  write(unit,'(A,I10)')   'min(H%i):           ',minval(H%i(1:H%nz))
+  write(unit,'(A,I10)')   'max(H%j):           ',maxj
+  write(unit,'(A,I10)')   'min(H%j):           ',minval(H%j(1:H%nz))
+  write(unit,'(A,E10.3)') 'max(H%s):           ',maxval(H%s(1:H%nz))
+  write(unit,'(A,E10.3)') 'min(H%s):           ',minval(H%s(1:H%nz)) 
+  write(unit,'(A,E10.3)') 'mean(H%s):          ',sum(H%s(1:H%nz))/H%nz
+
+  if (maxi > H%m .or. maxj > H%n) then
+    write(stderr,*) 'Index exceeds range '
+    ERROR_STOP
+  end if  
+ end subroutine
 
 
  !_______________________________________________________
@@ -3351,22 +3382,16 @@ end function
 
   H%nz = nz
 
-#   ifdef DEBUG
-  write(stddebug,*) 'Sparse Matrix'
-  write(stddebug,*) 'Matrix shape ',H%m,H%n
-  write(stddebug,*) 'number of non-zero elements ',H%nz
-  write(stddebug,*) 'length  ',size(H%i)
-  write(stddebug,*) 'max(H%i) ',maxval(H%i(1:H%nz)),ML1%effsize
-  write(stddebug,*) 'min(H%i) ',minval(H%i(1:H%nz))
-  write(stddebug,*) 'max(H%j) ',maxval(H%j(1:H%nz)),ML2%effsize
-  write(stddebug,*) 'min(H%j) ',minval(H%j(1:H%nz))
-  write(stddebug,*) 'max(H%s) ',maxval(H%s(1:H%nz))
-  write(stddebug,*) 'min(H%s) ',minval(H%s(1:H%nz))
-  write(stddebug,*) 'sum(H%s) ',sum(H%s(1:H%nz))
-  if (present(valid1))  write(stddebug,*) 'count(valid1) ',count(valid1)
-  if (present(valid2))  write(stddebug,*) 'count(valid2) ',count(valid2)
+# ifdef DEBUG
+
+  write(stddebug,*) 
+  write(stddebug,'(A)') '== packSparseMatrix =='
+  call writeInfoSparseMatrix(stddebug,H)
+  if (present(valid1))  write(stddebug,'(A,I10)') 'count(valid1):      ',count(valid1)
+  if (present(valid2))  write(stddebug,'(A,I10)') 'count(valid2):      ',count(valid2)
   call flush(stddebug,istat)
-#   endif
+
+# endif
 
  end subroutine packSparseMatrix
 
