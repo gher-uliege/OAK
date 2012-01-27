@@ -791,7 +791,7 @@ contains
 
   real, pointer :: x(:),vec(:),tmp1(:),xt(:)
   integer :: v,istat,i,j,j0,j1
-  character(len=30) :: infoformat = '(A50,2F14.5)'
+  character(len=30) :: infoformat = '(A50,2E14.5)'
 
   if (size(filenames).ne.ML%nvar) then
     write(stderr,*) 'ERROR: Vector to save should be composed by ', &
@@ -1270,6 +1270,36 @@ contains
  !_______________________________________________________
  !
 
+ ! joins a list of integer where all elements are separated by sep 
+ ! (or 'x' is the default value)
+
+ function sizeformat(sz,sep) result(s)
+  implicit none
+  integer, intent(in) :: sz(:)
+  character, optional :: sep
+  character(len=50) :: s,str
+  character :: sepa
+  integer :: i
+
+  if (present(sep)) then
+    sepa = sep
+  else
+    sepa = 'x'
+  end if
+  
+  s = ''
+  do i=1,size(sz)
+    write (str,*) sz(i)
+
+    s = trim(s) // trim(ADJUSTL(str)) // sepa
+  end do
+
+  s = s(1:len_trim(s)-1)
+
+ end function sizeformat
+
+ !_______________________________________________________
+ !
 
  subroutine MemoryLayout_byfilenames(path,filenames,la,packed)
   use ufileformat
@@ -1371,27 +1401,31 @@ contains
   la%endIndexParallel = la%effsize
 
 # ifdef DEBUG
-  write(stddebug,*) 'Memory Layout: allocate'
-  write(stddebug,*) 'path ',trim(path)
-  write(stddebug,*) 'mask ',(trim(filenames(m))//' ',m=1,mmax)
-  write(stddebug,*) 'nvar ',la%nvar
-  write(stddebug,*) 'removeLandPoints ',la%removeLandPoints
-  write(stddebug,*) 'totsize ',la%totsize
-  write(stddebug,*) 'totsizeSea ',la%totsizeSea
-  write(stddebug,*) 'effsize ',la%effsize
+  write(stddebug,'(A)') 
+  write(stddebug,'(A)') '== Memory Layout =='
+  write(stddebug,'(A20,A15)') 'path:                ',trim(path)
+  write(stddebug,'(A20,I15)') 'removeLandPoints:    ',la%removeLandPoints
+  write(stddebug,'(A20,I15)') 'totsize:             ',la%totsize
+  write(stddebug,'(A20,I15)') 'totsizeSea:          ',la%totsizeSea
+  write(stddebug,'(A20,I15)') 'effsize:             ',la%effsize
+
+
+  write(stddebug,'(A)') 
+  write(stddebug,'(A2," ",A20,A20,2A30)') '#','Mask','Shape','....... all elements .......','...... only non-masked ......'
+  write(stddebug,'(43X,6A10)') 'Size','Start','End','Size','Start','End'
+
   do m=1,mmax
-    write(stddebug,*) 'Variable ',m
-    write(stddebug,*) 'ndim ',la%ndim(m)
-    write(stddebug,*) 'varshape ',la%varshape(1:la%ndim(m),m)
-    write(stddebug,*) 'varsize ',la%varsize(m)
-    write(stddebug,*) 'varsizesea ',la%varsizesea(m)
-    write(stddebug,*) 'StartIndex ',la%StartIndex(m)
-    write(stddebug,*) 'EndIndex ',la%EndIndex(m)
-    write(stddebug,*) 'StartIndexSea ',la%StartIndexSea(m)
-    write(stddebug,*) 'EndIndexSea ',la%EndIndexSea(m)
+    write(stddebug,'(I2," ",A20,A20,6I10)') m,trim(filenames(m)),trim(sizeformat(la%varshape(1:la%ndim(m),m))), &
+         la%varsize(m), &
+         la%StartIndex(m), &
+         la%EndIndex(m), &
+         la%varsizesea(m), &
+         la%StartIndexSea(m), &
+         la%EndIndexSea(m)
   end do
+
   call flush(stddebug,istat)
-#   endif
+# endif
  end subroutine MemoryLayout_byfilenames
 
  !_______________________________________________________
@@ -1416,6 +1450,7 @@ contains
 
   deallocate(filenames)
  end subroutine MemoryLayout_byinitval
+
 
  !_______________________________________________________
  !
