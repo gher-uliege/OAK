@@ -1413,7 +1413,7 @@ contains
 
 # ifdef DEBUG
   write(stddebug,'(A20,A15)') 'path:                ',trim(path)
-  write(stddebug,'(A20,I15)') 'removeLandPoints:    ',la%removeLandPoints
+  write(stddebug,'(A20,L15)') 'removeLandPoints:    ',la%removeLandPoints
   write(stddebug,'(A20,I15)') 'totsize:             ',la%totsize
   write(stddebug,'(A20,I15)') 'totsizeSea:          ',la%totsizeSea
   write(stddebug,'(A20,I15)') 'effsize:             ',la%effsize
@@ -3149,7 +3149,13 @@ end function
 
     real function distance(x0,y0,x1,y1)
      implicit none
+     real, intent(in) :: x0,y0,x1,y1
+     real :: coeff
+
+     coeff = pi*EarthRadius/(180.)
      
+     distance = sqrt((coeff * cos((y0+y1)* (pi/360.))*(x1-x0))**2 &
+          +(coeff * (y1-y0))**2)
      
     end function distance
 
