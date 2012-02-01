@@ -1,4 +1,4 @@
-function E = runoak(t0,obs,model,Eic,Eforcing)
+function E = runoak(t0,obs,model,Eic,Eforcing,scheduler)
 
 Nens = size(Eic,2);
 E = Eic;
@@ -19,5 +19,5 @@ for n = 2:length(timeobs)
   end
 
   % assimilation
-  E = oak_assim(E,n-1,obs);
+  E = oak_assim(E,n-1,obs,scheduler);
 end

@@ -12,5 +12,5 @@ result = simulation.result;
 time_counter = gread([simulation.opa_restart_new '#time_counter']);
 
 if time_counter ~= simulation.n1
-    error('time counter is %d while it should be %d\n',time_counter,simulation.n1);
+    error('time counter is %d while it should be %d (member %d)\n',time_counter,simulation.n1,simulation.member);
 end

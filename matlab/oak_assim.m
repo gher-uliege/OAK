@@ -1,5 +1,6 @@
-function E = oak_assim(E,n,obs);
+function E = oak_assim(E,n,obs,scheduler);
 
+fprintf(1,'Assimilation %d \n',n);
 Nens = size(E,2);
 
 if ~isa(obs,'DataSetInitFile')
@@ -22,8 +23,7 @@ if ~isa(obs,'DataSetInitFile')
     %keyboard
     [inc,info] = ensemble_analysis(full(E),HE,yo,iR);
     E(:,:) = E * info.A;
-else
-    'fortran'
+else    
     initfile = obs.filename;
     exec = obs.exec;
     init = InitFile(initfile);
@@ -48,7 +48,11 @@ else
     % assimilation are there
     save(Ef,Eapath,Eaname,'copy');
     
-    syscmd('%s %s %d',exec,initfile,n);
+    job = submit(scheduler,{'~/bin/submit_assim_mpi2.sh',...
+        exec,initfile,n},'name',sprintf('analysis%03g',n));
+    wait(scheduler,job)
     
-    E = Ea;    
+    %syscmd('%s %s %d',exec,initfile,n);
+    
+    E = Ea;
 end

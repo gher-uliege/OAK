@@ -3143,6 +3143,19 @@ end function
 
    if (.not.noRelevantObs) weight = exp(-weight)
 !   write(6,*) 'sum(c) ',sum(weight),
+
+   contains 
+
+
+    real function distance(x0,y0,x1,y1)
+     implicit none
+     
+     
+    end function distance
+
+
+
+
    end subroutine 
 
  !_______________________________________________________
