@@ -3084,7 +3084,7 @@ end function
 !     logical, intent(out) :: relevantObs(size(weight))
      logical, intent(out) :: relevantObs(:)
 
-     integer v,i,j,k,index
+     integer v,i,j,k,index,l
 
 ! x,y=longitude and latitude of the element the "index"th component of 
 ! model state vector
@@ -3118,17 +3118,12 @@ end function
 
 !  write(6,*) 'min dist ',x,y
 
-! assume sperical metric
+   do l = 1,size(weight)
+     ! weight is the distance here
+     weight(l) = distance(obsGridX(l),obsGridY(l),x,y)
+     relevantObs(l) = weight(l) <= hMaxCorrLengthToObs(index)
+   end do
 
-   coeff = pi*EarthRadius/(180. * hCorrLengthToObs(index))
-
-! weight = squared distance for all observation of the given model point
-! scaled by hCorrLengthToObs
-
-   weight = (coeff * cos((obsGridY+y)* (pi/360.))*(obsGridX-x))**2 &
-           +(coeff * (obsGridY-y))**2
-
-   relevantObs = weight.le.(hMaxCorrLengthToObs(index)/hCorrLengthToObs(index))**2
    noRelevantObs = .not.any(relevantObs)
 
 !   write(6,*) 'noRelevantObs ',noRelevantObs,weight,obsGridX,obsGridY
@@ -3141,8 +3136,10 @@ end function
 !!$   write(6,*) 'min dist ',obsGridX(k),obsGridY(k)
 !!$   write(6,*) 'min dist ',x,y
 
-   if (.not.noRelevantObs) weight = exp(-weight)
+   if (.not.noRelevantObs) weight = exp(- (weight/hCorrLengthToObs(index))**2)
 !   write(6,*) 'sum(c) ',sum(weight),
+
+
 
    contains 
 
@@ -3150,13 +3147,30 @@ end function
     real function distance(x0,y0,x1,y1)
      implicit none
      real, intent(in) :: x0,y0,x1,y1
-     real :: coeff
 
-     coeff = pi*EarthRadius/(180.)
-     
+     ! assume sperical metric
+
+#define DISTANCE_SIMPLE
+#ifdef DISTANCE_SIMPLE
+     real :: coeff
+     coeff = pi*EarthRadius/(180.)     
      distance = sqrt((coeff * cos((y0+y1)* (pi/360.))*(x1-x0))**2 &
           +(coeff * (y1-y0))**2)
      
+#else
+     real :: d2r = pi/180.
+     real :: a, b, C
+
+     a = y0 * d2r
+     b = y1 * d2r
+     C = (x1-x0) * d2r
+     
+     ! distance in radian
+     distance = acos(sin(b) * sin(a) + cos(b) * cos(a) * cos(C))
+
+     ! distance in km
+     distance = EarthRadius * distance
+#endif
     end function distance
 
 
