@@ -3103,20 +3103,15 @@ end function
      call ind2sub(ModML,index,v,i,j,k)
 
      if (ModML%ndim(v).eq.2) then
-
       x2 = getCoord(ModelGrid(v),(/ i,j /),out);
       x = x2(1);
       y = x2(2);
-
     else
-
       x3 = getCoord(ModelGrid(v),(/ i,j,k /),out);
       x = x3(1);
-      y = x3(2);
- 
+      y = x3(2); 
     end if 
 
-!  write(6,*) 'min dist ',x,y
 
    do l = 1,size(weight)
      ! weight is the distance here
@@ -3126,20 +3121,7 @@ end function
 
    noRelevantObs = .not.any(relevantObs)
 
-!   write(6,*) 'noRelevantObs ',noRelevantObs,weight,obsGridX,obsGridY
-! weight = weight for all observation of the given model point
-
-!!$   write(6,*) 'mean dist ',sum(sqrt(weight)*hCorrLengthToObs)/size(weight),hMaxCorrLengthToObs
-!!$   write(6,*) 'max dist ',maxval(sqrt(weight)*hCorrLengthToObs),noRelevantObs
-!!$   write(6,*) 'min dist ',minval(sqrt(weight)*hCorrLengthToObs),noRelevantObs
-!!$   k = minloc(weight)
-!!$   write(6,*) 'min dist ',obsGridX(k),obsGridY(k)
-!!$   write(6,*) 'min dist ',x,y
-
    if (.not.noRelevantObs) weight = exp(- (weight/hCorrLengthToObs(index))**2)
-!   write(6,*) 'sum(c) ',sum(weight),
-
-
 
    contains 
 
