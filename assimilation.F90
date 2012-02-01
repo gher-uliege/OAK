@@ -3120,7 +3120,7 @@ end function
 
    do l = 1,size(weight)
      ! weight is the distance here
-     weight(l) = distance(obsGridX(l),obsGridY(l),x,y)
+     weight(l) = distance((/ obsGridX(l),obsGridY(l) /),(/ x,y /))
      relevantObs(l) = weight(l) <= hMaxCorrLengthToObs(index)
    end do
 
@@ -3143,27 +3143,29 @@ end function
 
    contains 
 
+    ! distance between point p0 and p1
+    ! p0 and p1 are (/ longitude,latitude,... /)
 
-    real function distance(x0,y0,x1,y1)
+    real function distance(p0,p1)
      implicit none
-     real, intent(in) :: x0,y0,x1,y1
+     real, intent(in) :: p0(:), p1(:)
 
      ! assume sperical metric
 
-#define DISTANCE_SIMPLE
+!#define DISTANCE_SIMPLE
 #ifdef DISTANCE_SIMPLE
      real :: coeff
      coeff = pi*EarthRadius/(180.)     
-     distance = sqrt((coeff * cos((y0+y1)* (pi/360.))*(x1-x0))**2 &
-          +(coeff * (y1-y0))**2)
+     distance = sqrt((coeff * cos((p0(2)+p1(2))* (pi/360.))*(p1(1)-p0(1)))**2 &
+          +(coeff * (p1(2)-p0(2)))**2)
      
 #else
      real :: d2r = pi/180.
      real :: a, b, C
 
-     a = y0 * d2r
-     b = y1 * d2r
-     C = (x1-x0) * d2r
+     a = p0(2) * d2r
+     b = p1(2) * d2r
+     C = (p1(1) - p0(1)) * d2r
      
      ! distance in radian
      distance = acos(sin(b) * sin(a) + cos(b) * cos(a) * cos(C))
