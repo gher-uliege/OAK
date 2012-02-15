@@ -47,8 +47,8 @@ else
     % so that all other variables which should not be modified by the
     % assimilation are there
     save(Ef,Eapath,Eaname,'copy');
-    
-    job = submit(scheduler,{'~/bin/submit_assim_mpi2.sh',...
+    exec=get(init,'Config.exec');
+    job = submit(scheduler,{exec,...
         exec,initfile,n},'name',sprintf('analysis%03g',n));
     wait(scheduler,job)
     
