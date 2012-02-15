@@ -32,7 +32,10 @@ Eic = E;
 Eforcing = zeros(0,Nens);
 
 data = DataSet(obs);
-Ef = runoak(t0,data,model,Eic,Eforcing);
+scheduler = [];
+
+
+Ef = runoak(t0,data,model,Eic,Eforcing,scheduler);
 
 
 iR = spdiag(1./(obs(1).RMSE.^2));

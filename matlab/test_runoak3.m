@@ -87,8 +87,9 @@ t0 = 0;
 Eforcing = zeros(0,Nens);
 
 data = DataSetInitFile(initfile,1:length(time));
+scheduler = SchedulerShell();
 
-Ef = runoak(t0,data,model,Eic,Eforcing);
+Ef = runoak(t0,data,model,Eic,Eforcing,scheduler);
 
 iR = spdiag(1./(obs(1).RMSE.^2));
 

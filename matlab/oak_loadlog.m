@@ -1,6 +1,6 @@
 function res = oak_loadlog(filename,pat);
 
-fname = [tmpnam '.txt'];
+fname = [tempname '.txt'];
 %pat = '^...\.forecast.rms_yo-Hx';
 cmd = sprintf('awk ''/%s/ { print $2 } '' "%s" > %s',pat,filename,fname);
 

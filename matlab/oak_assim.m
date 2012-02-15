@@ -24,8 +24,7 @@ if ~isa(obs,'DataSetInitFile')
     [inc,info] = ensemble_analysis(full(E),HE,yo,iR);
     E(:,:) = E * info.A;
 else    
-    initfile = obs.filename;
-    exec = obs.exec;
+    initfile = obs.filename;    
     init = InitFile(initfile);
     masks = mask(E);
     
@@ -47,9 +46,10 @@ else
     % so that all other variables which should not be modified by the
     % assimilation are there
     save(Ef,Eapath,Eaname,'copy');
-    exec=get(init,'Config.exec');
+    exec = get(init,'Config.exec');
+    
     job = submit(scheduler,{exec,...
-        exec,initfile,n},'name',sprintf('analysis%03g',n));
+            initfile,n},'name',sprintf('analysis%03g',n));
     wait(scheduler,job)
     
     %syscmd('%s %s %d',exec,initfile,n);
