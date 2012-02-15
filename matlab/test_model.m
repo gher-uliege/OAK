@@ -15,6 +15,7 @@ xn = result(model,simulation);
 xnr = fun(t0,t1,x);
 assert(rms(xnr,xn) < 1e-11);
 
+return
 
 scheduler = Scheduler();
 script = '-N analysis -pe snode 4  ~/bin/submit_roms_hf_sst.sh ~/Models/LigurianSea/roms-only-bc-adv/oceanO';

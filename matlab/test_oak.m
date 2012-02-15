@@ -16,7 +16,8 @@ for iindex=1:length(tests);
     eval(tests{iindex});
     colordisp('  OK  ','green');
   catch
-    colordisp(' FAIL ','red');        
+    colordisp(' FAIL ','red');
+    tests{iindex}
     disp(lasterr)
   end
 end

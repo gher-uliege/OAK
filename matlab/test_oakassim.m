@@ -81,8 +81,10 @@ Eforcing = zeros(0,Nens);
 
 data = DataSetInitFile(initfile,1:length(time));
 
+scheduler = SchedulerShell();
+
 n = 1;
-Ef = oak_assim(Eic,n,data);
+Ef = oak_assim(Eic,n,data,scheduler);
 
 
 
