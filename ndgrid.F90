@@ -760,18 +760,27 @@ contains
 
 
 
-!!$subroutine initgrid_from_disk(g,name1,name2,name3,name4)
-!!$implicit none
-!!$  type(grid), intent(out) :: g
-!!$  character(*), intent(in) :: name1
-!!$  character(*), optional, intent(in) :: name2,name3,name4
-!!$
-!!$end subroutine
+! ind = one-based index
+
+function getCoord(g,ind,out) result(x)
+implicit none
+  type(grid), intent(inout) :: g
+  integer, intent(in) :: ind(:)
+  logical, optional, intent(out) :: out
+  real :: x(size(ind))
+
+  if (present(out)) then
+    x = getCoord0(g,ind-1,out)
+  else
+    x = getCoord0(g,ind-1)
+  end if
+end function
+
 
 
 ! ind = zero-based index
 
-function getCoord(g,ind,out) result(x)
+function getCoord0(g,ind,out) result(x)
 implicit none
   type(grid), intent(inout) :: g
   integer, intent(in) :: ind(:)
@@ -848,7 +857,7 @@ subroutine cinterp(g,xi,indexes,coeff,nbp)
 
      linindex = sum((indexes(:,j)) * g%ioffset_mask) + 1
      pmasked(j) = g%masked(linindex)
-     px(:,j) = getCoord(g,indexes(:,j))
+     px(:,j) = getCoord0(g,indexes(:,j))
    end do
 
    out = any(pmasked)
@@ -950,7 +959,7 @@ subroutine interp_field(grid1,field1,grid2,field2,outgrid)
        ind(1) = ind(1)-ind(d)*grid2%ioffset_mask(d)
      end do
      !ind = ind+1
-     x2 = getCoord(grid2,ind,out)
+     x2 = getCoord0(grid2,ind,out)
 
      if (.not.out) then
        call interp(grid1,field1,x2,field2(i2),out)
@@ -1001,7 +1010,7 @@ subroutine interp_field_c(grid1,field1,grid2,field2,outgrid,indexes,coefficients
        ind(1) = ind(1)-ind(d)*grid2%ioffset_mask(d)
      end do
 
-     x2 = getCoord(grid2,ind,out)
+     x2 = getCoord0(grid2,ind,out)
 
      ! convert zero-based index to one-based index
      ind = ind+1

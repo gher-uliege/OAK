@@ -330,7 +330,6 @@ contains
   ! loop over each zone    
 !$omp do schedule(dynamic)
   zonesLoop: do zi=zi1,zi2
-!  zonesLoop: do zi=zi1,200
     i1 = startIndex(zi) + baseIndex
     i2 =   endIndex(zi) + baseIndex
 
@@ -342,7 +341,6 @@ contains
 
     nbObservations = count(relevantObs)
     if (nbObservations.eq.0) cycle zonesLoop
-
 
 
 #   ifndef OPTIM_ZONE_OBS

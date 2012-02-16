@@ -3091,7 +3091,7 @@ end function
      real x,y,coeff,x3(3),x2(2)
      logical out;
 
-     real, parameter :: pi = 3.141592654
+     real, parameter :: pi = 3.141592653589793238462643383279502884197
      real, parameter :: EarthRadius = 6378137 ! m
 
      logical :: noRelevantObs
@@ -3112,6 +3112,7 @@ end function
       y = x3(2); 
     end if 
 
+    !write(6,*) 'x, y ',x,y,'-',ModML%ndim(v),index,v,i,j,out
 
    do l = 1,size(weight)
      ! weight is the distance here

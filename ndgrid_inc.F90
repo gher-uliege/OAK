@@ -170,7 +170,7 @@ subroutine interpgrid_coeff_VARIANT(n,gshape,coord,masked,xi,out,indexes,coeff &
 #      ifdef IMPLICIT_COORDINATE
        px(:,j) = coord(indexes(i,:,j))
 #      elif defined(GRID_COORDINATE)
-       px(:,j) = getCoord(coord,indexes(i,:,j))
+       px(:,j) = getCoord0(coord,indexes(i,:,j))
 #      else
        px(:,j) = coord(:,linindex)
 #      endif
@@ -350,7 +350,7 @@ function  InCube_VARIANT(n,ioffset,tetrahedron,coord,xi,ind) result(inside)
 #  ifdef IMPLICIT_COORDINATE
    px(:,j) = coord( pind  )
 #  elif defined(GRID_COORDINATE)
-   px(:,j) = getCoord(coord,pind)
+   px(:,j) = getCoord0(coord,pind)
 #  else
    linindex = sum( pind * ioffset) + 1
    px(:,j) = coord(:,linindex)
@@ -668,7 +668,7 @@ recursive subroutine init_databox_helper_VARIANT(db,n,ioffset,coord,imin,imax)
 #  ifdef IMPLICIT_COORDINATE
    xc = coord(ind)
 #  elif defined(GRID_COORDINATE)
-   xc = getCoord(coord,ind)
+   xc = getCoord0(coord,ind)
 #  else
    linindex = sum(ind*ioffset)+1
    xc = coord(:,linindex)
@@ -820,7 +820,7 @@ subroutine search_boundarybox_VARIANT(db,n,ioffset,coord)
 #  ifdef IMPLICIT_COORDINATE
    xc = coord(ind)
 #  elif defined(GRID_COORDINATE)
-   xc = getCoord(coord,ind)
+   xc = getCoord0(coord,ind)
 #  else
    linindex = sum(ind*ioffset)+1
    xc = coord(:,linindex)
