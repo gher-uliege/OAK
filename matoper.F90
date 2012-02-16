@@ -272,8 +272,8 @@ end function
 !
 ! generates n-1 orthonormal vectors perpendicular to w
 !
-! Hoteit
-!
+! Hoteit et al, 2002
+! http://dx.doi.org/10.1016/S0924-7963(02)00129-X
 
 function perpSpace(w) result(H)
 implicit none
@@ -289,7 +289,7 @@ H = 0
 alpha = - 1/(abs(w(n))+1);
 
 do j=1,n-1
-  do i=1,n
+  do i=1,n-1
     H(i,j) = alpha * w(i)*w(j);
     if (i.eq.j) then
       H(i,j) = H(i,j)+1;

@@ -1,4 +1,4 @@
-% class integrates with the SGE scheduler
+% job scheduler based on the Unix shell
 
 function retval = SchedulerShell()
 
