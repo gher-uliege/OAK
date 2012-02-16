@@ -143,6 +143,7 @@ contains
 #else
   call gesvd('n','a',invsqrtR.dx.HSf,lambda,dummy,UT,info)
 #endif
+  ! lambda  = (1 + \mathbf \Lambda)^{-1} in OAK documentation
   lambda = (1+lambda**2)**(-1)
 
   ampl = (UT.tx.(lambda.dx.(UT.x.(HSf.tx.(invsqrtR**2*(yo-Hxf))))))
@@ -164,6 +165,7 @@ contains
 ! on lines like: Sa = Sf.x.(UT.tx.(sqrt(lambda).dx.UT))
 !
 
+  ! sqrt_lambda  = (1 + \mathbf \Lambda)^{-1/2} in OAK documentation
     sqrt_lambda = sqrt(lambda)
 
 #   ifndef ROTATE_ENSEMBLE
@@ -180,6 +182,7 @@ contains
 ! If no ensembles are used, the this rotation is not necessary.
 !
 
+    ! v = U (1 + \mathbf \Lambda)^{1/2} U^T 1 
     w = 1./sqrt(1.*r)
     v = UT.tx.(sum(UT,2)/sqrt_lambda)
     v = normate(v)
@@ -656,24 +659,16 @@ contains
 ! ensemble at observation locations
   HEf = spread(Hxf,2,N) + (HSf.xt.Omega)
 
-!  call usave('/u/abarth/Assim/Data2/Ef.u',E,0.)
-
   do i=1,N
     call anamorph(E(:,i))
   end do
 
-!  call usave('/u/abarth/Assim/Data2/Ef2.u',E,0.)
-
   !call ensanalysis(Ef,HEf,yo,invsqrtR,Ea, amplitudes)
   call ensanalysis(E,HEf,yo,invsqrtR,E,amplitudes)
-
-!  call usave('/u/abarth/Assim/Data2/Ea2.u',E,0.)
 
   do i=1,N
     call invanamorph(E(:,i))
   end do
-
-!  call usave('/u/abarth/Assim/Data2/E.u',E,0.)
 
   call  ens2sqrt(E,xa,Sa) 
 
