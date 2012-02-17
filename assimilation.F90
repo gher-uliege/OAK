@@ -103,8 +103,14 @@ module assimilation
 
  integer :: Anamorphosistype
  integer, parameter :: &
-      NoAnamorphosis = 0, &           ! (default)
+      NoAnamorphosis = 0, &              ! (default)
       TSAnamorphosis = 1    
+
+
+ integer :: metrictype
+ integer, parameter :: &
+      CartesianMetric  = 0, &           
+      SphericalMetric  = 1               ! (default)
 
 
  ! value for the _FillValue attribute
@@ -263,6 +269,8 @@ contains
   initfname = fname
 
   call getInitValue(initfname,'runtype',runtype,default=AssimRun)
+  call getInitValue(initfname,'metrictype',metrictype,default=SphericalMetric)
+
   call getInitValue(initfname,'Config.FillValue',FillValue,default=9999.)
 
   if (runtype.eq.FreeRun) return
@@ -3112,13 +3120,15 @@ end function
       y = x3(2); 
     end if 
 
-    !write(6,*) 'x, y ',x,y,'-',ModML%ndim(v),index,v,i,j,out
+!    write(6,*) 'x, y ',x,y,'-',ModML%ndim(v),index,v,i,j,out
 
    do l = 1,size(weight)
      ! weight is the distance here
      weight(l) = distance((/ obsGridX(l),obsGridY(l) /),(/ x,y /))
      relevantObs(l) = weight(l) <= hMaxCorrLengthToObs(index)
    end do
+
+!   write(6,*) 'relevantObs ',count(relevantObs),minval(weight),maxval(weight)
 
    noRelevantObs = .not.any(relevantObs)
 
@@ -3132,8 +3142,14 @@ end function
     real function distance(p0,p1)
      implicit none
      real, intent(in) :: p0(:), p1(:)
+     real :: d2r = pi/180.
+     real :: a, b, C
 
-     ! assume sperical metric
+     if (metrictype == CartesianMetric) then
+       distance = sqrt(sum((p1 - p0)**2))
+
+     elseif (metrictype == SphericalMetric) then
+       ! assume sperical metric
 
 !#define DISTANCE_SIMPLE
 #ifdef DISTANCE_SIMPLE
@@ -3143,8 +3159,6 @@ end function
           +(coeff * (p1(2)-p0(2)))**2)
      
 #else
-     real :: d2r = pi/180.
-     real :: a, b, C
 
      a = p0(2) * d2r
      b = p1(2) * d2r
@@ -3156,6 +3170,12 @@ end function
      ! distance in km
      distance = EarthRadius * distance
 #endif
+     else
+       write(stderr,*) 'Unsupported metric: ',metrictype
+       write(stderr,*) 'Supported metrics are CartesianMetric (0) and SphericalMetric (1)'
+       ERROR_STOP
+     end if
+
     end function distance
 
 
