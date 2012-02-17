@@ -1,7 +1,7 @@
 initfile = 'test_assim.init';
 init = InitFile(initfile);
 
-sz = [10 15 1]
+sz = [10 15 1];
 [x,y,z] = ndgrid(1:sz(1),1:sz(2),1:sz(3));
 
 xname = get(init,'Model.gridX');
