@@ -1,6 +1,6 @@
 !
 !  OAK, Ocean Assimilation Kit
-!  Copyright(c) 2002-2011 Alexander Barth and Luc Vandenblucke
+!  Copyright(c) 2002-2012 Alexander Barth and Luc Vandenblucke
 !
 !  This program is free software; you can redistribute it and/or
 !  modify it under the terms of the GNU General Public License
@@ -29,12 +29,15 @@ module parall
 # endif
 
 #ifdef ASSIM_PARALLEL
+ ! procnum: process number (one-based) (1 <= procnum <= nbprocs)
+ ! nbprocs: number of processes
+
  integer, save :: procnum=1, nbprocs=1
  integer, save, allocatable :: procid(:), procSpeed(:), cumulProcSpeed(:)
 
 
-! indices for parallelisation (zones)
-
+ ! indices for parallelisation (zones)
+ ! vector of nbprocs integer
  integer, allocatable :: startZIndex(:), endZIndex(:)
 #endif
 
@@ -481,7 +484,15 @@ end subroutine
  end subroutine parallSplitParts
 
  !_______________________________________________________
-
+ !
+ ! gather pieces of a distributed state vector at process 
+ ! with procnum 1
+ ! Input:
+ !  xf: subset of state vector
+ !  startIndexZones,endIndexZones: start and end indeces of each zone
+ !    vector of Nzones integers where Nzones if the number of zones
+ ! Output:
+ !  xt: gathered total vector
 
  subroutine parallGather(xf,xt,startIndexZones,endIndexZones)
   implicit none
@@ -522,6 +533,61 @@ end subroutine
 
 #else
   xt = xf
+#endif
+ end subroutine
+
+
+
+ !_______________________________________________________
+ !
+ ! scatter pieces of a distributed state vector at process 
+ ! with procnum 1
+ ! Input:
+ !  xt: scattered total vector
+ !  startIndexZones,endIndexZones: start and end indeces of each zone
+ !    vector of Nzones integers where Nzones if the number of zones
+ ! Output:
+ !  xf: subset of state vector
+
+ subroutine parallScatter(xt,xp,startIndexZones,endIndexZones)
+  implicit none
+  real, intent(in):: xt(:)
+  real, intent(out) :: xp(:)
+  integer, intent(in) :: startIndexZones(:),endIndexZones(:)
+  integer, allocatable :: rcount(:),rdispls(:)
+  integer          :: ierr,k,j1,j2,baseIndex
+
+  real :: dummy(1)
+
+#ifdef ASSIM_PARALLEL
+  j1 = startIndexZones(startZIndex(procnum))
+  j2 =   endIndexZones(  endZIndex(procnum))
+
+  baseIndex = -j1+1
+
+  allocate(rcount(nbprocs),rdispls(nbprocs))
+
+  ! revieve count and displacements
+  rcount = endIndexZones(endZIndex) - startIndexZones(startZIndex) + 1
+  rdispls = startIndexZones(startZIndex) -1
+
+# ifdef DEBUG
+!  write(stdout,*) 'rdispls ',rdispls
+!  write(stdout,*) 'rcount ',rcount
+# endif
+
+  ! only master get the complete x
+
+  if (procnum == 1) then
+    call mpi_scatterv(xt,rcount,rdispls,DEFAULT_REAL,xp,rcount(procnum),DEFAULT_REAL,0, mpi_comm_world, ierr)
+  else
+    call mpi_scatterv(dummy,rcount,rdispls,DEFAULT_REAL,xp,rcount(procnum),DEFAULT_REAL,0, mpi_comm_world, ierr)
+  end if
+    
+  deallocate(rcount,rdispls)
+
+#else
+  xp = xt
 #endif
  end subroutine
 

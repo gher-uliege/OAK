@@ -1,6 +1,6 @@
 !
 !  OAK, Ocean Assimilation Kit
-!  Copyright(c) 2002-2011 Alexander Barth and Luc Vandenblucke
+!  Copyright(c) 2002-2012 Alexander Barth and Luc Vandenblucke
 !
 !  This program is free software; you can redistribute it and/or
 !  modify it under the terms of the GNU General Public License
@@ -22,7 +22,7 @@
 #include "ppdef.h"
 
 #define DEBUG
-
+#define PROFILE
 
 module assimilation
  use ndgrid, cinterp_nd => cinterp
@@ -611,6 +611,96 @@ contains
  !
  !_______________________________________________________
  !
+#define ASSIM_LOAD_OPTIM
+#ifdef ASSIM_LOAD_OPTIM
+
+ subroutine loadVector_byfilenames(path,filenames,ML,vector)
+  use initfile
+  use ufileformat
+  use matoper
+  use parall
+  implicit none
+
+  character(len=*), intent(in) :: path
+  character(len=*), intent(in) :: filenames(:)
+  type(MemLayout),  intent(in) :: ML
+  real, intent(out) :: vector(:)
+  character(len=30) :: infoformat = '(A50,2E14.5)'
+
+  real, allocatable :: x(:),xt(:)
+
+  integer :: v,k,i,l,istat,j0,j1
+  real :: valex
+
+  allocate(x(ML%totsize))
+
+  if (size(filenames).ne.ML%nvar) then
+    write(stderr,*) 'ERROR: Vector to load should be composed by ',ML%nvar, &
+         ' variables, but ',size(filenames), ' filenames are found: '
+    write(stderr,*) (trim(filenames(v))//' ',v=1,size(filenames))
+    call flush(stderr,istat)
+    ERROR_STOP
+  end if
+
+
+  if (procnum == 1 .or..not.ML%distributed) then 
+    ! load variables
+
+#ifdef DEBUG
+    write(stddebug,'(A50,A14,A14)') 'loaded variable','min','max'
+#endif
+
+    do v=1,size(filenames)
+      i = ML%ndim(v)
+      j0 = ML%StartIndex(v)
+      j1 = ML%EndIndex(v)
+
+      !    call ureadfull(trim(path)//filenames(v),x(ML%StartIndex(v)),valex,check_numel=ML%varsize(v))
+
+      call ureadfull_srepmat(trim(path)//filenames(v),x(j0),valex,      &
+           check_numel = ML%varsize(v),                                                 &
+           force_shape = ML%varshape(1:i,v))
+
+#ifdef DEBUG
+      write(stddebug,infoformat) trim(path)//trim(filenames(v)),       &
+           minval(x(j0:j1),x(j0:j1) /= valex),  &
+           maxval(x(j0:j1),x(j0:j1) /= valex)
+      call flush(stddebug,istat)
+#endif
+
+    end do
+
+!    write(stdout ,*) 'load vector shape(vector) ',procnum, shape(vector), lbound(vector), ubound(vector), 'new'
+
+    ! remove masked points if requested
+    allocate(xt(ML%effsize))
+
+    if (ML%removeLandPoints) then
+      xt = pack(x,ML%Mask.eq.1)
+    else
+      where (ML%Mask.eq.0) x=0
+      xt = x
+    end if
+
+    ! permute state vector
+    if (ML%permute) call permute(zoneIndex,xt,xt)
+  end if
+
+  ! distribute 
+  if (ML%distributed) then
+    call parallScatter(xt,vector,startIndexZones,endIndexZones)
+  else
+    vector = xt
+  end if
+
+# ifdef DEBUG
+  write(stddebug, *) 
+# endif
+
+  deallocate(x)
+ end subroutine loadVector_byfilenames
+
+#else
 
  subroutine loadVector_byfilenames(path,filenames,ML,vector)
   use initfile
@@ -694,7 +784,7 @@ contains
 !!$
 
 
-  !write(stdout ,*) 'shape(vector) ',procnum, shape(vector), lbound(vector), ubound(vector) 
+!  write(stdout ,*) 'load vector shape(vector) ',procnum, shape(vector), lbound(vector), ubound(vector) 
 
   if (ML%permute) then
     do l=ML%startIndexParallel,ML%endIndexParallel
@@ -736,6 +826,7 @@ contains
   deallocate(x)
  end subroutine loadVector_byfilenames
 
+#endif
  !_______________________________________________________
  !
 
@@ -759,6 +850,7 @@ contains
 
   if (presentInitValue(initfname,str)) then
     call getInitValue(initfname,str,filenames)
+
     call loadVector_byfilenames(path,filenames,ML,vector)
 
     deallocate(filenames)
@@ -777,6 +869,9 @@ contains
 
     deallocate(constVal)
   end if
+
+
+
  end subroutine loadVector_byinitval
 
  !_______________________________________________________
@@ -981,6 +1076,7 @@ contains
   use initfile
   use ufileformat
   use matoper
+  use parall
 
   implicit none
   character(len=*), intent(in) :: str
@@ -995,11 +1091,17 @@ contains
   real, pointer                :: spaceScale(:)
   logical                      :: doSpaceScaling = .false.
   real, allocatable            :: ensembleMean(:)
+# ifdef PROFILE
+  real(8) :: cputime(2)
+# endif
 
 # ifdef DEBUG
   write(stddebug,'("== load Vector Space (",A,") ==")') str
 # endif
 
+# ifdef PROFILE
+  call cpu_time(cputime(1))
+# endif    
 
   prefix = str(1:index(str,'.',.true.))
   call getInitValue(initfname,str,formats)
@@ -1053,6 +1155,14 @@ contains
     if (scale.ne.1) S(:,k) = scale * S(:,k)
   end do
 
+# ifdef PROFILE
+  call cpu_time(cputime(2))
+
+  write(stddebug,*) 'Profiling: loadVectorSpace',procnum
+  write(stddebug,*) 'load data  ',cputime(2)-cputime(1)
+  write(6,*) 'load data  ',cputime(2)-cputime(1), procnum
+  call flush(stddebug,istat)
+# endif
 
   deallocate(formats)
   if (doSpaceScaling) deallocate(spaceScale)  

@@ -94,5 +94,7 @@ data = DataSetInitFile(initfile,1:length(time));
 scheduler = SchedulerShell();
 
 n = 1;
+
+return
 Ef = oak_assim(Eic,n,data,scheduler);
 
