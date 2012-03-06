@@ -2656,12 +2656,17 @@ end function
  !
  ! variables used:
  !
- ! xf: forecasted statevector
- ! Sf: forecasted error space
- ! xa: analysed statevector
- ! Sa: analysed error space
  ! ntime: time index of the observation to assimilate as defined 
  !   by the initilisation file
+ ! xf: forecasted statevector
+ ! Sf: forecasted error space (error modes or ensemble)
+ ! xa: analysed statevector
+ ! Sa: analysed error space (error modes or ensemble)
+ !
+ ! if xf and xf are not present, then Sf is assumed to be an ensemble
+ ! xf is then computed by calculating the mean of all culumns of Sf.
+ ! Sa will also be an ensemble in this case 
+ !
  ! infix: "XXX." where XXX three digit time index
  ! path: path for diagnostics
  ! output: xa, Sa, biasa (global variable)
@@ -2695,7 +2700,7 @@ end function
  ! bindex: index of each timed block 
  !
 
- subroutine Assim(ntime,Sf,Sa,xf,xa,Efanam,Eaanam)
+ subroutine Assim(ntime,Sf,Sa,xfp,xap,Efanam,Eaanam)
   use matoper
   use rrsqrt
   use ufileformat
@@ -2704,16 +2709,18 @@ end function
   use parall
 #endif
   implicit none
-  integer, intent(in) :: ntime
-!  real, intent(in) :: xf(:),Sf(:,:)
-! FIX ME
-  real, intent(inout) :: xf(:),Sf(:,:)
-  real, intent(out) :: xa(:), Sa(:,:)
-  real, optional, intent(out) :: Efanam(:,:),Eaanam(:,:)
+  integer, intent(in)            :: ntime
+  real, intent(inout)            :: Sf(:,:)
+  real, intent(out)              :: Sa(:,:)
+  real, intent(inout), optional, target  :: xfp(:)
+  real, intent(out),   optional, target  :: xap(:)
+  real, optional, intent(out)    :: Efanam(:,:),Eaanam(:,:)
 
-  character(len=256) :: prefix,path, str
-  character(len=4) :: infix
-  character(len=256), pointer :: obsnames(:)
+  ! local variables
+  character(len=256)             :: prefix,path, str
+  character(len=4)               :: infix
+  character(len=256), pointer    :: obsnames(:)
+  real, pointer :: xf(:),xa(:)
 
   integer :: m,n,k,v,i1,i2,ingrid,error,istat
   type(SparseMatrix) :: H,C
@@ -2756,6 +2763,21 @@ end function
   call cpu_time(cputime(bindex)); bindex=bindex+1
 # endif
 
+  n = ModML%effsize
+
+  if (present(xfp)) then
+    xf => xfp
+    xa => xap
+  else
+    ! assume Sf is an ensemble, compute mean and ensemble anomalies
+    allocate(xf(n),xa(n))
+    xf = sum(Sf,2)/size(Sf,2)
+
+    do k=1,size(Sf,2)      
+       Sf(:,k) = (Sf(:,k)-xf)/sqrt(real(size(Sf,2)) - ASSIM_SCALING)
+    end do
+  end if
+
   write(infix,'(I3.3,A)') ntime,'.'
 
   call MemoryLayout('Obs'//infix,ObsML,rmLPObs)
@@ -2763,7 +2785,6 @@ end function
   !    call loadObservationCorr(ntime,ObsML,C)
 
   m = ObsML%effsize
-  n = ModML%effsize
   k = size(Sf,2)
 
   allocate(yo(m),invsqrtR(m),Hxf(m),Hxa(m),HSf(m,k),HSa(m,k), &
@@ -2854,7 +2875,7 @@ end function
           call analysisAnamorph2(xf,Hxf,yo,Sf,HSf,invsqrtR,  &
              anamorphosisTransform,invanamorphosisTransform, &
              xa,Sa,ensampl)
-	    elseif (anamorphosistype.eq.2) then
+        elseif (anamorphosistype.eq.2) then
           call ensAnalysisAnamorph2(yo,Sf,HSf,invsqrtR,  &
              anamorphosisTransform,invanamorphosisTransform, &
              Sa,ensampl,Efanam,Eaanam)
@@ -2903,10 +2924,6 @@ end function
   ! begin diagonistics
   !
 
-  !
-  ! write some information in the log file
-  ! rms take only into accound points inside the grid
-  !
 
 
 !$omp master
@@ -2914,12 +2931,7 @@ end function
 ! fix me
 !  if (procnum.eq.1) then
   if (.true.) then
-    call assimdiag(ntime,xf,Sf,xa,Sa, &
-         yo, Hxf, Hxa, invsqrtR, &
-         yo_Hxf, yo_Hxa, innov_projection, Hshift, Hbf, &
-         HSf, HSa, locAmplitudes)
-
-    call assimdiag2()
+    call assimdiag()
 
 
 #   ifdef GZIPDiag
@@ -2954,20 +2966,32 @@ end function
 
   call MemoryLayoutDone(ObsML)
 
-#   ifdef DEBUG
+  if (.not.present(xfp)) then
+    ! Sa must be an ensemble for output
+    do k=1,size(Sa,2)
+      Sa(:,k) = xa + Sa(:,k) * sqrt(real(size(Sa,2)) - ASSIM_SCALING)
+    end do
 
+    deallocate(xf,xa)
+  end if
+
+# ifdef DEBUG
   write(stddebug,*) 'Exit sub assim'
   call flush(stddebug,istat)
-
-#   endif
+# endif
 
 !$omp end master
 
   contains 
 
-   subroutine assimdiag2()
+   ! diagnostics for the analysis step
+   subroutine assimdiag()
     implicit none
 
+  !
+  ! write some information in the log file
+  ! rms take only into accound points inside the grid
+  !
 
     ingrid = count(invsqrtR.ne.0.)
 
@@ -3153,39 +3177,9 @@ end function
            call saveVector('Diag'//infix//'biasa',ModMLParallel,biasa)
     end if
 
-   end subroutine assimdiag2
+   end subroutine assimdiag
 
  end subroutine Assim
-
-
- subroutine assimdiag(ntime,xf,Sf,xa,Sa, &
-      yo, Hxf, Hxa, invsqrtR, &
-      yo_Hxf, yo_Hxa, innov_projection, Hshift, Hbf, &
-      HSf, HSa, locAmplitudes)
-
-  use initfile
-  implicit none
-  integer, intent(in) :: ntime
-  real, intent(in) :: xf(:),Sf(:,:)
-  real, intent(in) :: xa(:), Sa(:,:)
-  real, dimension(:) :: yo, Hxf, Hxa, invsqrtR, &
-       yo_Hxf, yo_Hxa, innov_projection, Hshift, Hbf
-  real, dimension(:,:) :: HSf, HSa, locAmplitudes
-
-
- end subroutine assimdiag
-
- !_______________________________________________________
- !
- ! assimilation routine using ensemble (insead of error modes S)
- !_______________________________________________________
- !
-
-! subroutine assimens(ntime,Ef,Ea)
-!  implicit none
-!
-!
-! end subroutine assimens
 
 
 
