@@ -232,8 +232,6 @@ contains
  !
 
  subroutine init(fname)
-  use initfile
-  use ufileformat
   implicit none
   character(len=*), intent(in) :: fname
 
@@ -1144,13 +1142,17 @@ contains
     if (present(mean)) mean = ensembleMean;
 
 #   ifdef DEBUG   
-    write(stddebug,*) 'remove ensemble mean and scale each member by 1/sqrt(dim)'
+#    if ASSIM_SCALING == 0
+       write(stddebug,*) 'remove ensemble mean and scale each member by 1/sqrt(dim)'
+#    else
+       write(stddebug,'("remove ensemble mean and scale each member by 1/sqrt(dim-",I2,")")') ASSIM_SCALING
+#    endif
 #   endif
   end if
 
 ! simple post processing of the ensemble
   do k=1,dim
-    if (enstype.eq.2)  S(:,k) = (S(:,k)-ensembleMean)/sqrt(1.*dim)
+    if (enstype.eq.2)  S(:,k) = (S(:,k)-ensembleMean)/sqrt(1.*dim - ASSIM_SCALING)
     if (doSpaceScaling) S(:,k) = spaceScale * S(:,k)
     if (scale.ne.1) S(:,k) = scale * S(:,k)
   end do
@@ -3017,7 +3019,7 @@ end function
          allocate(E(size(xf),size(Sf,2)))
 
          do k=1,size(Sf,2)
-           E(:,k) = xf + Sf(:,k) * sqrt(real(size(Sf,2)))
+           E(:,k) = xf + Sf(:,k) * sqrt(real(size(Sf,2)) - ASSIM_SCALING)
          end do
 
          call saveErrorSpace('Diag'//infix//'Ef',E)
@@ -3077,7 +3079,7 @@ end function
          allocate(E(size(xf),size(Sa,2)))
 
          do k=1,size(Sa,2)
-            E(:,k) = xa + Sa(:,k) * sqrt(real(size(Sa,2)))
+            E(:,k) = xa + Sa(:,k) * sqrt(real(size(Sa,2)) - ASSIM_SCALING)
          end do
 
          call saveErrorSpace('Diag'//infix//'Ea',E)

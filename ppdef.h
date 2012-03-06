@@ -43,3 +43,10 @@
 
 #define NETCDF
 
+
+! if ASSIM_SCALING is defined to zero, then ensemble anomalies are scaled 
+! by 1/sqrt(r) where r is the ensemble size
+! if ASSIM_SCALING is defined to one, then ensemble anomalies are scaled 
+! by 1/sqrt(r-1)
+
+#define ASSIM_SCALING 1
