@@ -2695,7 +2695,7 @@ end function
  ! bindex: index of each timed block 
  !
 
- subroutine Assim(ntime,xf,Sf,xa,Sa,Efanam,Eaanam)
+ subroutine Assim(ntime,Sf,Sa,xf,xa,Efanam,Eaanam)
   use matoper
   use rrsqrt
   use ufileformat
@@ -2914,6 +2914,61 @@ end function
 ! fix me
 !  if (procnum.eq.1) then
   if (.true.) then
+    call assimdiag(ntime,xf,Sf,xa,Sa, &
+         yo, Hxf, Hxa, invsqrtR, &
+         yo_Hxf, yo_Hxa, innov_projection, Hshift, Hbf, &
+         HSf, HSa, locAmplitudes)
+
+    call assimdiag2()
+
+
+#   ifdef GZIPDiag
+    call getInitValue(initfname,'Diag'//infix//'path',path)
+    write(stddebug,*) 'gzip ',trim(path)
+    call system('gzip -f '//trim(path)//'*')
+    write(stddebug,*) 'end gzip ',trim(path)
+#   endif
+
+    deallocate(obsnames)
+  end if
+
+  !
+  ! end diagonistics
+  !
+
+#  ifdef PROFILE
+   call cpu_time(cputime(5))
+   write(stddebug,*) 'profiling ',cputime(1:5)
+   write(stddebug,*) 'profiling ',cputime(2:5)-cputime(1:4)
+#  endif
+
+#  ifdef DEBUG
+   write(stddebug,*) 'free memory...'
+#  endif
+
+  ! free memory
+
+  deallocate(yo,invsqrtR,Hxf,Hxa,HSf,HSa,yo_Hxf,yo_Hxa,innov_projection,H%i,H%j,H%s,Hshift)
+  if (biastype.eq.ErrorFractionBias) deallocate(Hbf)
+  if (schemetype.eq.LocalScheme) deallocate(obsGridX,obsGridY,locAmplitudes)
+
+  call MemoryLayoutDone(ObsML)
+
+#   ifdef DEBUG
+
+  write(stddebug,*) 'Exit sub assim'
+  call flush(stddebug,istat)
+
+#   endif
+
+!$omp end master
+
+  contains 
+
+   subroutine assimdiag2()
+    implicit none
+
+
     ingrid = count(invsqrtR.ne.0.)
 
 
@@ -3098,48 +3153,41 @@ end function
            call saveVector('Diag'//infix//'biasa',ModMLParallel,biasa)
     end if
 
+   end subroutine assimdiag2
 
-#   ifdef GZIPDiag
-    call getInitValue(initfname,'Diag'//infix//'path',path)
-    write(stddebug,*) 'gzip ',trim(path)
-    call system('gzip -f '//trim(path)//'*')
-    write(stddebug,*) 'end gzip ',trim(path)
-#   endif
-
-    deallocate(obsnames)
-  end if
-
-  !
-  ! end diagonistics
-  !
-
-#  ifdef PROFILE
-   call cpu_time(cputime(5))
-   write(stddebug,*) 'profiling ',cputime(1:5)
-   write(stddebug,*) 'profiling ',cputime(2:5)-cputime(1:4)
-#  endif
-
-#  ifdef DEBUG
-   write(stddebug,*) 'free memory...'
-#  endif
-
-  ! free memory
-
-  deallocate(yo,invsqrtR,Hxf,Hxa,HSf,HSa,yo_Hxf,yo_Hxa,innov_projection,H%i,H%j,H%s,Hshift)
-  if (biastype.eq.ErrorFractionBias) deallocate(Hbf)
-  if (schemetype.eq.LocalScheme) deallocate(obsGridX,obsGridY,locAmplitudes)
-
-  call MemoryLayoutDone(ObsML)
-
-#   ifdef DEBUG
-
-  write(stddebug,*) 'Exit sub assim'
-  call flush(stddebug,istat)
-
-#   endif
-
-!$omp end master
  end subroutine Assim
+
+
+ subroutine assimdiag(ntime,xf,Sf,xa,Sa, &
+      yo, Hxf, Hxa, invsqrtR, &
+      yo_Hxf, yo_Hxa, innov_projection, Hshift, Hbf, &
+      HSf, HSa, locAmplitudes)
+
+  use initfile
+  implicit none
+  integer, intent(in) :: ntime
+  real, intent(in) :: xf(:),Sf(:,:)
+  real, intent(in) :: xa(:), Sa(:,:)
+  real, dimension(:) :: yo, Hxf, Hxa, invsqrtR, &
+       yo_Hxf, yo_Hxa, innov_projection, Hshift, Hbf
+  real, dimension(:,:) :: HSf, HSa, locAmplitudes
+
+
+ end subroutine assimdiag
+
+ !_______________________________________________________
+ !
+ ! assimilation routine using ensemble (insead of error modes S)
+ !_______________________________________________________
+ !
+
+! subroutine assimens(ntime,Ef,Ea)
+!  implicit none
+!
+!
+! end subroutine assimens
+
+
 
  !_______________________________________________________
  !

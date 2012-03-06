@@ -79,7 +79,7 @@ program assimtest
 !$omp end critical (writeStdout)
 
 
-   call assim(ntime,xf,Sf,xa,Sa)
+   call assim(ntime,Sf,Sa,xf,xa)
 !$omp end parallel
 
 
