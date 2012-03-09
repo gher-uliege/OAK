@@ -74,6 +74,11 @@ all: $(PROG)
 clean:
 	rm -f $(PROG) $(OBJS) *.mod
 
+lib: $(OBJS)
+	ar rs liboak.a $(OBJS)
+
+dynlib: $(OBJS)
+	$(CC) -shared -Wl,-soname,liboak.so.1 -o liboak.so.1 $(OBJS) $(LIBS) $(FRTLIB)
 
 print:
 	echo $(LIBS) $(F90FLAGS) $(PRECISION)

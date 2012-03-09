@@ -3904,6 +3904,49 @@ subroutine ensAnalysisAnamorph2(yo,Ef,HEf,invsqrtR,  &
 
  end subroutine
 
+!
+! C-interface
+!
+
+ function c2fstring(cstr) result(fstr)
+  use iso_c_binding
+  implicit none
+  character(kind=c_char) :: cstr(*)
+  character(len=maxLen)            :: fstr
+  integer :: len=0
+
+  fstr = ""
+
+  do while (cstr(len+1) /= C_NULL_CHAR)
+    len = len+1
+    if (len > maxLen) then
+      stop 'error'
+    end if
+    fstr(len:len) = cstr(len)
+  end do
+ end function c2fstring
+
+
+
+ subroutine  oak_init ( fname ) bind(C)
+  use iso_c_binding
+  implicit none
+  character(kind=c_char) :: fname(*)
+  call init(c2fstring(fname))
+ end subroutine oak_init
+
+
+ subroutine  oak_assim (ntime,n,r,Ef,Ea) bind(C)
+  use iso_c_binding
+  implicit none
+  integer(kind=c_int), value :: ntime
+  integer(kind=c_int), value :: n,r
+  real(kind=c_double) :: Ef(n,r)
+  real(kind=c_double) :: Ea(n,r)
+  call assim(ntime,Ef,Ea)
+ end subroutine oak_assim
+
+
 end module assimilation
 
 

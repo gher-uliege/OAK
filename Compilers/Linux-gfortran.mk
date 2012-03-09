@@ -11,6 +11,12 @@ LDFLAGS ?=
 PROFILING_F90FLAGS ?= -pg
 PROFILING_LDFLAGS ?= -pg
 
+PIC_F90FLAGS=-fPIC
+PIC_CFLAGS=-fPIC
+
+# Fortran Run-Time Library
+FRTLIB=-lgfortran
+
 ifdef OPENMP
   F90FLAGS += -fopenmp
   LDFLAGS += -fopenmp
@@ -29,5 +35,3 @@ endif
 ifeq ($(FORMAT),big_endian)
   F90FLAGS += -fconvert=big-endian -frecord-marker=4
 endif  
-
-

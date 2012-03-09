@@ -1,4 +1,5 @@
 # Operating System (Linux (default),AIX or IRIX)
+# Mac OS X 
 
 OS ?= Linux
 

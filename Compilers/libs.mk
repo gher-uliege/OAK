@@ -25,7 +25,10 @@ ifdef PROFILING
   LDFLAGS += $(PROFILING_LDFLAGS)
 endif
 
-
+ifdef PIC
+  F90FLAGS += $(PIC_F90FLAGS)
+  CFLAGS += $(PIC_CFLAGS)
+endif
 
 
 #

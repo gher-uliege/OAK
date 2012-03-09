@@ -1,6 +1,6 @@
 !
 !  OAK, Ocean Assimilation Kit
-!  Copyright(c) 2002-2011 Alexander Barth and Luc Vandenblucke
+!  Copyright(c) 2002-2012 Alexander Barth and Luc Vandenblucke
 !
 !  This program is free software; you can redistribute it and/or
 !  modify it under the terms of the GNU General Public License
@@ -237,7 +237,7 @@ contains
 
 
 
-  function INTERP1(X,Y,XI,out) result(yi)
+  function interp1(X,Y,XI,out) result(yi)
    implicit none
    real, intent(in) :: x(:),y(:),xi
    logical, optional, intent(out) :: out

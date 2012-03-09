@@ -15,6 +15,9 @@ F90FLAGS += -heap-arrays
 PROFILING_F90FLAGS ?= -p
 PROFILING_LDFLAGS ?= -p
 
+PIC_F90FLAGS=-fPIC
+PIC_CFLAGS=-fPIC
+
 ifdef OPENMP
   F90FLAGS += -openmp
   LDFLAGS += -openmp
