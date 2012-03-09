@@ -1070,7 +1070,7 @@ contains
  !_______________________________________________________
  !
 
- subroutine loadVectorSpace(str,ML,S,mean)
+ subroutine loadVectorSpace_old(str,ML,S,mean)
   use initfile
   use ufileformat
   use matoper
@@ -1169,10 +1169,142 @@ contains
   deallocate(formats)
   if (doSpaceScaling) deallocate(spaceScale)  
   if (enstype.eq.2)  deallocate(ensembleMean)
- end subroutine loadVectorSpace
+ end subroutine 
 
  !_______________________________________________________
  !
+
+
+ !_______________________________________________________
+ !
+
+ subroutine loadVectorSpace(str,ML,S,mean)
+  use initfile
+  use ufileformat
+  use matoper
+  use parall
+  character(len=*), intent(in) :: str
+  type(MemLayout),  intent(in) :: ML
+  real, intent(out)            :: S(:,:)
+  real, intent(out), optional  :: mean(:)
+
+  integer                      :: v,k,dim,enstype
+  real                         :: scale
+  real, pointer                :: spaceScale(:)
+  logical                      :: doSpaceScaling = .false.
+  real, allocatable            :: ensembleMean(:)
+  character(len=maxLen)        :: prefix
+
+  prefix = str(1:index(str,'.',.true.))
+
+  call getInitValue(initfname,trim(prefix)//'scale',scale,default=1.)
+! load space dependent scale is present 
+
+  if (presentInitValue(initfname,trim(prefix)//'spaceScale')) then
+    doSpaceScaling = .true.
+    allocate(spaceScale(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel))
+    call loadVector(trim(prefix)//'spaceScale',ML,spaceScale)
+  end if
+
+  call loadEnsemble(str,ML,S)
+  dim = size(S,2)
+
+! type = 1 vectors are anomalies
+! type = 2 vectors are ensemble members (with mean)
+  
+  call getInitValue(initfname,trim(prefix)//'type',enstype,default=1)
+
+  if (enstype.eq.2) then
+! compute the ensemble mean
+    allocate(ensembleMean(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel))
+
+    ensembleMean = sum(S,2)/dim
+
+    if (present(mean)) mean = ensembleMean;
+
+#   ifdef DEBUG   
+#    if ASSIM_SCALING == 0
+       write(stddebug,*) 'remove ensemble mean and scale each member by 1/sqrt(dim)'
+#    else
+       write(stddebug,'("remove ensemble mean and scale each member by 1/sqrt(dim -",I2,")")') ASSIM_SCALING
+#    endif
+#   endif
+  end if
+
+! simple post processing of the ensemble
+  do k=1,dim
+    if (enstype.eq.2)  S(:,k) = (S(:,k)-ensembleMean)/sqrt(1.*dim - ASSIM_SCALING)
+    if (doSpaceScaling) S(:,k) = spaceScale * S(:,k)
+    if (scale.ne.1) S(:,k) = scale * S(:,k)
+  end do
+
+  if (doSpaceScaling) deallocate(spaceScale)  
+  if (enstype.eq.2)  deallocate(ensembleMean)
+
+ end subroutine loadVectorSpace
+ !_______________________________________________________
+ !
+
+ subroutine loadEnsemble(str,ML,S)
+  use initfile
+  use ufileformat
+  use matoper
+  use parall
+  implicit none
+  character(len=*), intent(in) :: str
+  type(MemLayout),  intent(in) :: ML
+  real, intent(out)            :: S(:,:)
+
+  integer                      :: v,k,dim,enstype
+  character(len=maxLen), pointer   :: filenames(:), formats(:)
+  character(len=maxLen)            :: prefix,path
+# ifdef PROFILE
+  real(8) :: cputime(2)
+# endif
+
+# ifdef DEBUG
+  write(stddebug,'("== load ensemble (",A,") ==")') str
+# endif
+
+# ifdef PROFILE
+  call cpu_time(cputime(1))
+# endif    
+
+  prefix = str(1:index(str,'.',.true.))
+  call getInitValue(initfname,str,formats)
+  call getInitValue(initfname,trim(prefix)//'path',path,default='')
+  call getInitValue(initfname,trim(prefix)//'dimension',dim)
+
+
+!!$omp parallel private(v,filenames)
+  allocate(filenames(size(formats)))
+!!$omp do
+  do k=1,dim
+    do v=1,size(filenames)
+      write(filenames(v),formats(v)) k
+    end do
+
+    call loadVector(path,filenames,ML,S(:,k))
+  end do
+!!$omp end do
+  deallocate(filenames)
+!!$omp end parallel
+
+# ifdef PROFILE
+  call cpu_time(cputime(2))
+
+  write(stddebug,*) 'Profiling: loadVectorSpace',procnum
+  write(stddebug,*) 'load data  ',cputime(2)-cputime(1)
+  write(6,*) 'load data  ',cputime(2)-cputime(1), procnum
+  call flush(stddebug,istat)
+# endif
+
+ end subroutine loadEnsemble
+
+ !_______________________________________________________
+ !
+
+
  !_______________________________________________________
  !
 
