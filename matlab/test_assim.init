@@ -5,7 +5,9 @@
 # See comments at the end of this file.
 
 
-Config.exec = '~/Assim/OAK/assim-gfortran-single'
+#Config.exec = '~/Assim/OAK/assim-gfortran-single'
+Config.exec = '~/Assim/OAK/assim-gfortran-single-debug'
+#Config.exec = '~/Assim/OAK/assim-gfortran-double'
 #Config.calendar = 'standard'
 #Config.time_origin  = '0001-01-01T00:00:00'
 
@@ -26,6 +28,11 @@ ErrorSpace.dimension = 10
 ErrorSpace.path      = './'
 ErrorSpace.init      = ['("Ens",I3.3,"/model.nc#var1")','("Ens",I3.3,"/model.nc#var2")']
 ErrorSpace.type      = 2
+
+anamorphosistype = 0
+Anamorphosis.x = ['_id','_id']
+Anamorphosis.y = ['_id','_id']
+
 
 # runtype = integer: possible values of runtype are:
 #   0 = do nothing, i.e. a pure run of the model 

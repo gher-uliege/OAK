@@ -283,9 +283,8 @@ contains
   end if
 # endif
 
-  if (anamorphosistype.ne.NoAnamorphosis) then
-    call initAnamorphosis(fname)
-  end if
+  call initAnamorphosis(fname)
+
   if (biastype.eq.ErrorFractionBias) then
     call getInitValue(initfname,'Bias.gamma',biasgamma)       
   end if
@@ -425,6 +424,10 @@ contains
   if (ModMLParallel%permute) call permute(zoneIndex,tmp,tmp)
 
   maxCorrection = tmp(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel);
+
+
+  
+
   deallocate(tmp)
 
  end subroutine globalInit
@@ -2852,6 +2855,7 @@ end function
 !!$  real, pointer, dimension(:,:) :: HSf, HSa
 
   real :: amplitudes(size(Sf,2)), innov_amplitudes(size(Sf,2)), ensampl(size(Sf,2)+1)
+  real :: scaling
 
   real(8) :: mjd
 # ifdef PROFILE
@@ -2881,21 +2885,13 @@ end function
 # endif
 
   n = ModML%effsize
-
-  if (present(xfp)) then
-    xf => xfp
-    xa => xap
-  else
-    ! assume Sf is an ensemble, compute mean and ensemble anomalies
-    allocate(xf(n),xa(n))
-    xf = sum(Sf,2)/size(Sf,2)
-
-    do k=1,size(Sf,2)      
-       Sf(:,k) = (Sf(:,k)-xf)/sqrt(real(size(Sf,2)) - ASSIM_SCALING)
-    end do
-  end if
-
   write(infix,'(I3.3,A)') ntime,'.'
+
+
+  !
+  ! Observations  
+  !
+
 
   call MemoryLayout('Obs'//infix,ObsML,rmLPObs)
 
@@ -2918,13 +2914,38 @@ end function
   call loadObservationOper(ntime,ObsML,H,Hshift,invsqrtR)
 
 
-  Hxf = obsoper(H,xf) + Hshift
+  if (present(xfp)) then
+    xf => xfp
+    xa => xap
 
-  do k=1,size(Sf,2)
-    HSf(:,k) = obsoper(H,Sf(:,k))
-  end do
+    Hxf = obsoper(H,xf) + Hshift
 
-!  write (6,*) 'sum HSf ',sum(HSf)
+    ! observed part of error modes
+    do k=1,size(Sf,2)
+      HSf(:,k) = obsoper(H,Sf(:,k))
+    end do
+  else
+    ! assume Sf is an ensemble, compute mean and ensemble anomalies
+    allocate(xf(n),xa(n))
+
+    ! apply observation operator to all ensemble members
+    ! to get observed part of ensemble members
+    do k=1,size(Sf,2)
+      HSf(:,k) = obsoper(H,Sf(:,k)) + Hshift
+    end do
+
+    xf = sum(Sf,2)/size(Sf,2)
+    Hxf = sum(HSf,2)/size(Sf,2)
+    scaling = 1./sqrt(real(size(Sf,2)) - ASSIM_SCALING)
+
+    do k=1,size(Sf,2)      
+       Sf(:,k) = scaling * (Sf(:,k)-xf)
+       HSf(:,k) = scaling * (HSf(:,k)-Hxf)
+    end do
+  end if
+
+
+  write (6,*) 'sum HSf ',sum(HSf)
 
   yo_Hxf = yo-Hxf
   innov_amplitudes = inv(HSf.tx.HSf).x.(HSf.tx.yo_Hxf)
@@ -3942,8 +3963,8 @@ end function
 !----------------------------------------------------------------------
 
 subroutine ensAnalysisAnamorph2(yo,Ef,HEf,invsqrtR,  &
-  anamorph,invanamorph, &
-       Ea, amplitudes,Efanam,Eaanam)
+     anamorph,invanamorph, &
+     Ea, amplitudes,Efanam,Eaanam)
   use matoper
   use ufileformat
   use rrsqrt
@@ -4020,6 +4041,18 @@ subroutine ensAnalysisAnamorph2(yo,Ef,HEf,invsqrtR,  &
    end if
 
  end subroutine
+
+ subroutine anamtransform(foreward,ML,x)
+  use anamorphosis
+ implicit none
+ logical, intent(in) :: foreward
+ real, intent(inout) :: x(:)
+ type(MemLayout) :: ML
+ 
+end subroutine anamtransform
+
+
+
 
 #ifdef CINTERFACE
 

@@ -60,7 +60,13 @@ program assimtest
       Sa(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel,ErrorSpaceDim), &
       Sf(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel,ErrorSpaceDim))
 
+#define ENS
+#ifdef ENS
+ write(6,*) 'load ens'
+ call loadEnsemble('ErrorSpace.init',ModML,Sf)
+#else
  call loadErrorSpace('ErrorSpace.init',Sf,xf)
+#endif
 
  do ntime=startntime,endntime
    write(ntimeindex,'(I3.3,A)') ntime,'.'
@@ -79,17 +85,18 @@ program assimtest
 !$omp end critical (writeStdout)
 
 
-   call assim(ntime,Sf,Sa,xf,xa)
+!   call assim(ntime,Sf,Sa,xf,xa)
+   call assim(ntime,Sf,Sa)
 !$omp end parallel
 
-
+#ifndef ENS
    if (presentInitValue(initfname,'Analysis'//ntimeindex//'value'))  &
         call saveStateVector('Analysis'//ntimeindex//'value',xa)
+#endif
 
  end do
 
  call done()
-
 #ifdef ASSIM_PARALLEL
  call parallDone()
 #endif
