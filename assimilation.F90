@@ -3904,6 +3904,8 @@ subroutine ensAnalysisAnamorph2(yo,Ef,HEf,invsqrtR,  &
 
  end subroutine
 
+#ifdef CINTERFACE
+
 !
 ! C-interface
 !
@@ -3946,7 +3948,7 @@ subroutine ensAnalysisAnamorph2(yo,Ef,HEf,invsqrtR,  &
   call assim(ntime,Ef,Ea)
  end subroutine oak_assim
 
-
+#endif
 end module assimilation
 
 
