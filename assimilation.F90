@@ -255,12 +255,9 @@ contains
   use matoper
   implicit none
   character(len=*), intent(in) :: fname
-
   integer                      :: v,vmax,n
-  real                         :: c0,cx,cy,cz
-  integer                      :: imax,jmax,kmax, tmpi, i,j
-  character(len=MaxFNameLength), pointer   :: filenames(:),filenamesX(:),filenamesY(:),filenamesZ(:)
-  character(len=MaxFNameLength)            :: path, str  
+  character(len=MaxFNameLength), pointer   :: filenamesX(:),filenamesY(:),filenamesZ(:)
+  character(len=MaxFNameLength)            :: path
   real, pointer                :: maxCorr(:),tmp(:)
   integer                      :: NZones, zi
 
@@ -442,13 +439,7 @@ contains
   use ufileformat
   implicit none
   character(len=*), intent(in) :: fname
-
-  integer                      :: v,vmax
-  real                         :: c0,cx,cy,cz
-  integer                      :: imax,jmax,kmax, tmpi, i,j
-  character(len=maxLen), pointer   :: filenames(:)
-  character(len=maxLen)            :: path, str  
-  real, pointer                :: maxCorr(:),tmp(:)
+  character(len=maxLen)            :: str  
 
   initfname = fname
 
@@ -524,7 +515,8 @@ contains
 
  integer :: zoneIndex(StateVectorSizeSea)
 
- integer :: i,j,k,NZones,zi,istat
+ integer :: j,NZones,zi
+ integer :: istat
 
 
 #ifdef DEBUG
@@ -627,7 +619,8 @@ contains
 
   real, allocatable :: x(:),xt(:)
 
-  integer :: v,k,i,l,istat,j0,j1
+  integer :: v,i,j0,j1
+  integer :: istat
   real :: valex
 
   allocate(x(ML%totsize))
@@ -897,7 +890,8 @@ contains
   logical, intent(in), optional :: mask(:)
 
   real, pointer :: x(:),vec(:),tmp1(:),xt(:)
-  integer :: v,istat,i,j,j0,j1
+  integer :: v,i,j,j0,j1
+  integer :: istat
   character(len=30) :: infoformat = '(A50,2E14.5)'
 
   if (size(filenames).ne.ML%nvar) then
@@ -1188,7 +1182,7 @@ contains
   real, intent(out)            :: S(:,:)
   real, intent(out), optional  :: mean(:)
 
-  integer                      :: v,k,dim,enstype
+  integer                      :: k,dim,enstype
   real                         :: scale
   real, pointer                :: spaceScale(:)
   logical                      :: doSpaceScaling = .false.
@@ -1255,7 +1249,7 @@ contains
   type(MemLayout),  intent(in) :: ML
   real, intent(out)            :: S(:,:)
 
-  integer                      :: v,k,dim,enstype
+  integer                      :: v,k,dim
   character(len=maxLen), pointer   :: filenames(:), formats(:)
   character(len=maxLen)            :: prefix,path
 # ifdef PROFILE
@@ -1381,7 +1375,8 @@ contains
   type(SparseMatrix), intent(out)  :: H
   logical, optional, intent(out), dimension(:) :: valid1, valid2
 
-  integer :: istat,i,j
+  integer :: istat
+  integer :: i,j
   real :: valex
   real, pointer :: Hop(:,:)
   integer, allocatable :: Hindex(:,:)
@@ -1448,7 +1443,8 @@ contains
   type(SparseMatrix), intent(in)  :: H
   logical, optional, intent(in) :: valid1(:),valid2(:)
 
-  integer :: i,j,istat,nz,n,k
+  integer :: i,j,nz,k
+  integer :: istat
   real :: valex=9999.
   real, allocatable    :: Hop(:,:),Hcoeff(:)
   integer, allocatable :: Hindex(:,:)
@@ -1574,7 +1570,8 @@ contains
   logical, intent(in), optional :: packed  
   real, pointer        :: tmp(:)
 
-  integer :: m,mmax,omax,prec,nbmots,i,j,istat
+  integer :: m,mmax,prec,i,j
+  integer :: istat
   real :: valex
   logical :: isdegen
 
@@ -1729,7 +1726,7 @@ contains
   logical, optional,intent(out) :: valid
 
   logical :: val
-  integer :: linindex
+
 
   index = -1
   val = 1 <= v.and.v <= ML%nvar
@@ -1878,7 +1875,8 @@ contains
   integer, intent(out), optional :: error
 
   character(len=maxLen) :: prefix,str
-  integer :: day,month,year,h,min,istat
+  integer :: day,month,year,h,min
+  integer :: istat
   real :: s,seconds
 
   write(prefix,'(A,I3.3,A)') 'Obs',ntime,'.'
@@ -1974,14 +1972,9 @@ contains
   real,    intent(out) :: observation(:), invsqrtR(:)
 
   character(len=maxLen)          :: path        
-  character(len=maxLen) :: prefix,str
-  integer :: day,month,year,h,min,omax
-  real :: s,seconds
-
-  integer :: prec,imax,jmax,kmax,nbmots,istat
-  real :: valex
-  logical :: isdegen
-
+  character(len=maxLen) :: prefix
+  integer :: omax
+  integer :: istat
   real, parameter :: min_rmse = 0.01
 
   write(prefix,'(A,I3.3,A)') 'Obs',ntime,'.'
@@ -2055,7 +2048,8 @@ contains
   character(len=maxLen)          :: path
 
   character(len=maxLen) :: prefix,str,Dprefix
-  integer :: v,vmax,m,mmax,n,nz,istat
+  integer :: mmax
+  integer :: istat
 
   integer :: error
   real :: valex
@@ -2154,9 +2148,10 @@ contains
   character(len=maxLen)          :: path
 
   character(len=maxLen) :: prefix,str,Dprefix
-  integer :: v,vmax,m,mmax,n,nz,idummy,nbentries
+  integer :: m,mmax,nz,idummy,nbentries
 
-  integer :: error,istat,i,j
+  integer :: istat
+  integer :: i,j
   real :: valex
   logical :: isdegen
   real, pointer :: Hop(:,:)
@@ -2344,15 +2339,16 @@ contains
   character(len=maxLen)    :: path
   real, allocatable, dimension(:) :: obsX, obsY, obsZ
 
-  character(len=maxLen)   :: prefix,str
+  character(len=maxLen)   :: prefix
   type(MemLayout), intent(in) :: ObsML
 
   integer              :: ti(8),tj(8),tk(8), &
-       i,j,k, istat, &
-       v,tv,vmax,m,mmax,omaxSea,n,tn,nz,linindex, &
+       i,j,k, &
+       v,tv,m,mmax,omaxSea,n,tn,nz,linindex, &
        tindexes(3,8), tmpm
-  real                 :: tc(8), valex, minres
-  logical              :: isdegen
+  integer :: istat
+  real                 :: tc(8), minres
+
 
   write(prefix,'(A,I3.3,A)') 'Obs',ntime,'.'
   call getInitValue(initfname,trim(prefix)//'path',path,default='')
@@ -2530,19 +2526,15 @@ contains
 
   integer, pointer     :: tmpRindex(:,:)
   real, pointer        :: tmpRcoeff(:)
-  character(len=maxLen), pointer :: varNames(:), &
-       gridXnames(:),gridYnames(:),gridZnames(:)
-  character(len=maxLen)    :: path
+
 
   real, pointer        :: x(:),y(:),z(:)
-  real, pointer, dimension(:,:,:) :: gridX,gridY,gridZ
   integer :: m,i,j,i1,j1,k1,i2,j2,k2, linindex1, linindex2,nz,nzmax, &
-       status,istat
-  character(len=maxLen)   :: prefix,str
+       status
+  integer :: istat
+  character(len=maxLen)   :: prefix
 
-  real                 :: valex
-
-  real :: corrlen, logcorr, minlogcorr, alpha,alphax,alphay,alphaz
+  real :: corrlen, logcorr, minlogcorr, alphax,alphay,alphaz
   real :: mincorr = 1e-3
 
   real, parameter :: pi = 3.141592654
@@ -2697,41 +2689,35 @@ contains
   implicit none
   type(SparseMatrix), intent(in) :: H
   real, intent(in) :: xf(:)
-  real             :: Hx(H%m), tmp(H%m)
-  integer          :: ierr,k,j1,j2,baseIndex
+  real             :: Hx(H%m)
 
 !#define EXACT_OBS_OPER
 
+#ifdef ASSIM_PARALLEL
+  integer          :: ierr
+#ifdef EXACT_OBS_OPER
+  real, allocatable :: xt(:)
+#else
+  real             :: tmp(H%m)
+  integer          :: baseIndex,j1,j2,k
+#endif
+#endif
+
 
 #ifndef ASSIM_PARALLEL
-
   Hx = H.x.xf
-
 #else
 
 #ifdef EXACT_OBS_OPER
-  integer, allocatable :: rcount(:),rdispls(:)
-!  real :: xt(H%n)
-   real, allocatable :: xt(:)
-
-
    if (procnum.eq.1) allocate(xt(H%n))
-
-!  write(stdout,*) 'xt ',__FILE__,__LINE__,size(xt),size(xf),procnum,H%n
-!   allocate(xt(H%n))
-
   call parallGather(xf,xt,startIndexZones,endIndexZones)
 
   if (procnum == 1) then
     Hx = H.x.xt
     deallocate(xt)
   end if
-!    deallocate(xt)
-
   call mpi_bcast(Hx,H%m,DEFAULT_REAL,0,mpi_comm_world,ierr)
-
 #else
-
   tmp = 0
 
   j1 = startIndexZones(startZIndex(procnum))
@@ -2739,16 +2725,13 @@ contains
 
   baseIndex = -j1+1
 
-
   do k=1,H%nz
     if (j1 <= H%j(k) .and. H%j(k) <= j2) then
       tmp(H%i(k)) = tmp(H%i(k)) + H%s(k) * xf(H%j(k) + baseIndex)
     end if
   end do
 
-!  write(stdout,*) ' allreduce '
   call mpi_allreduce(tmp, Hx, H%m, DEFAULT_REAL,mpi_sum, mpi_comm_world, ierr)
-
 #endif
 #endif
 
@@ -2854,8 +2837,10 @@ end function
   character(len=256), pointer    :: obsnames(:)
   real, pointer :: xf(:),xa(:)
 
-  integer :: m,n,k,v,i1,i2,ingrid,error,istat
-  type(SparseMatrix) :: H,C
+  integer :: m,n,k,v,i1,i2,ingrid,error
+  integer :: istat
+  type(SparseMatrix) :: H
+
   type(MemLayout) :: ObsML
 
   real, allocatable, dimension(:) :: yo, Hxf, Hxa, invsqrtR, &
@@ -3382,8 +3367,8 @@ end function
 
 ! x,y=longitude and latitude of the element the "index"th component of 
 ! model state vector
-     real x,y,coeff,x3(3),x2(2)
-     logical out;
+     real x,y,x3(3),x2(2)
+     logical out
 
      real, parameter :: pi = 3.141592653589793238462643383279502884197
      real, parameter :: EarthRadius = 6378137 ! m
