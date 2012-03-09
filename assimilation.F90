@@ -1302,7 +1302,7 @@ contains
  !_______________________________________________________
  !
 
- subroutine saveVectorSpace(str,ML,S)
+ subroutine saveEnsemble(str,ML,S)
   use initfile
   use ufileformat
   character(len=*), intent(in) :: str
@@ -1328,7 +1328,7 @@ contains
   end do
 
   deallocate(formats,filenames)
- end subroutine saveVectorSpace
+ end subroutine saveEnsemble
 
 
  !_______________________________________________________
@@ -1356,7 +1356,7 @@ contains
   character(len=*), intent(in) :: str
   real, intent(in)             :: S(:,:)
 
-  call saveVectorSpace(str,ModMLParallel,S)
+  call saveEnsemble(str,ModMLParallel,S)
  end subroutine saveErrorSpace
 
 
@@ -3911,27 +3911,27 @@ end function
 ! ensemble at observation locations
   HEf = spread(Hxf,2,N) + (HSf.xt.Omega)
 
-!  call saveVectorSpace('Ef1.value',ModML,E)
+!  call saveEnsemble('Ef1.value',ModML,E)
 !  call usave('/u/abarth/Assim/Data2/Ef.u',E,0.)
 
   do i=1,N
     call anamorph(E(:,i))
   end do
 
-!  call saveVectorSpace('Ef2.value',ModML,E)
+!  call saveEnsemble('Ef2.value',ModML,E)
 !  call usave('/u/abarth/Assim/Data2/Ef2.u',E,0.)
 
   !call ensanalysis(Ef,HEf,yo,invsqrtR,Ea, amplitudes)
   call ensanalysis(E,HEf,yo,invsqrtR,E,amplitudes)
 
-!  call saveVectorSpace('Ea2.value',ModML,E)
+!  call saveEnsemble('Ea2.value',ModML,E)
 !  call usave('/u/abarth/Assim/Data2/Ea2.u',E,0.)
 
   do i=1,N
     call invanamorph(E(:,i))
   end do
 
-!  call saveVectorSpace('Ea1.value',ModML,E)
+!  call saveEnsemble('Ea1.value',ModML,E)
 !  call usave('/u/abarth/Assim/Data2/E.u',E,0.)
 
   call  ens2sqrt(E,xa,Sa) 
@@ -4001,20 +4001,20 @@ subroutine ensAnalysisAnamorph2(yo,Ef,HEf,invsqrtR,  &
       call anamorph(Ea(:,i))
     end do
 
-!  call saveVectorSpace('Ef2.value',ModML,E)
+!  call saveEnsemble('Ef2.value',ModML,E)
 !  call usave('/u/abarth/Assim/Data2/Ef2.u',E,0.)
 
   !call ensanalysis(Ef,HEf,yo,invsqrtR,Ea, amplitudes)
     call ensAnalysis(Ea,HE,yo,invsqrtR,Ea,amplitudes)
 
-!  call saveVectorSpace('Ea2.value',ModML,E)
+!  call saveEnsemble('Ea2.value',ModML,E)
 !  call usave('/u/abarth/Assim/Data2/Ea2.u',E,0.)
 
     do i=1,N
       call invanamorph(Ea(:,i))
     end do
 
-!  call saveVectorSpace('Ea1.value',ModML,E)
+!  call saveEnsemble('Ea1.value',ModML,E)
 !  call usave('/u/abarth/Assim/Data2/E.u',E,0.)
 
    end if
