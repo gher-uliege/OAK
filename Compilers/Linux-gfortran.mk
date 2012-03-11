@@ -5,7 +5,8 @@
 
 F90C ?= gfortran
 F90FLAGS ?= -fimplicit-none
-#F90FLAGS += -DCINTERFACE
+F90FLAGS += -DCINTERFACE
+F90FLAGS += -fdefault-integer-8
 LD ?= $(F90C)
 LDFLAGS ?= 
 

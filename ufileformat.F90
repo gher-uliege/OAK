@@ -94,6 +94,9 @@
 !#define DEBUG_SYSTEMCALLS
 #define CHECK_SHAPE
 
+! kind of integer of NetCDF library
+#define NCI 4
+
 module ufileformat
 
  ! default record length is 10 MB
@@ -277,7 +280,7 @@ contains
 
  subroutine check_error(status,message)
   use netcdf
-  integer, intent ( in) :: status
+  integer(NCI), intent ( in) :: status
   character (len = *), optional, intent(in) :: message
 
 
@@ -320,7 +323,7 @@ contains
   real (kind=4) :: valex4
 
 #ifdef NETCDF
-  integer :: i,ncid,rcode, ndims, nvars, natts, recdim, cid, &
+  integer(NCI) :: i,ncid,rcode, ndims, nvars, natts, recdim, cid, &
        vtype, cdim(MaxDimensions), sizedim(MaxDimensions), &
        vtypeattr, ndimattr
   character(len=128) :: var,name,namedim(MaxDimensions)
@@ -388,8 +391,9 @@ contains
     call check_error(nf90_inq_varid(ncid, var, cid), &
         'Error while accessing variable "' // trim(var) // '" in file "' // trim(filename) // '".')
 
-    call check_error(nf90_inquire_variable(ncid, cid, name, vtype, ndim, cdim, natts))
+    call check_error(nf90_inquire_variable(ncid, cid, name, vtype, ndims, cdim, natts))
 
+    ndim = ndims
     valex = DefaultValex
     isdegen = .false.
 
@@ -538,7 +542,7 @@ contains
   integer :: numel
 
 #ifdef NETCDF
-  integer :: i,ncid,rcode, ndims, nvars, natts, recdim, cid, &
+  integer(NCI) :: i,ncid,rcode, ndims, nvars, natts, recdim, cid, &
        vtype, cdim(MaxDimensions), sizedim(MaxDimensions), &
        vtypeattr, ndimattr
   character(len=128) :: var,name,namedim(MaxDimensions)
@@ -611,7 +615,8 @@ contains
 
     cid  = ncvid (ncid,var,rcode)
     
-    call ncvinq (ncid,cid,name,vtype,ndim,cdim,natts,rcode)
+    call ncvinq (ncid,cid,name,vtype,ndims,cdim,natts,rcode)
+    ndim = ndims
 
     ! default value for attributes
 
@@ -676,15 +681,15 @@ contains
     !write(stdout,*) 'valex ',valex
 
     if (isdegen) then
-      rcode = nf90_get_var(ncid, cid, c(1:ndim+1), (/ 1 /), (/ ndim+1 /))
+      rcode = nf90_get_var(ncid, cid, c(1:ndim+1), (/ int(1,NCI) /), (/ int(ndim+1,NCI) /))
       if (present(extraction)) then
         c(1) = c(1) + sum(c(2:ndim+1)*(extraction(1,1:ndim)-1))
       end if
     else
       if (.not.present(extraction)) then
-        rcode = nf90_get_var(ncid, cid, c(1:numel), spread(1,1,ndim), vshape(1:ndim))
+        rcode = nf90_get_var(ncid, cid, c(1:numel), spread(int(1,NCI),1,ndim), int(vshape(1:ndim),NCI))
       else
-        rcode = nf90_get_var(ncid, cid, c(1:numel), extraction(1,:), vshape(1:ndim))
+        rcode = nf90_get_var(ncid, cid, c(1:numel), int(extraction(1,:),NCI), int(vshape(1:ndim),NCI))
       end if
     end if
 
@@ -1856,7 +1861,7 @@ contains
   integer stat, nbmots
 
 #ifdef NETCDF
-  integer :: i,j,pos,ncid,rcode, ndims, nvars, natts, recdim, cid, &
+  integer(NCI) :: i,j,pos,ncid,rcode, ndims, nvars, natts, recdim, cid, &
        vtype, cdim(MaxDimensions), ncvdim, ncvshape(MaxDimensions), dimlen, rcode2, &
        totalsize, ndimp, vshapep(MaxDimensions)
 
@@ -2115,7 +2120,7 @@ contains
 
     if (isdegen) then
       !        rcode = nf90_put_var(ncid, cid, c, 1, ndim+1)
-      rcode = nf90_put_var(ncid, cid, c(1:ndim+1), (/ 1 /), (/ ndim+1 /))
+      rcode = nf90_put_var(ncid, cid, c(1:ndim+1), (/ int(1,NCI) /), (/ int(ndim+1,NCI) /))
     else
       !        rcode = nf90_put_var(ncid, cid, c, spread(1,1,ndimp), vshapep(1:ndimp))
       !        rcode = nf90_put_var(ncid, cid, c(1:product(vshape(1:ndim))), spread(1,1,ndim), vshape(1:ndim))

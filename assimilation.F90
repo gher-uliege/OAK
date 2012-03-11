@@ -4095,7 +4095,7 @@ end subroutine anamtransform
   integer(kind=c_int), value :: n,r
   real(kind=c_double) :: Ef(n,r)
   real(kind=c_double) :: Ea(n,r)
-  call assim(ntime,Ef,Ea)
+  call assim(int(ntime),Ef,Ea)
  end subroutine oak_assim
 
 #endif
