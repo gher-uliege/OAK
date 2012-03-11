@@ -117,3 +117,11 @@ E2 = E * info1.A;
 
 rms (mean(E2,2), mean(full (Ef),2))
 rms(E2,full(Ef))
+
+
+addpath /home/abarth/Assim/OAK/Mex/
+
+oak_init('test_assim.init')
+[E3] = oak_analysis(1,E);
+
+rms(E2,E3)

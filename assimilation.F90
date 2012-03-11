@@ -4098,6 +4098,12 @@ end subroutine anamtransform
   call assim(int(ntime),Ef,Ea)
  end subroutine oak_assim
 
+ subroutine  oak_done() bind(C)
+  use iso_c_binding
+  implicit none
+  call done()
+ end subroutine oak_done
+
 #endif
 end module assimilation
 
