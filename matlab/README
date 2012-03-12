@@ -1,0 +1,24 @@
+= Mex-interface for Matlab and GNU Octave =
+
+== Matlab ==
+
+In directory OAK build the dynamic library by:
+
+ make clean
+ make PRECISION=double PIC=on EXTRA_F90FLAGS="-DCINTERFACE -fdefault-integer-8" dynlib
+
+In directory OAK/Mex:
+
+ make
+
+
+== GNU Octave ==
+
+In directory OAK build the dynamic library
+
+ make clean
+ make PRECISION=double PIC=on EXTRA_F90FLAGS="-DCINTERFACE" dynlib
+
+In directory OAK/Mex:
+
+ make OCTAVE=on
