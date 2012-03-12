@@ -1,4 +1,11 @@
-initfile = 'test_assim.init';
+
+currentdir = pwd;
+initfile = fullfile(currentdir,'test_assim.init');
+
+testdir = tempname;
+mkdir(testdir)
+cd(testdir)
+
 init = InitFile(initfile);
 
 sz = [10 15 1];

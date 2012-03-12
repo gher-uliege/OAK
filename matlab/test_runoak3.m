@@ -1,11 +1,17 @@
 %system('rm -R Ens0*');
-mkdir('Common');
-mkdir('Obs');
-mkdir('Analysis001');
-mkdir('Analysis002');
+currentdir = pwd;
+initfile = fullfile(currentdir,'test_assim.init');
+
+testdir = tempname;
+mkdir(testdir)
 
 
-initfile = 'test_assim.init';
+mkdir(fullfile(testdir,'Common'));
+mkdir(fullfile(testdir,'Obs'));
+mkdir(fullfile(testdir,'Analysis001'));
+mkdir(fullfile(testdir,'Analysis002'));
+
+
 init = InitFile(initfile);
 
 sz = [10 15 1];
@@ -17,6 +23,7 @@ zname = get(init,'Model.gridZ');
 path = get(init,'Model.path');
 maskname = get(init,'Model.mask');
 
+path = fullfile(testdir,path);
 mask = {};
 
 for i=1:length(xname)
@@ -40,6 +47,7 @@ time = 1:2;
 
 fmt = get(init,'ErrorSpace.init');
 path = get(init,'ErrorSpace.path');
+path = fullfile(testdir,path);
 
 Eic = SVector(path,fmt,mask,1:Nens);
 %full(Eic)(1,1)
@@ -56,7 +64,8 @@ zobs = prctile(z(:),[40 60]);
 
 h = @(v) interpn(x,y,reshape(v(1:numel(x)),size(x)),xobs,yobs);
 
-v = gread('Ens001/model.nc#var1');
+
+v = gread(fullfile(testdir,'Ens001/model.nc#var1'));
 assert(rms(h(E(:,1)),interpn(x,y,v,xobs,yobs)) < 1e-6)
 
 
@@ -74,6 +83,7 @@ for n=1:length(time)
   obsmaskname = get(init,[obsprefix '.mask']);
   obsname = get(init,[obsprefix '.value']);
   path = get(init,[obsprefix '.path']);
+  path = fullfile(testdir,path);
 
   gwrite(fullfile(path,obsxname{1}),xobs);
   gwrite(fullfile(path,obsyname{1}),yobs);
@@ -89,7 +99,9 @@ Eforcing = zeros(0,Nens);
 data = DataSetInitFile(initfile,1:length(time));
 scheduler = SchedulerShell();
 
+cd(testdir)
 Ef = runoak(t0,data,model,Eic,Eforcing,scheduler);
+cd(currentdir)
 
 iR = spdiag(1./(obs(1).RMSE.^2));
 
@@ -120,4 +132,5 @@ E3 = E2 * info2.A;
 %assert(rms(E3,full(Ef)) < 1e-5);
 rms(E3,full(Ef))
 rms (mean(E3,2), mean(full (Ef),2))
+
 

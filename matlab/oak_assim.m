@@ -4,28 +4,33 @@ fprintf(1,'Assimilation %d \n',n);
 Nens = size(E,2);
 
 if ~isa(obs,'DataSetInitFile')
+  
+  yo = obs(n).yo;
+  iR = spdiag(1./(obs(n).RMSE.^2));
+  
+  % extract observed values from ensemble
+  
+  for j=1:Nens
+    Hx = obs(n).H(E(:,j));
     
-    yo = obs(n).yo;
-    iR = spdiag(1./(obs(n).RMSE.^2));
-    
-    % extract observed values from ensemble
-    
-    for j=1:Nens
-        Hx = obs(n).H(E(:,j));
-        
-        if (j==1)
-            HE = zeros([numel(Hx) Nens]);
-        end
-        
-        HE(:,j) = Hx;
+    if (j==1)
+      HE = zeros([numel(Hx) Nens]);
     end
     
-    %keyboard
-    [inc,info] = ensemble_analysis(full(E),HE,yo,iR);
-    E(:,:) = E * info.A;
+    HE(:,j) = Hx;
+  end
+  
+  %keyboard
+  [inc,info] = ensemble_analysis(full(E),HE,yo,iR);
+  E(:,:) = E * info.A;
 else    
-    initfile = obs.filename;    
-    init = InitFile(initfile);
+  initfile = obs.filename;       
+  init = InitFile(initfile);
+  
+  
+  if get(init,'Config.coupling',1) == 1
+    % coupling with shell
+    
     masks = mask(E);
     
     % forecast ensemble
@@ -49,10 +54,18 @@ else
     exec = get(init,'Config.exec');
     
     job = submit(scheduler,{exec,...
-            initfile,n},'name',sprintf('analysis%03g',n));
+                        initfile,n},'name',sprintf('analysis%03g',n));
     wait(scheduler,job)
     
     %syscmd('%s %s %d',exec,initfile,n);
     
     E = Ea;
+  else
+    % coupling with mex
+
+    oak_init(initfile);
+    [E] = oak_analysis(n,full(E));
+    oak_done();
+  end
+  
 end
