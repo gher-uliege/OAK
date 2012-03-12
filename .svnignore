@@ -1,0 +1,7 @@
+config.mk
+*.mod
+assim-gfortran-*
+assim-pgi-*
+assim-ifort-*
+assim-xlf-*
+assim-f90-*
