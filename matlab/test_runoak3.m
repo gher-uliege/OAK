@@ -7,7 +7,8 @@ mkdir(testdir)
 
 
 init = InitFile(initfile);
-[Eic,E,model, fun, obs, Eforcing, t0, data, h ] = oak_create_test(testdir,initfile);
+[Eic, model, fun, obs, Eforcing, t0, data, h ] = oak_create_test(testdir,initfile);
+E = full(Eic);
 
 Nens = size(Eic,2);
 

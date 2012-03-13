@@ -1,5 +1,4 @@
-%function [Eic,time] = oak_create_test(testdir,initfile)
-function [Eic,E,model, fun,obs, Eforcing, t0, data, h ] = oak_create_test(testdir,initfile)
+function [Eic, model, fun,obs, Eforcing, t0, data, h ] = oak_create_test(testdir,initfile)
 
 mkdir(fullfile(testdir,'Common'));
 mkdir(fullfile(testdir,'Obs'));

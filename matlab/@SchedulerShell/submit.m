@@ -14,9 +14,8 @@ end
 cmd = '';
 
 for i = 1:length(args)
-    cmd = [cmd ' ' num2str(args{i})];
+    cmd = [cmd ' ' num2str(args{i}) ' ' ];
 end
-
 
 cmd = [cmd ' >> ' name '.out & echo $!'];
 disp(cmd);
@@ -26,7 +25,8 @@ if status ~= 0
     error(['command "' cmd '" failed ']);
 end
 
-job.pid = str2double(out);
+% str2num (instead of str2double) is necessary for octave
+job.pid = str2num(out);
 
 if isempty(job.pid)
     error(['no pid returned from  "' cmd '"']);
