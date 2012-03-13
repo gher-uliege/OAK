@@ -326,7 +326,7 @@ contains
   real :: alpha
   integer :: j,k,kp
 
-
+  yi = xi
   k = -1
 
   do kp = 1,size(x)-1

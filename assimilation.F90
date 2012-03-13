@@ -1756,6 +1756,8 @@ contains
  !_______________________________________________________
  !
  ! index includes only sea points
+ ! Fix me:
+ ! make it work for distributed and permuted vectors
 
  subroutine ind2sub(ML,index,v,i,j,k)
   implicit none
@@ -1763,6 +1765,12 @@ contains
   integer, intent(in) :: index
   integer, intent(out) :: v,i,j,k
   integer :: linindex
+
+
+  if (ML%permute) then
+    write(stderr,*) 'ind2sub: not implemented '
+  end if
+
   linindex = ML%invindex(index)
 
   do v=1,ML%nvar
@@ -2912,6 +2920,7 @@ end function
   !
 
   call loadObservationOper(ntime,ObsML,H,Hshift,invsqrtR)
+  scaling = sqrt(real(size(Sf,2)) - ASSIM_SCALING)
 
 
   if (present(xfp)) then
@@ -2934,13 +2943,17 @@ end function
       HSf(:,k) = obsoper(H,Sf(:,k)) + Hshift
     end do
 
+    ! anamorphosis transform
+    do k=1,size(Sf,2)
+      call anamtransform(.true.,ModML,Sf(:,k))
+    end do
+
     xf = sum(Sf,2)/size(Sf,2)
     Hxf = sum(HSf,2)/size(Sf,2)
-    scaling = 1./sqrt(real(size(Sf,2)) - ASSIM_SCALING)
 
     do k=1,size(Sf,2)      
-       Sf(:,k) = scaling * (Sf(:,k)-xf)
-       HSf(:,k) = scaling * (HSf(:,k)-Hxf)
+       Sf(:,k) = (Sf(:,k)-xf)/scaling
+       HSf(:,k) = (HSf(:,k)-Hxf)/scaling
     end do
   end if
 
@@ -3030,11 +3043,6 @@ end function
 
     end if
 
-    !      call analysis_sparseR2(xf,Hxf,yo,Sf,HSf,invsqrtR,C, xa,Sa)
-
-!$omp master
-
-
    ! saturate correction
 
     write(stdlog,*) 'max Correction reached ', & 
@@ -3043,11 +3051,42 @@ end function
     where (xa-maxCorrection.gt.xf) xa=xf+maxCorrection
     where (xa.lt.xf-maxCorrection) xa=xf-maxCorrection
 
-    Hxa = obsoper(H,xa) + Hshift
 
-    do k=1,size(Sf,2)
-      HSa(:,k) = obsoper(H,Sa(:,k))
+    ! error modes to ensemble
+    ! Sa, HSa represent an ensemble
+
+    do k=1,size(Sa,2)
+      Sa(:,k) = xa + Sa(:,k) * scaling
     end do
+
+    ! inverse anamorphosis transform
+    do k=1,size(Sa,2)
+      call anamtransform(.false.,ModML,Sa(:,k))
+    end do
+
+    ! extract observed part
+    do k=1,size(Sf,2)
+      HSa(:,k) = obsoper(H,Sa(:,k)) + Hshift
+    end do
+
+    xa = sum(Sa,2)/size(Sa,2)
+    Hxa = sum(HSa,2)/size(Sa,2)
+
+    ! ensemble to error modes
+
+    xa = sum(Sa,2)/size(Sa,2)
+
+    do k=1,size(Sa,2)
+       Sa(:,k) = (Sa(:,k)-xa)/scaling
+    end do
+
+
+    !      call analysis_sparseR2(xf,Hxf,yo,Sf,HSf,invsqrtR,C, xa,Sa)
+
+!$omp master
+
+
+
 
     yo_Hxa = yo-Hxa
 
@@ -4044,11 +4083,56 @@ subroutine ensAnalysisAnamorph2(yo,Ef,HEf,invsqrtR,  &
 
  subroutine anamtransform(foreward,ML,x)
   use anamorphosis
- implicit none
- logical, intent(in) :: foreward
- real, intent(inout) :: x(:)
- type(MemLayout) :: ML
- 
+  implicit none
+  logical, intent(in) :: foreward
+  real, intent(inout) :: x(:)
+  type(MemLayout) :: ML
+
+  real, pointer :: tx(:),ty(:)
+  integer :: v,i,j,k,l,nout=0
+  logical :: out
+
+  if (.not.associated(AnamTrans%anam)) then
+    ! do nothing
+    return
+  end if
+
+  ! loop over all elements
+  do l=1,size(x)    
+    ! get variable index v for element l
+    call ind2sub(ML,l,v,i,j,k)
+
+    if (AnamTrans%anam(v)%type == 2) then
+      if (foreward) then
+        x(l) = log(x(l))
+      else
+        x(l) = exp(x(l))
+      end if
+    elseif (AnamTrans%anam(v)%type == 3) then
+      if (foreward) then
+        tx => AnamTrans%anam(v)%x
+        ty => AnamTrans%anam(v)%y
+      else
+        tx => AnamTrans%anam(v)%y
+        ty => AnamTrans%anam(v)%x
+      end if
+
+      x(l) = interp1(tx,ty,x(l),out)
+
+      if (out) then
+        nout = nout + 1
+        if (x(l) < tx(1)) then
+          x(l) = tx(1)
+        else
+          x(l) = tx(size(tx))
+        end if
+      end if
+    end if
+  end do
+
+  if (nout > 0) then
+    write(stddebug,*) 'Warning: anamorphosis extrapolated ',nout,' times '
+  end if
 end subroutine anamtransform
 
 

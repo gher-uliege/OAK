@@ -6,15 +6,15 @@
 
 
 #Config.exec = '~/Assim/OAK/assim-gfortran-single'
-#Config.exec = '~/Assim/OAK/assim-gfortran-single-debug'
+Config.exec = '~/Assim/OAK/assim-gfortran-single-debug'
 #Config.exec = '~/Assim/OAK/assim-gfortran-double'
-Config.exec = '~/Assim/OAK/assim-gfortran-double-debug'
+#Config.exec = '~/Assim/OAK/assim-gfortran-double-debug'
 #Config.calendar = 'standard'
 #Config.time_origin  = '0001-01-01T00:00:00'
 # coupling 
 # 1: shell (default)
 # 2: mex (experimental)
-Config.coupling = 2;
+Config.coupling = 1
 
 
 

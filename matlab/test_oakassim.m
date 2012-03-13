@@ -2,7 +2,8 @@
 currentdir = pwd;
 initfile = fullfile(currentdir,'test_assim.init');
 
-testdir = tempname;
+testdir = '/tmp/tp8de9918a_1a20_4ecb_9abd_f5829d1e02b0';
+%testdir = tempname;
 mkdir(testdir)
 cd(testdir)
 
@@ -126,9 +127,13 @@ rms (mean(E2,2), mean(full (Ef),2))
 rms(E2,full(Ef))
 
 
+if 0
 addpath /home/abarth/Assim/OAK/Mex/
 
 oak_init('test_assim.init')
 [E3] = oak_analysis(1,E);
 
 rms(E2,E3)
+end
+
+cd(currentdir)
