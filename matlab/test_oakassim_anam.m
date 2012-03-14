@@ -5,7 +5,6 @@ initfile = fullfile(currentdir,'test_assim_anam.init');
 testdir = tempname;
 testdir = '/tmp/oak-temp';
 
-%load /home/abarth/tmp/TAvrAssim/seed.mat state
 randn('state',0)
 
 [t0,data,model,Eic,Eforcing, obs, fun, h] = oak_create_test(testdir,initfile);
