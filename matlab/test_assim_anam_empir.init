@@ -37,6 +37,7 @@ ErrorSpace.type      = 2
 anamorphosistype = 0
 Anamorphosis.x = ['anam.nc#var1','_id']
 Anamorphosis.y = ['anam.nc#trans_var1','_id']
+Anamorphosis.transform = ['anam.nc#trans','_id']
 Anamorphosis.path = './';
 
 # runtype = integer: possible values of runtype are:

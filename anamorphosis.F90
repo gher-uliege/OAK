@@ -52,6 +52,7 @@ module anamorphosis
    integer :: type
    real, pointer :: x(:)
    real, pointer :: y(:)
+   real, pointer :: transform(:,:)
  end type AnamTransVar
 
  type AnamorphosisTrans
@@ -67,7 +68,7 @@ contains
   use initfile
   implicit none
   character(len=*) :: initfname
-  character(len=maxLen), pointer :: xname(:), yname(:)
+  character(len=maxLen), pointer :: xname(:), yname(:), transname(:)
   integer :: i
   real :: valex
   character(len=30) :: infoformat = '(A50,2E14.5)'
@@ -85,6 +86,7 @@ contains
   call getInitValue(initfname,'Anamorphosis.path',path,default='')
   call getInitValue(initfname,'Anamorphosis.x',xname)
   call getInitValue(initfname,'Anamorphosis.y',yname)
+  call getInitValue(initfname,'Anamorphosis.transform',transname)
 
   allocate(AnamTrans%anam(size(xname)))
 
@@ -100,6 +102,7 @@ contains
       AnamTrans%anam(i)%type = 3
       call uload(trim(path)//xname(i),AnamTrans%anam(i)%x,valex)
       call uload(trim(path)//yname(i),AnamTrans%anam(i)%y,valex)
+      call uload(trim(path)//transname(i),AnamTrans%anam(i)%transform,valex)
 
 #ifdef DEBUG
       write(stddebug,'(A50,A14,A14)') 'loaded variable','min','max'
@@ -107,6 +110,11 @@ contains
            minval(AnamTrans%anam(i)%x),maxval(AnamTrans%anam(i)%x)
       write(stddebug,infoformat) trim(path)//trim(yname(i)),       &
            minval(AnamTrans%anam(i)%y),maxval(AnamTrans%anam(i)%y)
+
+      write(stddebug,infoformat) trim(path)//trim(transname(i)),       &
+           minval(AnamTrans%anam(i)%transform(:,1)),maxval(AnamTrans%anam(i)%transform(:,1))
+      write(stddebug,infoformat) trim(path)//trim(yname(i)),       &
+           minval(AnamTrans%anam(i)%transform(:,2)),maxval(AnamTrans%anam(i)%transform(:,2))
 #endif
 
 

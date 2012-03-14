@@ -4116,13 +4116,23 @@ subroutine ensAnalysisAnamorph2(yo,Ef,HEf,invsqrtR,  &
       if (foreward) then
         tx => AnamTrans%anam(v)%x
         ty => AnamTrans%anam(v)%y
+
+        x(l) = interp1(&
+             AnamTrans%anam(v)%transform(:,1), &
+             AnamTrans%anam(v)%transform(:,2), &
+             x(l),out)
       else
         tx => AnamTrans%anam(v)%y
         ty => AnamTrans%anam(v)%x
+
+        x(l) = interp1(&
+             AnamTrans%anam(v)%transform(:,2), &
+             AnamTrans%anam(v)%transform(:,1), &
+             x(l),out)
       end if
 
       !write(0,*) 'before ',x(l),tx,ty
-      x(l) = interp1(tx,ty,x(l),out)
+      !x(l) = interp1(tx,ty,x(l),out)
       !write(0,*) 'after ',x(l),out
 
       if (out) then
