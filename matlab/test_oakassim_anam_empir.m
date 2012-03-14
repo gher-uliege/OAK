@@ -1,6 +1,6 @@
 
 currentdir = pwd;
-initfile = fullfile(currentdir,'test_assim_anam.init');
+initfile = fullfile(currentdir,'test_assim_anam_empir.init');
 
 testdir = tempname;
 testdir = '/tmp/oak-temp';
@@ -10,11 +10,31 @@ randn('state',0)
 
 [t0,data,model,Eic,Eforcing, obs, fun, h] = oak_create_test(testdir,initfile);
 
-ax = [-1e10 -1 1 1e10];
-ay = [-1e7 -2 2 1e7];
+
+%% set up anamorphosis
+ax = [-1e3 -1 1 1e3];
+ay = [-1e4 -2 2 1e4];
+
+init = InitFile(initfile);
+xname = get(init,'Anamorphosis.x');
+yname = get(init,'Anamorphosis.y');
+path = get(init,'Anamorphosis.path');
+path = fullfile(testdir,path);
+
+
+gwrite(fullfile(path,xname{1}),ax);
+gwrite(fullfile(path,yname{1}),ay);
+
+
+fanam = @(x) interp1(ax,ay,x);
+fianam = @(y) interp1(ay,ax,y);
+
+%fanam = @(x) log(x);
+%fianam = @(y) exp(y);
+
 
 E = full(Eic);
-Eic(:,:) = [exp(E(1:150,:)); E(1:150,:)];
+Eic(:,:) = [fianam(E(1:150,:)); E(1:150,:)];
 
 scheduler = SchedulerShell();
 
@@ -46,10 +66,10 @@ for i=1:size(E,2)
   HE(:,i) = h(E(:,i));
 end
 
-E(1:150,:) = log(E(1:150,:));
+E(1:150,:) = fanam(E(1:150,:));
 [inc,info1] = ensemble_analysis(E,HE,obs(1).yo,iR);
 E2 = E * info1.A;
-E2(1:150,:) = exp(E2(1:150,:));
+E2(1:150,:) = fianam(E2(1:150,:));
 
 %assert(rms(E2,full(Ef)) < 1e-5);
 

@@ -6,7 +6,7 @@ testdir = tempname;
 
 
 init = InitFile(initfile);
-[Eic, model, fun, obs, Eforcing, t0, data, h ] = oak_create_test(testdir,initfile);
+[t0,data,model,Eic,Eforcing, obs, fun, h ] = oak_create_test(testdir,initfile);
 E = full(Eic);
 
 Nens = size(Eic,2);

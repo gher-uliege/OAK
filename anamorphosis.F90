@@ -84,12 +84,9 @@ contains
 
   call getInitValue(initfname,'Anamorphosis.path',path,default='')
   call getInitValue(initfname,'Anamorphosis.x',xname)
-  call getInitValue(initfname,'Anamorphosis.x',yname)
+  call getInitValue(initfname,'Anamorphosis.y',yname)
 
   allocate(AnamTrans%anam(size(xname)))
-#ifdef DEBUG
-    write(stddebug,'(A50,A14,A14)') 'loaded variable','min','max'
-#endif
 
   do i=1,size(xname)
     if (xname(i) == '_id') then
@@ -100,11 +97,12 @@ contains
       AnamTrans%anam(i)%type = 2
     else
       write(stddebug,*) 'variable ',i,' custom '
-      AnamTrans%anam%type = 3
+      AnamTrans%anam(i)%type = 3
       call uload(trim(path)//xname(i),AnamTrans%anam(i)%x,valex)
       call uload(trim(path)//yname(i),AnamTrans%anam(i)%y,valex)
 
 #ifdef DEBUG
+      write(stddebug,'(A50,A14,A14)') 'loaded variable','min','max'
       write(stddebug,infoformat) trim(path)//trim(xname(i)),       &
            minval(AnamTrans%anam(i)%x),maxval(AnamTrans%anam(i)%x)
       write(stddebug,infoformat) trim(path)//trim(yname(i)),       &

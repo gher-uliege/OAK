@@ -3,10 +3,9 @@ currentdir = pwd;
 initfile = fullfile(currentdir,'test_assim.init');
 
 testdir = tempname;
-load /home/abarth/tmp/TAvrAssim/seed.mat state
-randn('state',state)
+randn('state',0)
 
-[Eic, model, fun, obs, Eforcing, t0, data, h ] = oak_create_test(testdir,initfile);
+[t0,data,model,Eic,Eforcing, obs, fun, h ] = oak_create_test(testdir,initfile);
 
 
 scheduler = SchedulerShell();

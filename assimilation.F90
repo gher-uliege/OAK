@@ -4097,7 +4097,7 @@ subroutine ensAnalysisAnamorph2(yo,Ef,HEf,invsqrtR,  &
     return
   end if
 
-  write(0,*) 'init ',x(1),foreward
+  write(0,*) 'init ',x(1),foreward,AnamTrans%anam(1)%type
 
   ! loop over all elements
   do l=1,size(x)    
@@ -4121,7 +4121,9 @@ subroutine ensAnalysisAnamorph2(yo,Ef,HEf,invsqrtR,  &
         ty => AnamTrans%anam(v)%x
       end if
 
+      !write(0,*) 'before ',x(l),tx,ty
       x(l) = interp1(tx,ty,x(l),out)
+      !write(0,*) 'after ',x(l),out
 
       if (out) then
         nout = nout + 1
