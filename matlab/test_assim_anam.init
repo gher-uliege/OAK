@@ -35,8 +35,7 @@ ErrorSpace.init      = ['("Ens",I3.3,"/model.nc#var1")','("Ens",I3.3,"/model.nc#
 ErrorSpace.type      = 2
 
 anamorphosistype = 0
-Anamorphosis.x = ['_log','_id']
-Anamorphosis.y = ['_log','_id']
+Anamorphosis.transform = ['_log','_id']
 
 
 # runtype = integer: possible values of runtype are:

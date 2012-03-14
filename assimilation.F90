@@ -4088,8 +4088,7 @@ subroutine ensAnalysisAnamorph2(yo,Ef,HEf,invsqrtR,  &
   real, intent(inout) :: x(:)
   type(MemLayout) :: ML
 
-  real, pointer :: tx(:),ty(:)
-  integer :: v,i,j,k,l,nout=0
+  integer :: v,i,j,k,l,nout=0, ti,tj
   logical :: out
 
   if (.not.associated(AnamTrans%anam)) then
@@ -4114,33 +4113,27 @@ subroutine ensAnalysisAnamorph2(yo,Ef,HEf,invsqrtR,  &
       end if
     elseif (AnamTrans%anam(v)%type == 3) then
       if (foreward) then
-        tx => AnamTrans%anam(v)%x
-        ty => AnamTrans%anam(v)%y
-
-        x(l) = interp1(&
-             AnamTrans%anam(v)%transform(:,1), &
-             AnamTrans%anam(v)%transform(:,2), &
-             x(l),out)
+        ti = 1
+        tj = 2
       else
-        tx => AnamTrans%anam(v)%y
-        ty => AnamTrans%anam(v)%x
-
-        x(l) = interp1(&
-             AnamTrans%anam(v)%transform(:,2), &
-             AnamTrans%anam(v)%transform(:,1), &
-             x(l),out)
+        ti = 2
+        tj = 1
       end if
 
       !write(0,*) 'before ',x(l),tx,ty
       !x(l) = interp1(tx,ty,x(l),out)
       !write(0,*) 'after ',x(l),out
+        x(l) = interp1(&
+             AnamTrans%anam(v)%transform(:,ti), &
+             AnamTrans%anam(v)%transform(:,tj), &
+             x(l),out)
 
       if (out) then
         nout = nout + 1
-        if (x(l) < tx(1)) then
-          x(l) = tx(1)
+        if (x(l) < AnamTrans%anam(v)%transform(1,ti)) then
+          x(l) = AnamTrans%anam(v)%transform(1,ti)
         else
-          x(l) = tx(size(tx))
+          x(l) = AnamTrans%anam(v)%transform(size(AnamTrans%anam(v)%transform,1),ti)
         end if
       end if
     end if

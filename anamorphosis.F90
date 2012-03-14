@@ -50,8 +50,6 @@ module anamorphosis
    ! 3 = mapping x -> y
 
    integer :: type
-   real, pointer :: x(:)
-   real, pointer :: y(:)
    real, pointer :: transform(:,:)
  end type AnamTransVar
 
@@ -68,13 +66,13 @@ contains
   use initfile
   implicit none
   character(len=*) :: initfname
-  character(len=maxLen), pointer :: xname(:), yname(:), transname(:)
+  character(len=maxLen), pointer :: transname(:)
   integer :: i
   real :: valex
   character(len=30) :: infoformat = '(A50,2E14.5)'
   character(len=maxLen) :: path
 
-  if (.not.presentInitValue(initfname,'Anamorphosis.x')) then
+  if (.not.presentInitValue(initfname,'Anamorphosis.transform')) then
     write(stddebug,'("== no anamorphosis transform loaded ==")')    
     return
   end if
@@ -84,36 +82,31 @@ contains
 # endif
 
   call getInitValue(initfname,'Anamorphosis.path',path,default='')
-  call getInitValue(initfname,'Anamorphosis.x',xname)
-  call getInitValue(initfname,'Anamorphosis.y',yname)
   call getInitValue(initfname,'Anamorphosis.transform',transname)
 
-  allocate(AnamTrans%anam(size(xname)))
+  allocate(AnamTrans%anam(size(transname)))
 
-  do i=1,size(xname)
-    if (xname(i) == '_id') then
+  do i=1,size(transname)
+    if (transname(i) == '_id') then
       AnamTrans%anam(i)%type = 1
       write(stddebug,*) 'variable ',i,' id '
-    elseif (xname(i) == '_log') then
+    elseif (transname(i) == '_log') then
       write(stddebug,*) 'variable ',i,' log '
       AnamTrans%anam(i)%type = 2
     else
       write(stddebug,*) 'variable ',i,' custom '
       AnamTrans%anam(i)%type = 3
-      call uload(trim(path)//xname(i),AnamTrans%anam(i)%x,valex)
-      call uload(trim(path)//yname(i),AnamTrans%anam(i)%y,valex)
       call uload(trim(path)//transname(i),AnamTrans%anam(i)%transform,valex)
 
-#ifdef DEBUG
-      write(stddebug,'(A50,A14,A14)') 'loaded variable','min','max'
-      write(stddebug,infoformat) trim(path)//trim(xname(i)),       &
-           minval(AnamTrans%anam(i)%x),maxval(AnamTrans%anam(i)%x)
-      write(stddebug,infoformat) trim(path)//trim(yname(i)),       &
-           minval(AnamTrans%anam(i)%y),maxval(AnamTrans%anam(i)%y)
+      if (size(AnamTrans%anam(i)%transform,2) /= 2) then
+        write(stderr,*) 'Array ',trim(path)//transname(i),' should have two columns. However it has ',size(AnamTrans%anam(i)%transform,2)
+        ERROR_STOP
+      end if
 
+#ifdef DEBUG
       write(stddebug,infoformat) trim(path)//trim(transname(i)),       &
            minval(AnamTrans%anam(i)%transform(:,1)),maxval(AnamTrans%anam(i)%transform(:,1))
-      write(stddebug,infoformat) trim(path)//trim(yname(i)),       &
+      write(stddebug,infoformat) trim(path)//trim(transname(i)),       &
            minval(AnamTrans%anam(i)%transform(:,2)),maxval(AnamTrans%anam(i)%transform(:,2))
 #endif
 
@@ -121,7 +114,7 @@ contains
     end if      
   end do
 
-  deallocate(xname,yname)
+  deallocate(transname)
  end subroutine initAnamorphosis
 
 

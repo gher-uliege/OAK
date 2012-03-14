@@ -16,8 +16,6 @@ ax = [-1e3 -1 1 1e3];
 ay = [-1e4 -2 2 1e4];
 
 init = InitFile(initfile);
-xname = get(init,'Anamorphosis.x');
-yname = get(init,'Anamorphosis.y');
 transname = get(init,'Anamorphosis.transform');
 path = get(init,'Anamorphosis.path');
 path = fullfile(testdir,path);
