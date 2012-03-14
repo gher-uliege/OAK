@@ -10,9 +10,6 @@ randn('state',0)
 
 [t0,data,model,Eic,Eforcing, obs, fun, h] = oak_create_test(testdir,initfile);
 
-ax = [-1e10 -1 1 1e10];
-ay = [-1e7 -2 2 1e7];
-
 E = full(Eic);
 Eic(:,:) = [exp(E(1:150,:)); E(1:150,:)];
 
