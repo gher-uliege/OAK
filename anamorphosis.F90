@@ -73,7 +73,7 @@ contains
   character(len=30) :: infoformat = '(A50,2E14.5)'
   character(len=maxLen) :: path
 
-  if (.not.presentInitValue(initfname,'Anamorphosis.X')) then
+  if (.not.presentInitValue(initfname,'Anamorphosis.x')) then
     write(stddebug,'("== no anamorphosis transform loaded ==")')    
     return
   end if
@@ -83,8 +83,8 @@ contains
 # endif
 
   call getInitValue(initfname,'Anamorphosis.path',path,default='')
-  call getInitValue(initfname,'Anamorphosis.X',xname)
-  call getInitValue(initfname,'Anamorphosis.Y',yname)
+  call getInitValue(initfname,'Anamorphosis.x',xname)
+  call getInitValue(initfname,'Anamorphosis.x',yname)
 
   allocate(AnamTrans%anam(size(xname)))
 #ifdef DEBUG
@@ -93,10 +93,13 @@ contains
 
   do i=1,size(xname)
     if (xname(i) == '_id') then
-      AnamTrans%anam%type = 1
+      AnamTrans%anam(i)%type = 1
+      write(stddebug,*) 'variable ',i,' id '
     elseif (xname(i) == '_log') then
-      AnamTrans%anam%type = 2
+      write(stddebug,*) 'variable ',i,' log '
+      AnamTrans%anam(i)%type = 2
     else
+      write(stddebug,*) 'variable ',i,' custom '
       AnamTrans%anam%type = 3
       call uload(trim(path)//xname(i),AnamTrans%anam(i)%x,valex)
       call uload(trim(path)//yname(i),AnamTrans%anam(i)%y,valex)

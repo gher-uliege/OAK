@@ -3,7 +3,6 @@ currentdir = pwd;
 initfile = fullfile(currentdir,'test_assim.init');
 
 testdir = tempname;
-mkdir(testdir)
 
 
 init = InitFile(initfile);

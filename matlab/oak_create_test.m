@@ -1,5 +1,6 @@
 function [Eic, model, fun,obs, Eforcing, t0, data, h ] = oak_create_test(testdir,initfile)
 
+mkdir(testdir)
 mkdir(fullfile(testdir,'Common'));
 mkdir(fullfile(testdir,'Obs'));
 mkdir(fullfile(testdir,'Analysis001'));

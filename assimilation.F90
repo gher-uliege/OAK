@@ -4097,10 +4097,14 @@ subroutine ensAnalysisAnamorph2(yo,Ef,HEf,invsqrtR,  &
     return
   end if
 
+  write(0,*) 'init ',x(1),foreward
+
   ! loop over all elements
   do l=1,size(x)    
     ! get variable index v for element l
     call ind2sub(ML,l,v,i,j,k)
+
+    !write(0,*) 'init ',x(l),AnamTrans%anam(v)%type,foreward
 
     if (AnamTrans%anam(v)%type == 2) then
       if (foreward) then
@@ -4129,6 +4133,8 @@ subroutine ensAnalysisAnamorph2(yo,Ef,HEf,invsqrtR,  &
       end if
     end if
   end do
+
+  write(0,*) 'trans ',x(1)
 
   if (nout > 0) then
     write(stddebug,*) 'Warning: anamorphosis extrapolated ',nout,' times '
