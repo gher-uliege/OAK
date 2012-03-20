@@ -37,6 +37,8 @@ module InitFile
      module procedure presentInitValue
   end interface
 
+  character, parameter :: tab = char(9)
+
 !  integer :: stderr=6
 contains
 
@@ -61,6 +63,12 @@ logical used
   freeunit = unit
 end function
 
+  !--------------------------------------------------------------------
+
+  logical function iswhitespace(c)
+   character, intent(in) :: c
+   iswhitespace = c == ' ' .or. c == tab
+  end function iswhitespace
 
   !--------------------------------------------------------------------
 
@@ -74,7 +82,7 @@ end function
 
     ! eat blanks
 
-    do while (buffer(first_index:first_index).eq.' ')
+    do while (iswhitespace(buffer(first_index:first_index)))
        first_index = first_index + 1
 
        if (first_index.gt.len(buffer)) exit
@@ -130,7 +138,7 @@ end function
                (buffer(last_index+1:last_index+1).ne.',').and. &
                (buffer(last_index+1:last_index+1).ne.';').and. &
                (buffer(last_index+1:last_index+1).ne.']').and. &
-               (buffer(last_index+1:last_index+1).ne.' '))         
+               (.not.iswhitespace(buffer(last_index+1:last_index+1))))
              last_index = last_index + 1  
           enddo
        end select
