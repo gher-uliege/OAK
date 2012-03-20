@@ -1187,9 +1187,9 @@ contains
     call read_stream(iu,iprecr,nbmotr,nl,ir,tmp)
 
     if(imaxc.lt.0.or.jmaxc.lt.0.or.kmaxc.lt.0) then
-      imaxc  = -abs(extraction(2,1)-extraction(1,1)+1)
-      jmaxc  = -abs(extraction(2,2)-extraction(1,2)+1)
-      kmaxc  = -abs(extraction(2,3)-extraction(1,3)+1)
+      imaxr  = -abs(extraction(2,1)-extraction(1,1)+1)
+      jmaxr  = -abs(extraction(2,2)-extraction(1,2)+1)
+      kmaxr  = -abs(extraction(2,3)-extraction(1,3)+1)
       c(1) = tmp(1) + sum(tmp(2:4)*(extraction(1,1:3)-1))
       c(2:3) = tmp(2:3)
     else
