@@ -1385,7 +1385,7 @@ contains
   integer, allocatable :: Hindex(:,:)
   real, allocatable :: Hcoeff(:)
 
-  call uload(trim(path)//filename,Hop,valex)
+  call uload(trim(path)//filename,Hop,valex,check_vshape=[9,-1])
 
   allocate(Hcoeff(size(Hop,2)),Hindex(8,size(Hop,2)))
 
@@ -2082,7 +2082,7 @@ contains
 #ifdef DEBUG
     write(stddebug,*) 'Load observation correlation: ',trim(str)
 #endif
-    call uload(trim(path)//str,Cop,valex)
+    call uload(trim(path)//str,Cop,valex,check_vshape=[9,-1])
     allocate(Ccoeff(size(Cop,2)),Cindex(8,size(Cop,2)))
     Cindex = Cop(1:8,:)
     Ccoeff = Cop(9,:)
@@ -2182,9 +2182,7 @@ contains
 #ifdef DEBUG
     write(stddebug,*) 'Load observation operator: ',trim(str)
 #endif
-    call uload(trim(path)//str,Hop,valex)
-    call checkObs(Hop,trim(path)//str)
-
+    call uload(trim(path)//str,Hop,valex,check_vshape=[9,-1])
     
     allocate(Hcoeff(size(Hop,2)),Hindex(8,size(Hop,2)))
     do j=1,size(Hop,2)
@@ -2214,8 +2212,7 @@ contains
     nz=1
 
     do m=1,ObsML%nvar
-      call uload(trim(path)//filenames(m),Hop,valex)
-      call checkObs(Hop,trim(path)//filenames(m))
+      call uload(trim(path)//filenames(m),Hop,valex,check_vshape=[9,-1])
 
       do i=1,size(Hop,2)
         Hindex(1,nz) = m
@@ -2292,20 +2289,6 @@ contains
   call writeInfoSparseMatrix(stddebug,H)
   call flush(stddebug,istat)
 #endif
-
- contains
-
-  subroutine checkObs(Hop,str)
-   implicit none
-   real                  :: Hop(:,:)
-   character(len=maxLen) :: str
-
-   if (size(Hop,1) /= 9) then
-      write(stderr,*) 'Error: the observations operator should always have 9 rows (',trim(str), &
-           '). However ',size(Hop,1),' rows are found.'
-      ERROR_STOP
-    end if
-  end subroutine checkObs
  end subroutine loadObservationOper
 
  !_______________________________________________________

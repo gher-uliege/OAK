@@ -96,7 +96,7 @@ contains
     else
       write(stddebug,*) 'variable ',i,' custom '
       AnamTrans%anam(i)%type = 3
-      call uload(trim(path)//transname(i),AnamTrans%anam(i)%transform,valex)
+      call uload(trim(path)//transname(i),AnamTrans%anam(i)%transform,valex,check_vshape=[-1,2])
 
       if (size(AnamTrans%anam(i)%transform,2) /= 2) then
         write(stderr,*) 'Array ',trim(path)//transname(i),' should have two columns. However it has ',size(AnamTrans%anam(i)%transform,2)
@@ -122,29 +122,6 @@ contains
   implicit none
   deallocate(AnamTrans%anam)
  end subroutine doneAnamorphosis
-
- subroutine initAnamorphosis_old(initfname)
-  use ufileformat
-  use initfile
-  implicit none
-  character(len=*) :: initfname
-  character(len=256) :: str
-  real :: valex
-
-  call getInitValue(initfname,'Anamorphosis.X',str)
-#ifdef DEBUG
-  write(stddebug,*) 'load Anamorphosis.X',str
-#endif
-  call uload(str,anamorphosisx,valex)
-
-  call getInitValue(initfname,'Anamorphosis.Y',str)
-#ifdef DEBUG
-  write(stddebug,*) 'load Anamorphosis.Y',str
-#endif
-  call uload(str,anamorphosisy,valex)
-
- end subroutine 
-
 
  subroutine TStransform(mask,z,T,S,X,Y)
   implicit none

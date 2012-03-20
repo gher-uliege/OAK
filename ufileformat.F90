@@ -456,12 +456,13 @@ contains
  !
 
 
- subroutine uinquire_new(filename,valex,prec,ndim,vshape,isdegen)
+ subroutine uinquire_new(filename,valex,prec,ndim,vshape,isdegen,check_vshape)
   implicit none
   character(len=*), intent(in) :: filename
   integer, intent(out), optional  :: prec, ndim, vshape(*)
   real, intent(out), optional  :: valex
   logical, intent(out), optional :: isdegen
+  integer, intent( in), optional  :: check_vshape(:)
 
   integer  :: precc,ndimc,vshapec(MaxDimensions)=1
   real  :: valexc
@@ -490,6 +491,17 @@ contains
   if (present(valex))    valex = valexc
   if (present(isdegen))  isdegen = isdegenc
 
+  if (present(check_vshape)) then
+    if (any(vshapec(1:size(check_vshape)) /= check_vshape &
+         .and. check_vshape /= -1 )) then
+      write(stderr,*) 'Error while reading "',trim(filename),'".'
+      write(stderr,*) 'Expecting size ',check_vshape,' while size ',vshape(1:ndim),' found '
+      write(stderr,*) '(-1 means here any size)'
+
+      ERROR_STOP        
+    end if
+
+  end if
   !write(stdout,*) 'imaxc,jmaxc,kmaxc ',imaxc,jmaxc,kmaxc
 
  end subroutine uinquire_new
@@ -1593,11 +1605,12 @@ contains
  !____________________________________________________________________
  !
 
- subroutine uload_Real1D(filename,c,valex)
+ subroutine uload_Real1D(filename,c,valex,check_vshape)
   implicit none
   character(len=*), intent(in) :: filename
   real, pointer  :: c(:)
   real, intent(out), optional :: valex
+  integer, intent( in), optional  :: check_vshape(1)
 
   character(len=len(filename)) :: tmpname
   integer  :: prec,ndim,vshape(MaxDimensions)=1
@@ -1605,7 +1618,7 @@ contains
   logical :: isdegen
 
   call gunzipFile(filename,tmpname)
-  call uinquire(tmpname,valexc,prec,ndim,vshape,isdegen)
+  call uinquire(tmpname,valexc,prec,ndim,vshape,isdegen,check_vshape)
 
   if (isdegen) then
     write(stderr,*) 'uload_Real1D: Error: "',trim(filename),'" is degenerated'
@@ -1622,11 +1635,12 @@ contains
  !____________________________________________________________________
  !
 
- subroutine uload_Real2D(filename,c,valex)
+ subroutine uload_Real2D(filename,c,valex,check_vshape)
   implicit none
   character(len=*), intent(in) :: filename
-  real, pointer  :: c(:,:)
-  real, intent(out), optional :: valex
+  real, pointer                :: c(:,:)
+  real,    intent(out), optional :: valex
+  integer, intent( in), optional  :: check_vshape(2)
 
   character(len=len(filename)) :: tmpname
   integer  :: prec,ndim,vshape(MaxDimensions)=1
@@ -1634,7 +1648,7 @@ contains
   logical :: isdegen
 
   call gunzipFile(filename,tmpname)
-  call uinquire(tmpname,valexc,prec,ndim,vshape,isdegen)
+  call uinquire(tmpname,valexc,prec,ndim,vshape,isdegen,check_vshape)
 
   if (isdegen) then
     write(stderr,*) 'uload_Real2D: Error: "',trim(filename),'" is degenerated'
@@ -1665,19 +1679,11 @@ contains
 
   vshape=1
   call gunzipFile(filename,tmpname)
-  call uinquire(tmpname,valexc,prec,ndim,vshape,isdegen)
+  call uinquire(tmpname,valexc,prec,ndim,vshape,isdegen,check_vshape)
 
   ! flatten all dimensions beyond the 3rd dimension
   vshape(3) = product(vshape(3:ndim))
   vshape(4:) = 1
-
-  if (present(check_vshape)) then
-    if (any(vshape(1:3) /= check_vshape)) then
-      write(stderr,*) 'Error while reading "',trim(filename),'".'
-      write(stderr,*) 'Expecting size ',check_vshape,' while size ',vshape(1:ndim),' found '
-      ERROR_STOP        
-    end if
-  end if
 
   allocate(c(vshape(1),vshape(2),vshape(3)))
   call uread(tmpname,c,valexc)
@@ -1692,11 +1698,12 @@ contains
  !____________________________________________________________________
  !
 
- subroutine uload_Real4D(filename,c,valex)
+ subroutine uload_Real4D(filename,c,valex,check_vshape)
   implicit none
   character(len=*), intent(in) :: filename
   real, pointer  :: c(:,:,:,:)
   real, intent(out), optional :: valex
+  integer, intent(in), optional  :: check_vshape(4)
 
   character(len=len(filename)) :: tmpname
   integer  :: prec,ndim,vshape(MaxDimensions)
@@ -1705,7 +1712,7 @@ contains
 
   vshape=1
   call gunzipFile(filename,tmpname)
-  call uinquire(tmpname,valexc,prec,ndim,vshape,isdegen)
+  call uinquire(tmpname,valexc,prec,ndim,vshape,isdegen,check_vshape)
 
   !  if (isdegen) then
   !    write(stderr,*) 'uload_Real3D: Error: "',trim(filename),'" is degenerated'
@@ -1730,16 +1737,17 @@ contains
  !____________________________________________________________________
  !
 
- subroutine uload_Integer1D(filename,c,valex)
+ subroutine uload_Integer1D(filename,c,valex,check_vshape)
   implicit none
   character(len=*), intent(in) :: filename
   integer, pointer  :: c(:)
   integer, intent(out) :: valex
+  integer, intent(in), optional  :: check_vshape(1)
 
   real, pointer :: r(:)
   real :: valexr
 
-  call uload_Real1D(filename,r,valexr)
+  call uload_Real1D(filename,r,valexr,check_vshape)
   allocate(c(size(r,1)))
   c = floor(r+.5)
   valex = floor(valexr+.5)
@@ -1751,16 +1759,17 @@ contains
  !____________________________________________________________________
  !
 
- subroutine uload_Integer2D(filename,c,valex)
+ subroutine uload_Integer2D(filename,c,valex,check_vshape)
   implicit none
   character(len=*), intent(in) :: filename
   integer, pointer  :: c(:,:)
   integer, intent(out) :: valex
+  integer, intent(in), optional  :: check_vshape(2)
 
   real, pointer :: r(:,:)
   real :: valexr
 
-  call uload_Real2D(filename,r,valexr)
+  call uload_Real2D(filename,r,valexr,check_vshape)
   allocate(c(size(r,1),size(r,2)))
   c = floor(r+.5)
   valex = floor(valexr+.5)
@@ -1771,16 +1780,17 @@ contains
  !____________________________________________________________________
  !
 
- subroutine uload_Integer3D(filename,c,valex)
+ subroutine uload_Integer3D(filename,c,valex,check_vshape)
   implicit none
   character(len=*), intent(in) :: filename
   integer, pointer  :: c(:,:,:)
   integer, intent(out) :: valex
+  integer, intent(in), optional  :: check_vshape(3)
 
   real, pointer :: r(:,:,:)
   real :: valexr
 
-  call uload_Real3D(filename,r,valexr)
+  call uload_Real3D(filename,r,valexr,check_vshape)
   allocate(c(size(r,1),size(r,2),size(r,3)))
   c = floor(r+.5)
   valex = floor(valexr+.5)
