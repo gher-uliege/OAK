@@ -23,6 +23,7 @@
 include config.mk
 
 # default settings
+# If you need to adapt, OS and FORT, then make the corresponding changes in config.mk
 
 OS ?= Linux
 

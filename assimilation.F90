@@ -2183,6 +2183,9 @@ contains
     write(stddebug,*) 'Load observation operator: ',trim(str)
 #endif
     call uload(trim(path)//str,Hop,valex)
+    call checkObs(Hop,trim(path)//str)
+
+    
     allocate(Hcoeff(size(Hop,2)),Hindex(8,size(Hop,2)))
     do j=1,size(Hop,2)
       do i=1,8
@@ -2212,6 +2215,8 @@ contains
 
     do m=1,ObsML%nvar
       call uload(trim(path)//filenames(m),Hop,valex)
+      call checkObs(Hop,trim(path)//filenames(m))
+
       do i=1,size(Hop,2)
         Hindex(1,nz) = m
         Hindex(2:8,nz) = floor(Hop(2:8,i)+.5)
@@ -2288,6 +2293,19 @@ contains
   call flush(stddebug,istat)
 #endif
 
+ contains
+
+  subroutine checkObs(Hop,str)
+   implicit none
+   real                  :: Hop(:,:)
+   character(len=maxLen) :: str
+
+   if (size(Hop,1) /= 9) then
+      write(stderr,*) 'Error: the observations operator should always have 9 rows (',trim(str), &
+           '). However ',size(Hop,1),' rows are found.'
+      ERROR_STOP
+    end if
+  end subroutine checkObs
  end subroutine loadObservationOper
 
  !_______________________________________________________
@@ -4096,7 +4114,7 @@ subroutine ensAnalysisAnamorph2(yo,Ef,HEf,invsqrtR,  &
     return
   end if
 
-  write(0,*) 'init ',x(1),foreward,AnamTrans%anam(1)%type
+  !write(0,*) 'init ',x(1),foreward,AnamTrans%anam(1)%type
 
   ! loop over all elements
   do l=1,size(x)    
@@ -4120,13 +4138,10 @@ subroutine ensAnalysisAnamorph2(yo,Ef,HEf,invsqrtR,  &
         tj = 1
       end if
 
-      !write(0,*) 'before ',x(l),tx,ty
-      !x(l) = interp1(tx,ty,x(l),out)
-      !write(0,*) 'after ',x(l),out
-        x(l) = interp1(&
-             AnamTrans%anam(v)%transform(:,ti), &
-             AnamTrans%anam(v)%transform(:,tj), &
-             x(l),out)
+      x(l) = interp1(&
+           AnamTrans%anam(v)%transform(:,ti), &
+           AnamTrans%anam(v)%transform(:,tj), &
+           x(l),out)
 
       if (out) then
         nout = nout + 1
@@ -4139,7 +4154,7 @@ subroutine ensAnalysisAnamorph2(yo,Ef,HEf,invsqrtR,  &
     end if
   end do
 
-  write(0,*) 'trans ',x(1)
+  !write(0,*) 'trans ',x(1)
 
   if (nout > 0) then
     write(stddebug,*) 'Warning: anamorphosis extrapolated ',nout,' times '

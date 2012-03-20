@@ -412,7 +412,7 @@ general not normed. Orthogonality is not necessary.
 \code{ErrorSpace.path} & string &  The path is prepended to all file names
 specified in \code{ErrorSpace.*}. The current path is used by default.
 \\
-\code{ErrorSpace.space} & real &
+\code{ErrorSpace.scale} & real &
 Each error mode is multiplied by this real number. The default is 1.
 \\
 \code{ErrorSpace.spaceScale} & vector of strings &
@@ -509,8 +509,8 @@ observation operator.
 \subsubsubsection{Format of the observation operator}\label{format_oper}
 
 Only the non-zero elements of the observation operator are specified
-in the $9 \times n$ matrix where n is the number of non-zero
-elements. Each line has the following structure:
+in the $9 \times n$ matrix (in column-major order) where n is the number of non-zero
+elements. Each column has the following structure:
 
 \begin{tabular}{*{4}{|p{.085\textwidth}}|*{4}{|p{.085\textwidth}}||p{.08\textwidth} |}  
 \hline 

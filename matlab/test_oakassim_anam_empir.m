@@ -19,9 +19,6 @@ transname = get(init,'Anamorphosis.transform');
 path = get(init,'Anamorphosis.path');
 path = fullfile(testdir,path);
 
-
-gwrite(fullfile(path,xname{1}),ax);
-gwrite(fullfile(path,yname{1}),ay);
 gwrite(fullfile(path,transname{1}),[ax(:) ay(:)]);
 
 
