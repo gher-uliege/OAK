@@ -14,7 +14,7 @@ end
 cmd = '';
 
 for i = 1:length(args)
-    cmd = [cmd ' ' num2str(args{i}) ' ' ];
+    cmd = [cmd ' "' num2str(args{i}) '" ' ];
 end
 
 cmd = [cmd ' >> ' name '.out & echo $!'];
