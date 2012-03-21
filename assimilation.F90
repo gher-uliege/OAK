@@ -2944,6 +2944,12 @@ end function
       HSf(:,k) = obsoper(H,Sf(:,k)) + Hshift
     end do
 
+    if (presentInitValue(initfname,'Diag'//infix//'Ef')) & 
+      call saveEnsemble('Diag'//infix//'Ef',ModMLParallel,Sf)
+
+    if (presentInitValue(initfname,'Diag'//infix//'HEf')) & 
+      call saveEnsemble('Diag'//infix//'HEf',ObsML,HSf)
+
     ! anamorphosis transform
     do k=1,size(Sf,2)
       call anamtransform(.true.,ModML,Sf(:,k))
@@ -2958,8 +2964,7 @@ end function
     end do
   end if
 
-
-  write (6,*) 'sum HSf ',sum(HSf)
+  ! now Sf,HSf are always error modes
 
   yo_Hxf = yo-Hxf
   innov_amplitudes = inv(HSf.tx.HSf).x.(HSf.tx.yo_Hxf)
@@ -2988,13 +2993,14 @@ end function
     allocate(obsGridX(ObsML%effsize),obsGridY(ObsML%effsize),locAmplitudes(size(Sf,2),size(zoneSize)))
     call loadVector('Obs'//infix//'gridX',ObsML,obsGridX)
     call loadVector('Obs'//infix//'gridY',ObsML,obsGridY)
-
   end if
 
 !$omp end master
 !$omp barrier
 
+  write(6,*) 'Sf ',Sf(1:10,3),yo_Hxf
 
+   call preassimdiag()
 
   if (runtype.ne.AssimRun) then
 !$omp master
@@ -3052,35 +3058,44 @@ end function
     where (xa-maxCorrection.gt.xf) xa=xf+maxCorrection
     where (xa.lt.xf-maxCorrection) xa=xf-maxCorrection
 
+    write(6,*) 'Sa ',Sa(1:10,3),xa(1:10)
 
-    ! error modes to ensemble
-    ! Sa, HSa represent an ensemble
+    if (.not.present(xfp)) then
+      ! error modes to ensemble
+      ! Sa, HSa represent an ensemble
 
-    do k=1,size(Sa,2)
-      Sa(:,k) = xa + Sa(:,k) * scaling
-    end do
+      do k=1,size(Sa,2)
+        Sa(:,k) = xa + Sa(:,k) * scaling
+      end do
 
-    ! inverse anamorphosis transform
-    do k=1,size(Sa,2)
-      call anamtransform(.false.,ModML,Sa(:,k))
-    end do
+      ! inverse anamorphosis transform
+      do k=1,size(Sa,2)
+        call anamtransform(.false.,ModML,Sa(:,k))
+      end do
 
-    ! extract observed part
-    do k=1,size(Sf,2)
-      HSa(:,k) = obsoper(H,Sa(:,k)) + Hshift
-    end do
+      ! extract observed part
+      do k=1,size(Sf,2)
+        HSa(:,k) = obsoper(H,Sa(:,k)) + Hshift
+      end do
 
-    xa = sum(Sa,2)/size(Sa,2)
-    Hxa = sum(HSa,2)/size(Sa,2)
+      if (presentInitValue(initfname,'Diag'//infix//'Ea')) & 
+           call saveEnsemble('Diag'//infix//'Ea',ModMLParallel,Sa)
 
-    ! ensemble to error modes
+      if (presentInitValue(initfname,'Diag'//infix//'HEa')) & 
+           call saveEnsemble('Diag'//infix//'HEa',ObsML,HSa)
 
-    xa = sum(Sa,2)/size(Sa,2)
 
-    do k=1,size(Sa,2)
-       Sa(:,k) = (Sa(:,k)-xa)/scaling
-    end do
+      xa = sum(Sa,2)/size(Sa,2)
+      Hxa = sum(HSa,2)/size(Sa,2)
 
+      ! ensemble to error modes
+
+      xa = sum(Sa,2)/size(Sa,2)
+
+      do k=1,size(Sa,2)
+        Sa(:,k) = (Sa(:,k)-xa)/scaling
+      end do
+    end if
 
     !      call analysis_sparseR2(xf,Hxf,yo,Sf,HSf,invsqrtR,C, xa,Sa)
 
@@ -3162,6 +3177,59 @@ end function
 
   contains 
 
+
+   ! diagnostics for the analysis step
+   subroutine preassimdiag()
+    implicit none
+
+    if (presentInitValue(initfname,'Diag'//infix//'xf')) &
+         call saveVector('Diag'//infix//'xf',ModMLParallel,xf)
+
+    if (presentInitValue(initfname,'Diag'//infix//'test')) &
+         call saveVector('Diag'//infix//'test',ModMLParallel,Sf(:,2))
+
+    if (presentInitValue(initfname,'Diag'//infix//'Hxf')) &
+         call saveVector('Diag'//infix//'Hxf',ObsML,Hxf,invsqrtR.ne.0.)
+
+    if (presentInitValue(initfname,'Diag'//infix//'yo')) &
+         call saveVector('Diag'//infix//'yo',ObsML,yo,invsqrtR.ne.0.)
+
+    if (presentInitValue(initfname,'Diag'//infix//'yo-Hxf')) &
+         call saveVector('Diag'//infix//'yo-Hxf',ObsML,yo_Hxf,invsqrtR.ne.0.)
+
+    if (presentInitValue(initfname,'Diag'//infix//'Sf')) &
+         call saveErrorSpace('Diag'//infix//'Sf',Sf)
+
+    if (presentInitValue(initfname,'Diag'//infix//'diagHPfHT')) & 
+         call saveVector('Diag'//infix//'diagHPfHT',ObsML,stddev(HSf),invsqrtR.ne.0.)
+
+    if (presentInitValue(initfname,'Diag'//infix//'stddevHxf')) &
+         call saveVector('Diag'//infix//'stddevHxf',ObsML,stddev(HSf),invsqrtR.ne.0.)
+
+    if (presentInitValue(initfname,'Diag'//infix//'diagPf')) &
+         call saveVector('Diag'//infix//'diagPf',ModMLParallel,stddev(Sf))
+
+    if (presentInitValue(initfname,'Diag'//infix//'stddevxf')) &
+         call saveVector('Diag'//infix//'stddevxf',ModMLParallel,stddev(Sf))
+
+    if (presentInitValue(initfname,'Diag'//infix//'invsqrtR'))  &
+         call saveVector('Diag'//infix//'invsqrtR',ObsML,invsqrtR)
+
+    if (presentInitValue(initfname,'Diag'//infix//'innov_amplitudes')) then
+      call getInitValue(initfname,'Diag'//infix//'path',path)
+      call getInitValue(initfname,'Diag'//infix//'innov_amplitudes',str)
+      call usave(trim(path)//str,innov_amplitudes,9999.)
+    end if
+
+    if (presentInitValue(initfname,'Diag'//infix//'innov_projection'))  &
+         call saveVector('Diag'//infix//'innov_projection',ObsML,innov_projection,invsqrtR.ne.0)
+
+    if (presentInitValue(initfname,'Diag'//infix//'meanSf')) then
+      call saveVector('Diag'//infix//'meanSf',ModMLParallel,sum(Sf,2)/size(Sf,2))
+    end if
+
+   end subroutine preassimdiag
+
    ! diagnostics for the analysis step
    subroutine assimdiag()
     implicit none
@@ -3226,62 +3294,6 @@ end function
 
     ! Save Diagnostics if desired
 
-    if (presentInitValue(initfname,'Diag'//infix//'xf')) &
-         call saveVector('Diag'//infix//'xf',ModMLParallel,xf)
-
-    if (presentInitValue(initfname,'Diag'//infix//'test')) &
-         call saveVector('Diag'//infix//'test',ModMLParallel,Sf(:,2))
-
-    if (presentInitValue(initfname,'Diag'//infix//'Hxf')) &
-         call saveVector('Diag'//infix//'Hxf',ObsML,Hxf,invsqrtR.ne.0.)
-
-    if (presentInitValue(initfname,'Diag'//infix//'yo')) &
-         call saveVector('Diag'//infix//'yo',ObsML,yo,invsqrtR.ne.0.)
-
-    if (presentInitValue(initfname,'Diag'//infix//'yo-Hxf')) &
-         call saveVector('Diag'//infix//'yo-Hxf',ObsML,yo_Hxf,invsqrtR.ne.0.)
-
-    if (presentInitValue(initfname,'Diag'//infix//'Sf')) &
-         call saveErrorSpace('Diag'//infix//'Sf',Sf)
-
-    if (presentInitValue(initfname,'Diag'//infix//'diagHPfHT')) & 
-         call saveVector('Diag'//infix//'diagHPfHT',ObsML,stddev(HSf),invsqrtR.ne.0.)
-
-    if (presentInitValue(initfname,'Diag'//infix//'stddevHxf')) &
-         call saveVector('Diag'//infix//'stddevHxf',ObsML,stddev(HSf),invsqrtR.ne.0.)
-
-    if (presentInitValue(initfname,'Diag'//infix//'diagPf')) &
-         call saveVector('Diag'//infix//'diagPf',ModMLParallel,stddev(Sf))
-
-    if (presentInitValue(initfname,'Diag'//infix//'stddevxf')) &
-         call saveVector('Diag'//infix//'stddevxf',ModMLParallel,stddev(Sf))
-
-    if (presentInitValue(initfname,'Diag'//infix//'invsqrtR'))  &
-         call saveVector('Diag'//infix//'invsqrtR',ObsML,invsqrtR)
-
-    if (presentInitValue(initfname,'Diag'//infix//'innov_amplitudes')) then
-      call getInitValue(initfname,'Diag'//infix//'path',path)
-      call getInitValue(initfname,'Diag'//infix//'innov_amplitudes',str)
-      call usave(trim(path)//str,innov_amplitudes,9999.)
-    end if
-
-    if (presentInitValue(initfname,'Diag'//infix//'innov_projection'))  &
-         call saveVector('Diag'//infix//'innov_projection',ObsML,innov_projection,invsqrtR.ne.0)
-
-    if (presentInitValue(initfname,'Diag'//infix//'meanSf')) then
-      call saveVector('Diag'//infix//'meanSf',ModMLParallel,sum(Sf,2)/size(Sf,2))
-    end if
-
-    if (presentInitValue(initfname,'Diag'//infix//'Ef')) then
-         allocate(E(size(xf),size(Sf,2)))
-
-         do k=1,size(Sf,2)
-           E(:,k) = xf + Sf(:,k) * sqrt(real(size(Sf,2)) - ASSIM_SCALING)
-         end do
-
-         call saveErrorSpace('Diag'//infix//'Ef',E)
-         deallocate(E)
-    end if
 
     ! these diagnostics makes only sens when we assimilate
 
@@ -3331,17 +3343,6 @@ end function
 
       if (presentInitValue(initfname,'Diag'//infix//'Sa')) &
            call saveErrorSpace('Diag'//infix//'Sa',Sa)
-
-      if (presentInitValue(initfname,'Diag'//infix//'Ea')) then
-         allocate(E(size(xf),size(Sa,2)))
-
-         do k=1,size(Sa,2)
-            E(:,k) = xa + Sa(:,k) * sqrt(real(size(Sa,2)) - ASSIM_SCALING)
-         end do
-
-         call saveErrorSpace('Diag'//infix//'Ea',E)
-         deallocate(E)
-      end if
 
     end if
 

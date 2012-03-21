@@ -33,13 +33,12 @@ program assimtest
  real, allocatable  :: xf(:), xa(:), &
       Sf(:,:), Sa(:,:)
 
- integer            :: iargc, ntime, startntime, endntime
+ integer            :: iargc, ntime, enstype
  character(len=124) :: str
  character(len=4) :: ntimeindex
 
- if (iargc().ne.2.and.iargc().ne.3) then
+ if (iargc().ne.2) then
    write(stderr,*) 'Usage: assim <init file> <time index> '
-   write(stderr,*) 'Usage: assim <init file> <start time index> <end time index> '
    ERROR_STOP
  end if
 
@@ -48,53 +47,30 @@ program assimtest
 #endif
 
  call getarg(1,str); call init(str)
- call getarg(2,str); read(str,*) startntime  
- if (iargc().eq.3) then
-   call getarg(3,str); read(str,*) endntime  
- else
-   endntime = startntime
- end if
+ call getarg(2,str); read(str,*) ntime  
 
  allocate(xf(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel), &
       xa(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel), &
       Sa(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel,ErrorSpaceDim), &
       Sf(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel,ErrorSpaceDim))
 
-#define ENS
-#ifdef ENS
- write(6,*) 'load ens'
- call loadEnsemble('ErrorSpace.init',ModML,Sf)
-#else
- call loadErrorSpace('ErrorSpace.init',Sf,xf)
-#endif
-
- do ntime=startntime,endntime
-   write(ntimeindex,'(I3.3,A)') ntime,'.'
-
-   if (presentInitValue(initfname,'Forecast'//ntimeindex//'value')) then
-     write(stdlog,*) 'Use forecast xf and ignore ensemble mean'
-     call loadStateVector('Forecast'//ntimeindex//'value',xf)
-   else
-     write(stdlog,*) 'Use ensemble mean for xf'
-   end if
-
+ write(ntimeindex,'(I3.3,A)') ntime,'.'
+ 
+ call getInitValue(initfname,'ErrorSpace.type',enstype,default=1)
+ if (enstype == 1) then
+   ! Sf are error modes and xf is the forecast
+   call loadErrorSpace('ErrorSpace.init',Sf)
+   call loadStateVector('Forecast'//ntimeindex//'value',xf)
 !$omp parallel
-
-!$omp critical (writeStdout)
-   !   write(6,*) 'sum(xf) ',i,sum(xf),omp_get_thread_num()
-!$omp end critical (writeStdout)
-
-
-!   call assim(ntime,Sf,Sa,xf,xa)
-   call assim(ntime,Sf,Sa)
+   call assim(ntime,Sf,Sa,xf,xa)
 !$omp end parallel
-
-#ifndef ENS
-   if (presentInitValue(initfname,'Analysis'//ntimeindex//'value'))  &
-        call saveStateVector('Analysis'//ntimeindex//'value',xa)
-#endif
-
- end do
+ else
+   ! Sf are ensemble members
+   call loadEnsemble('ErrorSpace.init',ModML,Sf)
+!$omp parallel
+   call assim(ntime,Sf,Sa)   
+!$omp end parallel
+ end if
 
  call done()
 #ifdef ASSIM_PARALLEL
