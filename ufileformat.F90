@@ -1148,6 +1148,7 @@ contains
   real, allocatable :: tmp(:)
   integer :: shapec(3),extr(2,3)
   integer, parameter :: kblanc=10
+
   !
   ! skip KBLANC lines
   do kb=1,kblanc
@@ -1183,22 +1184,23 @@ contains
   if (.not.present(extraction)) then
     call read_stream(iu,iprecr,nbmotr,nl,ir,c)
   else
+    extr = 1
+    extr(:,1:size(extraction,2)) = extraction 
+
     allocate(tmp(nl*nbmots+ir))
     call read_stream(iu,iprecr,nbmotr,nl,ir,tmp)
 
     if(imaxc.lt.0.or.jmaxc.lt.0.or.kmaxc.lt.0) then
-      imaxr  = -abs(extraction(2,1)-extraction(1,1)+1)
-      jmaxr  = -abs(extraction(2,2)-extraction(1,2)+1)
-      kmaxr  = -abs(extraction(2,3)-extraction(1,3)+1)
-      c(1) = tmp(1) + sum(tmp(2:4)*(extraction(1,1:3)-1))
+      imaxr  = -abs(extr(2,1)-extr(1,1)+1)
+      jmaxr  = -abs(extr(2,2)-extr(1,2)+1)
+      kmaxr  = -abs(extr(2,3)-extr(1,3)+1)
+      c(1) = tmp(1) + sum(tmp(2:4)*(extr(1,1:3)-1))
       c(2:3) = tmp(2:3)
     else
-      extr = 1
-      extr(:,1:size(extraction,2)) = extraction 
       call makeSubset(tmp,(/imaxr,jmaxr,kmaxr/),extr,c,shapec)
-      imaxc = shapec(1)
-      jmaxc = shapec(2)
-      kmaxc = shapec(3)
+      imaxr = shapec(1)
+      jmaxr = shapec(2)
+      kmaxr = shapec(3)
     end if
 
     deallocate(tmp)

@@ -2991,59 +2991,62 @@ end function
     call loadVector('Obs'//infix//'gridY',ObsML,obsGridY)
   end if
 
+  call preassimdiag()
 !$omp end master
 !$omp barrier
 
-   call preassimdiag()
 
   if (runtype.ne.AssimRun) then
 !$omp master
-    write(stdlog,*) 'Compare model with observation: ',ntime
+     write(stdlog,*) 'Compare model with observation: ',ntime
 !$omp end master
   else
 !$omp master
-    write(stdlog,*) 'Assimilate observation: ',ntime
+     write(stdlog,*) 'Assimilate observation: ',ntime
 !$omp end master
 
+     if (schemetype.eq.LocalScheme) then
 
-    if (schemetype.eq.LocalScheme) then
-
-      ! local assimilation        
-      if (biastype.eq.ErrorFractionBias) then
-        call biasedLocAnalysis(zoneSize,selectObservations, &
-             biasgamma,H,Hshift,xf,biasf,Hxf,Hbf,yo,Sf,HSf,invsqrtR, &
-             xa,biasa,Sa, amplitudes)
-      else
-        call locanalysis(zoneSize,selectObservations, &
-             xf,Hxf,yo,Sf,HSf,invsqrtR, xa,Sa,locAmplitudes)
-      end if
-    else
-!$omp master
-      if (biastype.eq.ErrorFractionBias) then
-        call biasedanalysis(biasgamma,xf,biasf,Hxf,Hbf,yo,Sf,HSf,invsqrtR, &
-             xa,biasa,Sa,amplitudes)
-      else
-        if (anamorphosistype.eq.TSAnamorphosis) then
-          call analysisAnamorph2(xf,Hxf,yo,Sf,HSf,invsqrtR,  &
-             anamorphosisTransform,invanamorphosisTransform, &
-             xa,Sa,ensampl)
-        elseif (anamorphosistype.eq.2) then
-          call ensAnalysisAnamorph2(yo,Sf,HSf,invsqrtR,  &
-             anamorphosisTransform,invanamorphosisTransform, &
-             Sa,ensampl,Efanam,Eaanam)
+        ! local assimilation        
+        if (biastype.eq.ErrorFractionBias) then
+           call biasedLocAnalysis(zoneSize,selectObservations, &
+                biasgamma,H,Hshift,xf,biasf,Hxf,Hbf,yo,Sf,HSf,invsqrtR, &
+                xa,biasa,Sa, amplitudes)
         else
+           call locanalysis(zoneSize,selectObservations, &
+                xf,Hxf,yo,Sf,HSf,invsqrtR, xa,Sa,locAmplitudes)
+        end if
+     else
+!$omp master
+        if (biastype.eq.ErrorFractionBias) then
+           call biasedanalysis(biasgamma,xf,biasf,Hxf,Hbf,yo,Sf,HSf,invsqrtR, &
+                xa,biasa,Sa,amplitudes)
+        else
+           if (anamorphosistype.eq.TSAnamorphosis) then
+              call analysisAnamorph2(xf,Hxf,yo,Sf,HSf,invsqrtR,  &
+                   anamorphosisTransform,invanamorphosisTransform, &
+                   xa,Sa,ensampl)
+           elseif (anamorphosistype.eq.2) then
+              call ensAnalysisAnamorph2(yo,Sf,HSf,invsqrtR,  &
+                   anamorphosisTransform,invanamorphosisTransform, &
+                   Sa,ensampl,Efanam,Eaanam)
+           else
 
 !!! FIXME flag of ensemble
-!    write(6,*) 'innov ',yo_Hxf
- 
- !         call ensAnalysis(Sf,H.x.Sf,yo,invsqrtR,Sa,amplitudes)
-          call analysis(xf,Hxf,yo,Sf,HSf,invsqrtR, xa,Sa,amplitudes)
+              !    write(6,*) 'innov ',yo_Hxf
+
+              !         call ensAnalysis(Sf,H.x.Sf,yo,invsqrtR,Sa,amplitudes)
+              call analysis(xf,Hxf,yo,Sf,HSf,invsqrtR, xa,Sa,amplitudes)
+           end if
         end if
-      end if
+
+        !      call analysis_sparseR2(xf,Hxf,yo,Sf,HSf,invsqrtR,C, xa,Sa)
+
 !$omp end master
 
-    end if
+     end if
 
+!$omp master
    ! saturate correction
 
     write(stdlog,*) 'max Correction reached ', & 
@@ -3087,20 +3090,17 @@ end function
       do k=1,size(Sa,2)
         Sa(:,k) = (Sa(:,k)-xa)/scaling
       end do
+    else
+      Hxa = obsoper(H,xa) + Hshift
+
+      do k=1,size(Sf,2)
+        HSa(:,k) = obsoper(H,Sa(:,k))
+      end do
     end if
-
-    !      call analysis_sparseR2(xf,Hxf,yo,Sf,HSf,invsqrtR,C, xa,Sa)
-
-!$omp master
-
-
-
 
     yo_Hxa = yo-Hxa
 
-!$omp end master
 
-  end if
 
 
   ! all calculations end here
@@ -3110,8 +3110,6 @@ end function
   !
 
 
-
-!$omp master
 ! for all
 ! fix me
 !  if (procnum.eq.1) then
@@ -3132,6 +3130,11 @@ end function
   !
   ! end diagonistics
   !
+
+!$omp end master
+
+  end if
+
 
 #  ifdef PROFILE
    call cpu_time(cputime(5))
@@ -3165,7 +3168,6 @@ end function
   call flush(stddebug,istat)
 # endif
 
-!$omp end master
 
   contains 
 
