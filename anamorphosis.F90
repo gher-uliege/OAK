@@ -20,9 +20,6 @@
 ! include the fortran preprocessor definitions
 #include "ppdef.h"
 
-#define DEBUG
-#define stddebug 6
-
 !#define LINEAR_ANAMORPHOSIS
 !#define LN_ANAMORPHOSIS
 
@@ -59,18 +56,22 @@ module anamorphosis
  end type AnamorphosisTrans
   
  type(AnamorphosisTrans), save :: AnamTrans
+ integer :: stddebug = 6
 
 contains
- subroutine initAnamorphosis(initfname)
+ subroutine initAnamorphosis(initfname,debug)
   use ufileformat
   use initfile
   implicit none
   character(len=*) :: initfname
+  integer, intent(in), optional :: debug
   character(len=maxLen), pointer :: transname(:)
   integer :: i
   real :: valex
   character(len=30) :: infoformat = '(A50,2E14.5)'
   character(len=maxLen) :: path
+
+  if (present(debug)) stddebug = debug
 
   if (.not.presentInitValue(initfname,'Anamorphosis.transform')) then
     write(stddebug,'("== no anamorphosis transform loaded ==")')    

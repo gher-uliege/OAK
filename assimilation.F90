@@ -125,9 +125,7 @@ module assimilation
  ! the debugfile contains debugging information such as 
  ! input/output, memory layout structure,... 
 
-#ifdef DEBUG
- integer :: stddebug
-#endif
+ integer :: stddebug = 6
 
  logical :: rmLPObs = .true.
  !  logical :: rmLPObs = .false.
@@ -283,7 +281,8 @@ contains
   end if
 # endif
 
-  call initAnamorphosis(fname)
+  call initAnamorphosis(fname,stddebug)
+
 
   if (biastype.eq.ErrorFractionBias) then
     call getInitValue(initfname,'Bias.gamma',biasgamma)       
@@ -1159,7 +1158,6 @@ contains
 
   write(stddebug,*) 'Profiling: loadVectorSpace',procnum
   write(stddebug,*) 'load data  ',cputime(2)-cputime(1)
-  write(6,*) 'load data  ',cputime(2)-cputime(1), procnum
   call flush(stddebug,istat)
 # endif
 
@@ -1292,7 +1290,6 @@ contains
 
   write(stddebug,*) 'Profiling: loadVectorSpace',procnum
   write(stddebug,*) 'load data  ',cputime(2)-cputime(1)
-  write(6,*) 'load data  ',cputime(2)-cputime(1), procnum
   call flush(stddebug,istat)
 # endif
 
@@ -1853,7 +1850,6 @@ contains
   character(len=*), intent(in) :: filenames(:)
   real, intent(in) :: StateVector(:)
 
-  write(6,*) 'saveStateVector_byfilenames ',ModMLParallel%distributed
   call saveVector_byfilenames(path,filenames,ModMLParallel,StateVector)
  end subroutine saveStateVector_byfilenames
 
@@ -2998,8 +2994,6 @@ end function
 !$omp end master
 !$omp barrier
 
-  write(6,*) 'Sf ',Sf(1:10,3),yo_Hxf
-
    call preassimdiag()
 
   if (runtype.ne.AssimRun) then
@@ -3057,8 +3051,6 @@ end function
 
     where (xa-maxCorrection.gt.xf) xa=xf+maxCorrection
     where (xa.lt.xf-maxCorrection) xa=xf-maxCorrection
-
-    write(6,*) 'Sa ',Sa(1:10,3),xa(1:10)
 
     if (.not.present(xfp)) then
       ! error modes to ensemble
