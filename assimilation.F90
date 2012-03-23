@@ -604,7 +604,7 @@ contains
  !
  !_______________________________________________________
  !
-#define ASSIM_LOAD_OPTIM
+!#define ASSIM_LOAD_OPTIM
 #ifdef ASSIM_LOAD_OPTIM
 
  subroutine loadVector_byfilenames(path,filenames,ML,vector)
@@ -2886,11 +2886,15 @@ end function
   ! Initialisation
   !
 
+  write(6,*) 'ntime ',ntime
+
 !$omp master
 # ifdef PROFILE
   call cpu_time(cputime(bindex)); bindex=bindex+1
 # endif
 
+
+  write(6,*) 'ntime ',ntime
   n = ModML%effsize
   write(infix,'(I3.3,A)') ntime,'.'
 

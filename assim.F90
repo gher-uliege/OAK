@@ -67,7 +67,11 @@ program assimtest
  else
    ! Sf are ensemble members
    call loadEnsemble('ErrorSpace.init',ModML,Sf)
+  write(6,*) 'ntime ',ntime
+
 !$omp parallel
+  write(6,*) 'ntime ',ntime
+
    call assim(ntime,Sf,Sa)   
 !$omp end parallel
  end if

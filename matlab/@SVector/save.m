@@ -12,6 +12,9 @@ if length(v) ~= length(self.variables)
 end
 
 
+source = {};
+dest = {};
+
 for j=1:size(self,2)
     for i=1:length(self.variables)
         target = fullfile(path,fmtprint(v{i},j));
@@ -20,19 +23,28 @@ for j=1:size(self,2)
             filename = gfilename(name(self,i,j));
             filenamet = gfilename(target);
             
-            if ~strcmp(realpath(filename),realpath(filenamet))
-                
-                if strcmp(operation,'link')
-                    % make a symbolic link (delete target if it exists)
-                    symlink(filename,filenamet,'delete');
-                elseif strcmp(operation,'copy')
-                    copyfile(filename,filenamet);
-                else
-                    error(['unknown operation ' operation]);
-                end
+            if ~strcmp(realpath(filename),realpath(filenamet))                
+                source{end+1} = filename;
+                dest{end+1} = filenamet;
             end
         else
             gwrite(target,self.variables{i});
         end
     end
+end
+
+% avoid to copy the same file multiple times
+[dest,ii] = unique(dest);
+source = source(ii);
+
+for i=1:length(source)       
+    if strcmp(operation,'link')
+        % make a symbolic link (delete target if it exists)
+        symlink(source{i},dest{i},'delete');
+    elseif strcmp(operation,'copy')
+        fprintf('copy % to %s\n',source{i},dest{i});
+        copyfile(source{i},dest{i});
+    else
+        error(['unknown operation ' operation]);
+    end    
 end
