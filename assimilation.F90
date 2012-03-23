@@ -234,8 +234,6 @@ contains
   character(len=*), intent(in) :: fname
 
   call localInit(fname)
-    write(6,*) 'stddebug2 ',stddebug
-
   call globalInit(fname)
 
  end subroutine init
@@ -248,7 +246,7 @@ contains
  subroutine globalInit(fname)
   use initfile
   use ufileformat
-  use anamorphosis
+  use anamorphosis, only: initAnamorphosis
 # ifdef ASSIM_PARALLEL
   use parall
 # endif
@@ -262,7 +260,6 @@ contains
   integer                      :: NZones, zi
 
   initfname = fname
-write(6,*) 'stddebug2 ',stddebug
 
   call getInitValue(initfname,'runtype',runtype,default=AssimRun)
   call getInitValue(initfname,'metrictype',metrictype,default=SphericalMetric)
@@ -284,8 +281,6 @@ write(6,*) 'stddebug2 ',stddebug
   end if
 # endif
   
-  write(6,*) 'stddebug ',stddebug
-
   call initAnamorphosis(fname,stddebug)
 
 
@@ -449,7 +444,6 @@ write(6,*) 'stddebug2 ',stddebug
   character(len=maxLen)            :: str  
 
   initfname = fname
-  write(6,*) 'stddebug2 ',stddebug
 
 ! open log file with unit stdlog
 
@@ -470,13 +464,10 @@ write(6,*) 'stddebug2 ',stddebug
     call getInitValue(initfname,'debugfile',str)
     stddebug = 92392
     open(stddebug,file=str,status='unknown',position='append')
-    write(6,*) 'stddebug2 ',stddebug
   else
     stddebug = stdout
   end if
 #endif
-
-    write(6,*) 'stddebug2 ',stddebug
  
  end subroutine localInit
 
@@ -1584,8 +1575,6 @@ write(6,*) 'stddebug2 ',stddebug
   integer :: istat
   real :: valex
   logical :: isdegen
-
-  write(6,*) 'stddebug3 ',stddebug
 
 
   if (present(packed)) then
