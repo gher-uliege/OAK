@@ -1,5 +1,49 @@
+
+currentdir = pwd;
+initfile = fullfile(currentdir,'test_assim.init');
+initfile = fullfile(currentdir,'test_assim_local.init');
+
+testdir = tempname;
+testdir = '/tmp/oak-temp';
+randn('state',0)
+
+[t0,data,model,Eic,Eforcing, obs, fun, h ] = oak_create_test(testdir,initfile);
+
+partname = get(init,'Zones.partition');
+
+part = gen_part(ones(size(x)));
+
+for i=1:length(partname)
+  gwrite(fullfile(testdir,path,partname{i}),part);
+end
+
+
+scheduler = SchedulerShell();
+
+n = 1;
+cd(testdir)
+Ef = oak_assim(Eic,n,data,scheduler);
+inc = full(load(init,mask(Eic),'Diag001.xa-xf'));
+cd(currentdir)
+
+
+
+incr = gread('/home/abarth/Assim/OAK/test/Reference/AssimLocal/Analysis001/inc.nc#var1');
+
+
+rms(incr(:),inc(1:150))
+
+
+
+
+%{
+
+
 initfile = 'test_assim_local.init';
 init = InitFile(initfile);
+
+
+[t0,data,model,Eic,Eforcing, obs, fun, h ] = oak_create_test(testdir,initfile);
 
 sz = [10 15 1];
 [x,y,z] = ndgrid(1:sz(1),1:sz(2),1:sz(3));
@@ -98,3 +142,4 @@ n = 1;
 return
 Ef = oak_assim(Eic,n,data,scheduler);
 
+%}

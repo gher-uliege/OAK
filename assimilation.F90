@@ -125,7 +125,7 @@ module assimilation
  ! the debugfile contains debugging information such as 
  ! input/output, memory layout structure,... 
 
- integer :: stddebug = 6
+ integer :: stddebug
 
  logical :: rmLPObs = .true.
  !  logical :: rmLPObs = .false.
@@ -234,6 +234,8 @@ contains
   character(len=*), intent(in) :: fname
 
   call localInit(fname)
+    write(6,*) 'stddebug2 ',stddebug
+
   call globalInit(fname)
 
  end subroutine init
@@ -260,6 +262,7 @@ contains
   integer                      :: NZones, zi
 
   initfname = fname
+write(6,*) 'stddebug2 ',stddebug
 
   call getInitValue(initfname,'runtype',runtype,default=AssimRun)
   call getInitValue(initfname,'metrictype',metrictype,default=SphericalMetric)
@@ -280,6 +283,8 @@ contains
     ERROR_STOP
   end if
 # endif
+  
+  write(6,*) 'stddebug ',stddebug
 
   call initAnamorphosis(fname,stddebug)
 
@@ -444,6 +449,7 @@ contains
   character(len=maxLen)            :: str  
 
   initfname = fname
+  write(6,*) 'stddebug2 ',stddebug
 
 ! open log file with unit stdlog
 
@@ -455,6 +461,8 @@ contains
     stdlog = stdout
   end if
 
+  stddebug = 6
+
 #ifdef DEBUG
 ! open debug file with unit stddebug
 
@@ -462,11 +470,13 @@ contains
     call getInitValue(initfname,'debugfile',str)
     stddebug = 92392
     open(stddebug,file=str,status='unknown',position='append')
+    write(6,*) 'stddebug2 ',stddebug
   else
     stddebug = stdout
   end if
 #endif
 
+    write(6,*) 'stddebug2 ',stddebug
  
  end subroutine localInit
 
@@ -1574,6 +1584,9 @@ contains
   integer :: istat
   real :: valex
   logical :: isdegen
+
+  write(6,*) 'stddebug3 ',stddebug
+
 
   if (present(packed)) then
     la%removeLandPoints = packed
@@ -2875,7 +2888,7 @@ end function
   ! shared local variables among the OpenMP threads
   save :: H,yo,invsqrtR,Hxf,Hxa,HSf,HSa, &
        yo_Hxf, yo_Hxa, innov_projection, Hshift,Hbf, mjd,error,m,n,k, &
-       locAmplitudes
+       locAmplitudes, xf, xa
 # endif
 
   real, allocatable :: E(:,:)
@@ -3046,6 +3059,8 @@ end function
 
      end if
 
+!$omp barrier
+
 !$omp master
    ! saturate correction
 
@@ -3135,6 +3150,7 @@ end function
 
   end if
 
+!$omp master
 
 #  ifdef PROFILE
    call cpu_time(cputime(5))
@@ -3168,6 +3184,7 @@ end function
   call flush(stddebug,istat)
 # endif
 
+!$omp end master
 
   contains 
 
