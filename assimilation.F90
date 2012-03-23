@@ -2825,6 +2825,45 @@ end function
  ! bindex: index of each timed block 
  !
 
+ subroutine Assim2(ntime,Sf)
+  use matoper
+  use rrsqrt
+  use ufileformat
+  use initfile
+#ifdef ASSIM_PARALLEL
+  use parall
+#endif
+  implicit none
+  integer, intent(in)            :: ntime
+  real, intent(inout)            :: Sf(:,:)
+
+  ! local variables
+  character(len=256)             :: prefix
+
+  real :: amplitudes(size(Sf,2)), innov_amplitudes(size(Sf,2))
+
+  write(6,*) 'ntime 222 ',ntime
+
+!      write(prefix,'(I3.3)') ntime
+!      write(6,*) prefix
+      write(6,*) ntime,amplitudes
+
+  contains 
+
+
+   ! diagnostics for the analysis step
+   subroutine assimdiag()
+    implicit none
+
+
+      write(prefix,'(I3.3)') ntime
+      write(6,*) ntime,amplitudes
+
+   end subroutine assimdiag
+   
+
+ end subroutine Assim2
+
  subroutine Assim(ntime,Sf,Sa,xfp,xap,Efanam,Eaanam)
   use matoper
   use rrsqrt
@@ -2997,7 +3036,52 @@ end function
     call loadVector('Obs'//infix//'gridY',ObsML,obsGridY)
   end if
 
-  call preassimdiag()
+    if (presentInitValue(initfname,'Diag'//infix//'xf')) &
+         call saveVector('Diag'//infix//'xf',ModMLParallel,xf)
+
+    if (presentInitValue(initfname,'Diag'//infix//'test')) &
+         call saveVector('Diag'//infix//'test',ModMLParallel,Sf(:,2))
+
+    if (presentInitValue(initfname,'Diag'//infix//'Hxf')) &
+         call saveVector('Diag'//infix//'Hxf',ObsML,Hxf,invsqrtR.ne.0.)
+
+    if (presentInitValue(initfname,'Diag'//infix//'yo')) &
+         call saveVector('Diag'//infix//'yo',ObsML,yo,invsqrtR.ne.0.)
+
+    if (presentInitValue(initfname,'Diag'//infix//'yo-Hxf')) &
+         call saveVector('Diag'//infix//'yo-Hxf',ObsML,yo_Hxf,invsqrtR.ne.0.)
+
+    if (presentInitValue(initfname,'Diag'//infix//'Sf')) &
+         call saveErrorSpace('Diag'//infix//'Sf',Sf)
+
+    if (presentInitValue(initfname,'Diag'//infix//'diagHPfHT')) & 
+         call saveVector('Diag'//infix//'diagHPfHT',ObsML,stddev(HSf),invsqrtR.ne.0.)
+
+    if (presentInitValue(initfname,'Diag'//infix//'stddevHxf')) &
+         call saveVector('Diag'//infix//'stddevHxf',ObsML,stddev(HSf),invsqrtR.ne.0.)
+
+    if (presentInitValue(initfname,'Diag'//infix//'diagPf')) &
+         call saveVector('Diag'//infix//'diagPf',ModMLParallel,stddev(Sf))
+
+    if (presentInitValue(initfname,'Diag'//infix//'stddevxf')) &
+         call saveVector('Diag'//infix//'stddevxf',ModMLParallel,stddev(Sf))
+
+    if (presentInitValue(initfname,'Diag'//infix//'invsqrtR'))  &
+         call saveVector('Diag'//infix//'invsqrtR',ObsML,invsqrtR)
+
+    if (presentInitValue(initfname,'Diag'//infix//'innov_amplitudes')) then
+      call getInitValue(initfname,'Diag'//infix//'path',path)
+      call getInitValue(initfname,'Diag'//infix//'innov_amplitudes',str)
+      call usave(trim(path)//str,innov_amplitudes,9999.)
+    end if
+
+    if (presentInitValue(initfname,'Diag'//infix//'innov_projection'))  &
+         call saveVector('Diag'//infix//'innov_projection',ObsML,innov_projection,invsqrtR.ne.0)
+
+    if (presentInitValue(initfname,'Diag'//infix//'meanSf')) then
+      call saveVector('Diag'//infix//'meanSf',ModMLParallel,sum(Sf,2)/size(Sf,2))
+    end if
+
 !$omp end master
 !$omp barrier
 
@@ -3122,122 +3206,6 @@ end function
 ! fix me
 !  if (procnum.eq.1) then
   if (.true.) then
-    call assimdiag()
-
-
-#   ifdef GZIPDiag
-    call getInitValue(initfname,'Diag'//infix//'path',path)
-    write(stddebug,*) 'gzip ',trim(path)
-    call system('gzip -f '//trim(path)//'*')
-    write(stddebug,*) 'end gzip ',trim(path)
-#   endif
-
-    deallocate(obsnames)
-  end if
-
-  !
-  ! end diagonistics
-  !
-
-!$omp end master
-
-  end if
-
-!$omp master
-
-#  ifdef PROFILE
-   call cpu_time(cputime(5))
-   write(stddebug,*) 'profiling ',cputime(1:5)
-   write(stddebug,*) 'profiling ',cputime(2:5)-cputime(1:4)
-#  endif
-
-#  ifdef DEBUG
-   write(stddebug,*) 'free memory...'
-#  endif
-
-  ! free memory
-
-  deallocate(yo,invsqrtR,Hxf,Hxa,HSf,HSa,yo_Hxf,yo_Hxa,innov_projection,H%i,H%j,H%s,Hshift)
-  if (biastype.eq.ErrorFractionBias) deallocate(Hbf)
-  if (schemetype.eq.LocalScheme) deallocate(obsGridX,obsGridY,locAmplitudes)
-
-  call MemoryLayoutDone(ObsML)
-
-  if (.not.present(xfp)) then
-    ! Sa must be an ensemble for output
-    do k=1,size(Sa,2)
-      Sa(:,k) = xa + Sa(:,k) * sqrt(real(size(Sa,2)) - ASSIM_SCALING)
-    end do
-
-    deallocate(xf,xa)
-  end if
-
-# ifdef DEBUG
-  write(stddebug,*) 'Exit sub assim'
-  call flush(stddebug,istat)
-# endif
-
-!$omp end master
-
-  contains 
-
-
-   ! diagnostics for the analysis step
-   subroutine preassimdiag()
-    implicit none
-
-    if (presentInitValue(initfname,'Diag'//infix//'xf')) &
-         call saveVector('Diag'//infix//'xf',ModMLParallel,xf)
-
-    if (presentInitValue(initfname,'Diag'//infix//'test')) &
-         call saveVector('Diag'//infix//'test',ModMLParallel,Sf(:,2))
-
-    if (presentInitValue(initfname,'Diag'//infix//'Hxf')) &
-         call saveVector('Diag'//infix//'Hxf',ObsML,Hxf,invsqrtR.ne.0.)
-
-    if (presentInitValue(initfname,'Diag'//infix//'yo')) &
-         call saveVector('Diag'//infix//'yo',ObsML,yo,invsqrtR.ne.0.)
-
-    if (presentInitValue(initfname,'Diag'//infix//'yo-Hxf')) &
-         call saveVector('Diag'//infix//'yo-Hxf',ObsML,yo_Hxf,invsqrtR.ne.0.)
-
-    if (presentInitValue(initfname,'Diag'//infix//'Sf')) &
-         call saveErrorSpace('Diag'//infix//'Sf',Sf)
-
-    if (presentInitValue(initfname,'Diag'//infix//'diagHPfHT')) & 
-         call saveVector('Diag'//infix//'diagHPfHT',ObsML,stddev(HSf),invsqrtR.ne.0.)
-
-    if (presentInitValue(initfname,'Diag'//infix//'stddevHxf')) &
-         call saveVector('Diag'//infix//'stddevHxf',ObsML,stddev(HSf),invsqrtR.ne.0.)
-
-    if (presentInitValue(initfname,'Diag'//infix//'diagPf')) &
-         call saveVector('Diag'//infix//'diagPf',ModMLParallel,stddev(Sf))
-
-    if (presentInitValue(initfname,'Diag'//infix//'stddevxf')) &
-         call saveVector('Diag'//infix//'stddevxf',ModMLParallel,stddev(Sf))
-
-    if (presentInitValue(initfname,'Diag'//infix//'invsqrtR'))  &
-         call saveVector('Diag'//infix//'invsqrtR',ObsML,invsqrtR)
-
-    if (presentInitValue(initfname,'Diag'//infix//'innov_amplitudes')) then
-      call getInitValue(initfname,'Diag'//infix//'path',path)
-      call getInitValue(initfname,'Diag'//infix//'innov_amplitudes',str)
-      call usave(trim(path)//str,innov_amplitudes,9999.)
-    end if
-
-    if (presentInitValue(initfname,'Diag'//infix//'innov_projection'))  &
-         call saveVector('Diag'//infix//'innov_projection',ObsML,innov_projection,invsqrtR.ne.0)
-
-    if (presentInitValue(initfname,'Diag'//infix//'meanSf')) then
-      call saveVector('Diag'//infix//'meanSf',ModMLParallel,sum(Sf,2)/size(Sf,2))
-    end if
-
-   end subroutine preassimdiag
-
-   ! diagnostics for the analysis step
-   subroutine assimdiag()
-    implicit none
-
   !
   ! write some information in the log file
   ! rms take only into accound points inside the grid
@@ -3360,7 +3328,60 @@ end function
            call saveVector('Diag'//infix//'biasa',ModMLParallel,biasa)
     end if
 
-   end subroutine assimdiag
+
+#   ifdef GZIPDiag
+    call getInitValue(initfname,'Diag'//infix//'path',path)
+    write(stddebug,*) 'gzip ',trim(path)
+    call system('gzip -f '//trim(path)//'*')
+    write(stddebug,*) 'end gzip ',trim(path)
+#   endif
+
+    deallocate(obsnames)
+  end if
+
+  !
+  ! end diagonistics
+  !
+
+!$omp end master
+
+  end if
+
+!$omp master
+
+#  ifdef PROFILE
+   call cpu_time(cputime(5))
+   write(stddebug,*) 'profiling ',cputime(1:5)
+   write(stddebug,*) 'profiling ',cputime(2:5)-cputime(1:4)
+#  endif
+
+#  ifdef DEBUG
+   write(stddebug,*) 'free memory...'
+#  endif
+
+  ! free memory
+
+  deallocate(yo,invsqrtR,Hxf,Hxa,HSf,HSa,yo_Hxf,yo_Hxa,innov_projection,H%i,H%j,H%s,Hshift)
+  if (biastype.eq.ErrorFractionBias) deallocate(Hbf)
+  if (schemetype.eq.LocalScheme) deallocate(obsGridX,obsGridY,locAmplitudes)
+
+  call MemoryLayoutDone(ObsML)
+
+  if (.not.present(xfp)) then
+    ! Sa must be an ensemble for output
+    do k=1,size(Sa,2)
+      Sa(:,k) = xa + Sa(:,k) * sqrt(real(size(Sa,2)) - ASSIM_SCALING)
+    end do
+
+    deallocate(xf,xa)
+  end if
+
+# ifdef DEBUG
+  write(stddebug,*) 'Exit sub assim'
+  call flush(stddebug,istat)
+# endif
+
+!$omp end master
 
  end subroutine Assim
 
@@ -3737,13 +3758,13 @@ end function
 
 
     if (val1.and.val2) then
-#        ifdef DEBUG
+#ifdef DEBUG
       if (nz.ge.size(H%s)) then
         write(stderr,*) 'packSparseMatrix: ERROR: ', &
              'buffer variable too small!!! '
         call flush(stderr,istat)
       end if
-#        endif
+#endif
 
       ! add an entry in sparse matrix H
 
