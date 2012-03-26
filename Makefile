@@ -36,7 +36,7 @@ USE_MPIF90 ?= on
 MPI ?= 
 OPENMP ?= 
 DEBUG ?= 
-
+JOBS ?= 1
 
 include Compilers/$(OS)-$(strip $(FORT)).mk
 include Compilers/libs.mk
@@ -80,6 +80,15 @@ lib: $(OBJS)
 
 dynlib: $(OBJS)
 	$(CC) -shared -Wl,-soname,liboak.so.1 -o liboak.so.1 $(OBJS) $(LIBS) $(FRTLIB)
+
+allbin:
+	make -j $(JOBS) DEBUG=on clean
+	make -j $(JOBS) DEBUG=on all
+	make -j $(JOBS) DEBUG=on OPENMP=on clean
+	make -j $(JOBS) DEBUG=on OPENMP=on all
+	make -j $(JOBS) DEBUG=on MPI=on clean
+	make -j $(JOBS) DEBUG=on MPI=on all
+
 
 print:
 	echo $(LIBS) $(F90FLAGS) $(PRECISION)
