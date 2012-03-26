@@ -257,7 +257,7 @@ contains
   character(len=MaxFNameLength), pointer   :: filenamesX(:),filenamesY(:),filenamesZ(:)
   character(len=MaxFNameLength)            :: path
   real, pointer                :: maxCorr(:),tmp(:)
-  integer                      :: NZones, zi
+  integer                      :: NZones, zi, istat
 
   initfname = fname
 
@@ -395,6 +395,7 @@ contains
 
 #   ifdef DEBUG
     write(stddebug,*) 'indexes for me',procnum,ModMLParallel%startIndexParallel,ModMLParallel%endIndexParallel
+    call flush(stddebug,istat)    
 #   endif
 #else
     ModMLParallel%distributed = .false.
@@ -439,18 +440,25 @@ contains
  subroutine localInit(fname)
   use initfile
   use ufileformat
+#ifdef ASSIM_PARALLEL
+  use parall, only: procnum
+#endif
   implicit none
   character(len=*), intent(in) :: fname
-  character(len=maxLen)            :: str  
+  character(len=maxLen)            :: str,postfix=''
 
   initfname = fname
+
+#ifdef ASSIM_PARALLEL
+  write(postfix,'(A,I5.5)') '-',procnum
+#endif
 
 ! open log file with unit stdlog
 
   if (presentInitValue(initfname,'logfile')) then
     call getInitValue(initfname,'logfile',str)
     stdlog = 912391
-    open(stdlog,file=str,status='unknown',position='append')
+    open(stdlog,file=trim(str)//postfix,status='unknown',position='append')
   else
     stdlog = stdout
   end if
@@ -463,7 +471,7 @@ contains
   if (presentInitValue(initfname,'debugfile')) then
     call getInitValue(initfname,'debugfile',str)
     stddebug = 92392
-    open(stddebug,file=str,status='unknown',position='append')
+    open(stddebug,file=trim(str)//postfix,status='unknown',position='append')
   else
     stddebug = stdout
   end if
@@ -795,6 +803,9 @@ contains
 
   else
 
+    write(stddebug,*) 'files ',filenames
+    write(stddebug,*) 'shape ',procnum,shape(vector),lbound(vector),ubound(vector),shape(x), &
+         ML%startIndexParallel,ML%endIndexParallel
     do l=ML%startIndexParallel,ML%endIndexParallel
      ! select only points corresponding to sea values
       vector(l) = x(ML%invindex(l))
@@ -2977,7 +2988,8 @@ end function
     end do
   else
     ! assume Sf is an ensemble, compute mean and ensemble anomalies
-    allocate(xf(n),xa(n))
+    allocate(xf(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel),& 
+             xa(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel))
 
     ! apply observation operator to all ensemble members
     ! to get observed part of ensemble members
@@ -2999,6 +3011,8 @@ end function
     xf = sum(Sf,2)/size(Sf,2)
     Hxf = sum(HSf,2)/size(Sf,2)
 
+    write(stddebug,*) 'Sf ',shape(Sf),shape(xf),lbound(xf),ubound(xf)
+    write(stddebug,*) 'HSf ',shape(HSf),shape(Hxf),lbound(Hxf),ubound(Hxf)
     do k=1,size(Sf,2)      
        Sf(:,k) = (Sf(:,k)-xf)/scaling
        HSf(:,k) = (HSf(:,k)-Hxf)/scaling
