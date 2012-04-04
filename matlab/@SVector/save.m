@@ -42,7 +42,7 @@ for i=1:length(source)
         % make a symbolic link (delete target if it exists)
         symlink(source{i},dest{i},'delete');
     elseif strcmp(operation,'copy')
-        fprintf('copy % to %s\n',source{i},dest{i});
+        fprintf('copy %s to %s\n',source{i},dest{i});
         copyfile(source{i},dest{i});
     else
         error(['unknown operation ' operation]);

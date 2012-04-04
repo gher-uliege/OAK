@@ -1557,7 +1557,7 @@ contains
   else
     sepa = 'x'
   end if
-  
+
   s = ''
   do i=1,size(sz)
     write (str,*) sz(i)

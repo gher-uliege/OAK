@@ -82,12 +82,12 @@ dynlib: $(OBJS)
 	$(CC) -shared -Wl,-soname,liboak.so.1 -o liboak.so.1 $(OBJS) $(LIBS) $(FRTLIB)
 
 allbin:
-	make -j $(JOBS) DEBUG=on clean
-	make -j $(JOBS) DEBUG=on all
-	make -j $(JOBS) DEBUG=on OPENMP=on clean
-	make -j $(JOBS) DEBUG=on OPENMP=on all
-	make -j $(JOBS) DEBUG=on MPI=on clean
-	make -j $(JOBS) DEBUG=on MPI=on all
+	make -j $(JOBS) FORT=$(FORT) DEBUG=on clean
+	make -j $(JOBS) FORT=$(FORT) DEBUG=on all
+	make -j $(JOBS) FORT=$(FORT) DEBUG=on OPENMP=on clean
+	make -j $(JOBS) FORT=$(FORT) DEBUG=on OPENMP=on all
+	make -j $(JOBS) FORT=$(FORT) DEBUG=on MPI=on clean
+	make -j $(JOBS) FORT=$(FORT) DEBUG=on MPI=on all
 
 
 print:

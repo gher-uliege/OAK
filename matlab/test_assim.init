@@ -5,8 +5,8 @@
 # See comments at the end of this file.
 
 
-Config.exec = '~/Assim/OAK/assim-gfortran-single'
-#Config.exec = '~/Assim/OAK/assim-gfortran-single-debug'
+#Config.exec = '~/Assim/OAK/assim-gfortran-single'
+Config.exec = '~/Assim/OAK/assim-gfortran-single-debug'
 #Config.exec = '~/Assim/OAK/assim-gfortran-double'
 #Config.exec = '~/Assim/OAK/assim-gfortran-double-debug'
 #Config.calendar = 'standard'

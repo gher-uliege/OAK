@@ -4,6 +4,7 @@ initfile = fullfile(currentdir,'test_assim.init');
 initfile = fullfile(currentdir,'test_assim_local.init');
 
 testdir = tempname;
+testdir = [getenv('HOME') '/tmp/oak-temp'];
 randn('state',0)
 
 [t0,data,model,Eic,Eforcing, obs, fun, h ] = oak_create_test(testdir,initfile);
