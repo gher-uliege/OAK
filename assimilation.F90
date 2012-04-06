@@ -273,7 +273,6 @@ contains
   call getInitValue(initfname,'schemetype',schemetype,default=GlobalScheme)
   call getInitValue(initfname,'anamorphosistype',anamorphosistype,default=NoAnamorphosis)
 
-
 # ifdef ASSIM_PARALLEL
   if (schemetype /= LocalScheme) then
     write(stderr,*) 'Error: for parallel version schemetype should be 1 (local assimilation)'
@@ -1586,7 +1585,7 @@ contains
   integer :: istat
   real :: valex
   logical :: isdegen
-
+  character(len=MaxLen) :: ssize
 
   if (present(packed)) then
     la%removeLandPoints = packed
@@ -1686,7 +1685,8 @@ contains
   write(stddebug,'(43X,6A10)') 'Size','Start','End','Size','Start','End'
 
   do m=1,mmax
-    write(stddebug,'(I2," ",A20,A20,6I10)') m,trim(filenames(m)),trim(sizeformat(la%varshape(1:la%ndim(m),m))), &
+    ssize = sizeformat(la%varshape(1:la%ndim(m),m))
+    write(stddebug,'(I2," ",A20,A20,6I10)') m,trim(filenames(m)),trim(ssize), &
          la%varsize(m), &
          la%StartIndex(m), &
          la%EndIndex(m), &
@@ -2309,13 +2309,15 @@ contains
   implicit none
   integer, intent(in) :: unit
   type(SparseMatrix), intent(in)  :: H
+  character(len=MaxLen) :: ssize
 
   integer :: maxi, maxj
 
   maxi = maxval(H%i(1:H%nz))
   maxj = maxval(H%j(1:H%nz))
 
-  write(unit,'(A,A10)')   'Matrix shape:       ',sizeformat((/H%m,H%n/))
+  ssize = sizeformat((/H%m,H%n/))
+  write(unit,'(A,A10)')   'Matrix shape:       ',trim(ssize)
   write(unit,'(A,I10)')   '# non-zero elements:',H%nz
   write(unit,'(A,I10)')   'max(H%i):           ',maxi
   write(unit,'(A,I10)')   'min(H%i):           ',minval(H%i(1:H%nz))
