@@ -143,6 +143,16 @@ The special value for missing data is stored in the variables attribute
 \code{shape} must be present, containing the shape of the matrix. The actual value
 of the variable contains the coefficients $a_i$.
 
+\subsection{Order of the dimensions}
+
+The reported order of the dimensions depends on the tool that you are using to query and access a file. Two types of \href{http://en.wikipedia.org/wiki/Row-major\_order}{ordering schemes} exists:
+
+\begin{description}
+\item[column-major order]: used by Fortran programs such as OAK
+\item[row-major order]: used by C programs such as ncdump
+\end{description}
+
+The order of the dimensions for NetCDF follows the recommendation of the  \href{http://cf-pcmdi.llnl.gov/documents/cf-conventions/1.6/cf-conventions.html\#dimensions}{CF-convention}. If you query your NetCDF files with ncdump, the order of the dimensions should be time, depth, latitude, longitude. For a Fortran program reading this file the dimensions with automatically be longitude, latitude, depth and time since Fortran uses the column-major order (as opposed to ncdump). For Fortran binary files, the order of the dimensions is also longitude, latitude, depth and time.
 
 \section{The initialisation file}
 
@@ -927,4 +937,4 @@ config TEM ./ligur.SST.X ./ligur.SST.Y ./ligur.SST.Z 32-41
 % LocalWords:  stddevHxf Hxa applyobsoper filteroper lenx leny lenz opermul MJD
 % LocalWords:  GenObsFile initheader diags Outdir Outfile maxX minX maxY minMJD
 % LocalWords:  obstime listfile config API uload filename usave barth beckers
-% LocalWords:  rixen
+% LocalWords:  rixen ncdump
