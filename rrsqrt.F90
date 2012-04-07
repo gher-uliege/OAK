@@ -105,7 +105,13 @@ contains
   real, intent(in) :: Hxf(:), yo(:), &
        Sf(:,:), HSf(:,:), invsqrtR(:)
   real, intent(out) :: xa_xf(:)
+#ifndef __GFORTRAN__ 
   real, intent(out), optional :: Sa(:,:)
+#else
+! attribute inout is necessary in gfortran (due to a bug?)
+! because of call Sa(i1:i2,:) in locAnalysisIncrement
+  real, intent(inout), optional :: Sa(:,:)
+#endif
   real, intent(out), optional :: amplitudes(size(Sf,2))
 
   real :: lambda(size(Sf,2)), sqrt_lambda(size(Sf,2)), UT(size(Sf,2),size(Sf,2)), &
@@ -143,6 +149,7 @@ contains
 #else
   call gesvd('n','a',invsqrtR.dx.HSf,lambda,dummy,UT,info)
 #endif
+
   ! lambda  = (1 + \mathbf \Lambda)^{-1} in OAK documentation
   lambda = (1+lambda**2)**(-1)
 
@@ -152,7 +159,7 @@ contains
   if (any(ampl /= ampl)) then
     write (0,*) 'error in ',__FILE__,__LINE__
     write (0,*) 'ampl ',ampl
-    stop
+    ERROR_STOP
   end if
 
   xa_xf = Sf.x.ampl
@@ -186,9 +193,7 @@ contains
     w = 1./sqrt(1.*r)
     v = UT.tx.(sum(UT,2)/sqrt_lambda)
     v = normate(v)
-
     Sa = Sf.x.(UT.tx.(sqrt_lambda.dx.(UT.x.RotateVector(w,v))))
-    
 #   endif
   end if
 
@@ -374,6 +379,7 @@ contains
 
       call analysisIncrement(Hxf,yozone(1:nObs),Sfzone,HSfzone(1:nObs,:),invsqrtRzone(1:nObs),xa_xf(i1:i2),Sa(i1:i2,:))
       !        write(stdout,*) 'nObs ',nObs,sum(yozone),sum(yo),sum(invsqrtRzone),sum(invsqrtR * weight),sum(HSfzone),sum(HSf)
+
     end if
 #   endif
 

@@ -2870,7 +2870,7 @@ end function
 
 
       write(prefix,'(I3.3)') ntime
-      write(6,*) ntime,amplitudes
+      !write(6,*) ntime,amplitudes
 
    end subroutine assimdiag
    
@@ -3151,7 +3151,6 @@ end function
 !$omp end master
 
      end if
-
 !$omp barrier
 
 !$omp master
@@ -3208,9 +3207,6 @@ end function
 
     yo_Hxa = yo-Hxa
 
-
-
-
   ! all calculations end here
   ! only optional diagonistics follow
   !
@@ -3228,7 +3224,6 @@ end function
   !
 
     ingrid = count(invsqrtR.ne.0.)
-
 
     write(stdlog,*) 'Nb_observations ',size(yo)
     write(stdlog,*) 'Nb_rejected_observations ',count(invsqrtR.eq.0.)
@@ -3364,7 +3359,7 @@ end function
   end if
 
 !$omp master
-
+ 
 #  ifdef PROFILE
    call cpu_time(cputime(5))
    write(stddebug,*) 'profiling ',cputime(1:5)

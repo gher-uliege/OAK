@@ -78,7 +78,9 @@ ifdef USE_MPIF90
   F90C := $(MPIF90)
   F90FLAGS += -DASSIM_PARALLEL
 else
-  F90FLAGS += -I$(MPI_INCDIR)
+  ifneq ($(strip $(MPI_INCDIR)),)
+    F90FLAGS += -I$(MPI_INCDIR)
+  endif
 
   # use MPI_LIBDIR only if it is non-empty
   ifneq ($(strip $(MPI_LIBDIR)),)
@@ -122,7 +124,9 @@ NETCDF_VERSION := $(shell $(NETCDF_CONFIG) --version 2> /dev/null)
 
 ### check presense of nc-config script
 ifeq ($(NETCDF_VERSION),)
-  F90FLAGS += -I$(NETCDF_INCDIR)
+  ifneq ($(strip $(NETCDF_INCDIR)),)
+    F90FLAGS += -I$(NETCDF_INCDIR)
+  endif
 
   # use NETCDF_LIBDIR only if it is non-empty
   ifneq ($(strip $(NETCDF_LIBDIR)),)
