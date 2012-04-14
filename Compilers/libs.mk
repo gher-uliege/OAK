@@ -30,6 +30,12 @@ ifdef PIC
   CFLAGS += $(PIC_CFLAGS)
 endif
 
+# override ASSIM_PROG by EXEC if defined
+ifdef EXEC
+  ASSIM_PROG := $(EXEC)
+endif
+
+
 
 #
 # Library locations
