@@ -2838,45 +2838,6 @@ end function
  ! bindex: index of each timed block 
  !
 
- subroutine Assim2(ntime,Sf)
-  use matoper
-  use rrsqrt
-  use ufileformat
-  use initfile
-#ifdef ASSIM_PARALLEL
-  use parall
-#endif
-  implicit none
-  integer, intent(in)            :: ntime
-  real, intent(inout)            :: Sf(:,:)
-
-  ! local variables
-  character(len=256)             :: prefix
-
-  real :: amplitudes(size(Sf,2)), innov_amplitudes(size(Sf,2))
-
-  write(6,*) 'ntime 222 ',ntime
-
-!      write(prefix,'(I3.3)') ntime
-!      write(6,*) prefix
-      write(6,*) ntime,amplitudes
-
-  contains 
-
-
-   ! diagnostics for the analysis step
-   subroutine assimdiag()
-    implicit none
-
-
-      write(prefix,'(I3.3)') ntime
-      !write(6,*) ntime,amplitudes
-
-   end subroutine assimdiag
-   
-
- end subroutine Assim2
-
  subroutine Assim(ntime,Sf,Sa,xfp,xap,Efanam,Eaanam)
   use matoper
   use rrsqrt
@@ -2938,15 +2899,11 @@ end function
   ! Initialisation
   !
 
-  write(6,*) 'ntime ',ntime
-
 !$omp master
 # ifdef PROFILE
   call cpu_time(cputime(bindex)); bindex=bindex+1
 # endif
 
-
-  write(6,*) 'ntime ',ntime
   n = ModML%effsize
   write(infix,'(I3.3,A)') ntime,'.'
 
