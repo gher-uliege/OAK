@@ -3470,6 +3470,7 @@ end function
      real, intent(in) :: p0(:), p1(:)
      real :: d2r = pi/180.
      real :: a, b, C
+     real :: coeff
 
      if (metrictype == CartesianMetric) then
        distance = sqrt(sum((p1 - p0)**2))
@@ -3479,7 +3480,6 @@ end function
 
 !#define DISTANCE_SIMPLE
 #ifdef DISTANCE_SIMPLE
-     real :: coeff
      coeff = pi*EarthRadius/(180.)     
      distance = sqrt((coeff * cos((p0(2)+p1(2))* (pi/360.))*(p1(1)-p0(1)))**2 &
           +(coeff * (p1(2)-p0(2)))**2)
@@ -3490,8 +3490,10 @@ end function
      b = p1(2) * d2r
      C = (p1(1) - p0(1)) * d2r
      
+     coeff = sin(b) * sin(a) + cos(b) * cos(a) * cos(C)
+     coeff = max(min(coeff,1.),-1.)
      ! distance in radian
-     distance = acos(sin(b) * sin(a) + cos(b) * cos(a) * cos(C))
+     distance = acos(coeff)
 
      ! distance in km
      distance = EarthRadius * distance
