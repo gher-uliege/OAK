@@ -6,7 +6,7 @@ function t = time(self)
 t = zeros(1,length(self.n));
 
 for i=1:length(self.n)
-  str = get(self.init,sprintf('Obs%03g.time',self.n(i)));
+  str = getcopy(self.init,sprintf('Obs%03g.time',self.n(i)));
   str = strrep(str,'T',' ');
 
   %t(i) = mjd(str,31); 
