@@ -44,7 +44,7 @@ simulation.n1 = n1;
 simulation.member = member;
 olddir = pwd;
 
-launchdir = '/u/abarth/NEMO/SIMUL/ORCA2-L053-Ens';
+launchdir = [getenv('HOME') '/NEMO/SIMUL/ORCA2-L053-Ens'];
 
 cd(launchdir);
 

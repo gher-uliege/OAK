@@ -40,9 +40,8 @@ for n = 1:length(time);
         
     end
 
-    date = gregd2(t,'YYYYMMDD');
     prefix = sprintf('Obs%03g.',n);
-    putinitval(fid,[prefix 'time'],gregd2(time(n),'YYYY-MM-DDThh:mm:ss'));
+    putinitval(fid,[prefix 'time'],datestr_cal(time(n),'yyyy-mm-ddTHH:MM:SS'));
     putinitval(fid,[prefix 'variables'],  {datat.variables});
     
     putinitval(fid,[prefix 'names'],      {datat.names});

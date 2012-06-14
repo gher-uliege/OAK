@@ -10,8 +10,7 @@ for i=1:2:length(varargin)
   end
 end
 
-
-cmd = [self.command ' -N ' name];
+cmd = [self.command ' ' self.option_name name];
 
 for i = 1:length(args)
   cmd = [cmd ' ' num2str(args{i})];
@@ -25,9 +24,15 @@ if status ~= 0
   error(['command "' cmd '" failed: ' output]);
 end
 
-[S, E, TE, M, T]  = regexp(output,'Your job ([0-9]+) \((.*)\) has been submitted');
+if strcmp(self.command,'qsub')
+  [S, E, TE, M, T]  = regexp(output,'Your job ([0-9]+) \((.*)\) has been submitted');
+  job.id = T{1}{1};
+  job.name = T{1}{2};
+else
+  [S, E, TE, M, T]  = regexp(output,'Submitted batch job ([0-9]+)');
+  job.id = T{1}{1};
+  job.name = name;
+end
 
-job.id = T{1}{1};
-job.name = T{1}{2};
 job.args = args;
-job.scheduler = self;
+job.scheduler = self;  
