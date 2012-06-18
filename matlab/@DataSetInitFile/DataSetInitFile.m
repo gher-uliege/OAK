@@ -11,6 +11,6 @@ self.n = n;
 
 self.exec = get(self.init,'Config.exec','assim');
 self.calendar = get(self.init,'Config.calendar','standard');
-self.torigin = gettime(self.init,'Config.time_origin',self.calendar,'1858-11-17T00:00:00')
+self.torigin = gettime(self.init,'Config.time_origin',self.calendar,'1858-11-17T00:00:00');
 
 retval = class(self,'DataSetInitFile');
