@@ -20,9 +20,9 @@ end
 
 found = false;
 
-for i=1:length(self.keys2) 
-    if fnmatch(self.keys2{i},key)
-        val = parseVal(self,self.values2{i});
+for i=1:length(self.all_keys) 
+    if fnmatch(self.all_keys{i},key)
+        val = parseVal(self,self.all_values{i});
         found = true;
     end
 end

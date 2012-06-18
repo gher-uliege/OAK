@@ -10,8 +10,8 @@ key='Obs.\w*.time';
 self.filename = filename;
 
 % all keys and values
-self.keys2 = {};
-self.values2 = {};
+self.all_keys = {};
+self.all_values = {};
 
 % keys and values matching key
 self.keys = {};
@@ -46,8 +46,8 @@ while ischar(tline)  %Read all the file
         v = strtrim(p{2});
         
         if length(p) == 2
-            self.keys2{end+1} = k;
-            self.values2{end+1} = v;
+            self.all_keys{end+1} = k;
+            self.all_values{end+1} = v;
         end
         
         if ~isempty(regexp(tline,key,'match'))
