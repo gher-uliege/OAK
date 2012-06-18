@@ -20,3 +20,4 @@ assert(isequal(init.Zones_corrLength_const,[30e3,30e3]))
 assert(isequal(init.logfile,'assim.log'))
 
 
+assert(strcmp(getcopy(init,'Obs001.time'),'2010-07-06T00:30:00.00'))

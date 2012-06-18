@@ -1,7 +1,7 @@
 
 currentdir = pwd;
 initfile = fullfile(currentdir,'test_assim.init');
-initfile = fullfile(currentdir,'test_assim_local.init');
+%initfile = fullfile(currentdir,'test_assim_local.init');
 
 testdir = tempname;
 testdir = [getenv('HOME') '/tmp/oak-temp'];
