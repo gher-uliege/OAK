@@ -1,3 +1,7 @@
+% init = InitFile(filename)
+% Class representing a initilization file, i.e. a list of key-value pairs
+% 
+
 
 function retval = InitFile(filename)
 keys=cell(1);

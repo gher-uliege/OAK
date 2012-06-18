@@ -6,6 +6,6 @@ if strcmp(self.command,'qsub')
   [status, output] = system(sprintf('qstat | awk ''$1 == %s { print $5 }''',job.id)); 
   isr = ~isempty(findstr(output,'r')) || ~isempty(findstr(output,'qw'));  
 else
-  [status, output] = system(sprintf('squeue -l -j %s',job.id)); 
-  isr = ~isempty(findstr(output,'RUNNING'));  
+  [status, output] = system(sprintf('squeue --jobs=%s --format=%%T',job.id)); 
+  isr = ~isempty(findstr(output,'RUNNING')) ||  ~isempty(findstr(output,'PENDING'));  
 end

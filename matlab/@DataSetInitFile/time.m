@@ -13,6 +13,6 @@ for i=1:length(self.n)
   % yyyy-mm-dd HH:MM:SS  
   str
   [y,m,d,h,mi,s] = datevec(str,31); 
-  t(i) = datenum_cal(y,m,d,h,mi,s,self.calendar) - self.t0;
+  t(i) = datenum_cal(y,m,d,h,mi,s,self.calendar) - self.torigin;
 end
   

@@ -1,7 +1,11 @@
-function val = gettime(self,key,calendar)
+function val = gettime(self,key,calendar,default)
 
+if nargin == 3
+  str = get(self,key);
+else
+  str = get(self,key,default);
+end
 
-str = get(self,key);
 str = strrep(str,'T',' ');
 
 % yyyy-mm-dd HH:MM:SS

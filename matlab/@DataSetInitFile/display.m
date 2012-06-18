@@ -6,5 +6,5 @@
 function display(self)
 
 fprintf(1,'Calendar: %s\n',self.calendar);
-fprintf(1,'t0:       %d\n',self.t0);
+fprintf(1,'torigin:  %d\n',self.torigin);
 
