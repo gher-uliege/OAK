@@ -95,6 +95,12 @@ module ndgrid
   integer, parameter :: db_splitted = 1
   integer, parameter :: db_notsplitted = 2
 
+! grid constructor
+
+interface initgrid
+ module procedure initgrid_nd, initgrid_1d, initgrid_2d, initgrid_3d, initgrid_4d
+end interface
+
 ! top-level grid interpolation subroutine
 !
 ! interpgrid_E : with explicit coordinates and databox search
@@ -626,8 +632,15 @@ contains
 !
 ! Initialization
 !
+! create a grid g of given dimension, shape and mask
+! Input:
+!   n: dimension of the grid
+!   gshape: shape of the grid
+!   masked: true if grid point is invalid (collapsed vector)
+! Output: 
+!   g: grid
 
- subroutine initgrid(g,n,gshape,masked,dependence)
+ subroutine initgrid_nd(g,n,gshape,masked,dependence)
   implicit none
   type(grid), intent(out) :: g
   integer, intent(in) :: n,gshape(n)
@@ -703,7 +716,64 @@ contains
   ! data box
 
   call init_databox_G(g%db,g%n,g%gshape,g)
- end subroutine initgrid
+ end subroutine initgrid_nd
+
+! macro to create a vector for an array
+#define VEC(x) reshape(x, (/ size(x) /))
+
+! create a 1-d grid based on a x and mask
+
+ subroutine initgrid_1d(g,x,masked)
+  implicit none
+  type(grid), intent(out) :: g
+  real, intent(in)        :: x(:)
+  logical, intent(in)     :: masked(:)
+
+  call initgrid_nd(g,1,shape(masked),VEC(masked))
+  call setCoord(g,1,VEC(x))
+ end subroutine initgrid_1d
+
+! create a 2-d grid based on a x, y and mask
+
+ subroutine initgrid_2d(g,x,y,masked)
+  implicit none
+  type(grid), intent(out) :: g
+  real, intent(in)        :: x(:,:), y(:,:)
+  logical, intent(in)     :: masked(:,:)
+
+  call initgrid_nd(g,2,shape(masked),VEC(masked))
+  call setCoord(g,1,VEC(x))
+  call setCoord(g,2,VEC(y))
+ end subroutine initgrid_2d
+
+! create a 3-d grid based on a x, y, z and mask
+
+ subroutine initgrid_3d(g,x,y,z,masked)
+  implicit none
+  type(grid), intent(out) :: g
+  real, intent(in)        :: x(:,:,:), y(:,:,:), z(:,:,:)
+  logical, intent(in)     :: masked(:,:,:)
+
+  call initgrid_nd(g,3,shape(masked),VEC(masked))
+  call setCoord(g,1,VEC(x))
+  call setCoord(g,2,VEC(y))
+  call setCoord(g,3,VEC(z))
+ end subroutine initgrid_3d
+
+! create a 4-d grid based on a x, y, z, t and mask
+
+ subroutine initgrid_4d(g,x,y,z,t,masked)
+  implicit none
+  type(grid), intent(out) :: g
+  real, intent(in)        :: x(:,:,:,:), y(:,:,:,:), z(:,:,:,:), t(:,:,:,:)
+  logical, intent(in)     :: masked(:,:,:,:)
+
+  call initgrid_nd(g,3,shape(masked),VEC(masked))
+  call setCoord(g,1,VEC(x))
+  call setCoord(g,2,VEC(y))
+  call setCoord(g,3,VEC(z))
+  call setCoord(g,4,VEC(t))
+ end subroutine initgrid_4d
 
 
 
@@ -814,6 +884,18 @@ implicit none
 
 end subroutine
 
+! compute the interpolation coefficient and indices at the location xi 
+! of a field defined on the grid g. 
+! Input: 
+!   g (type(grid)): grid
+!   xi: coordinates of the data point
+! Output:
+!   indeces: (size n by 2**n) indexes of field (1-based)
+!   coeff (size 2**n): interpolation coefficient
+!   nbp: number of grid points used to compute the interpolated value
+!      nbp is zero if the xi is out of grid.
+
+
 subroutine cinterp(g,xi,indexes,coeff,nbp)
  implicit none
  type(grid), intent(inout) :: g
@@ -873,11 +955,20 @@ subroutine cinterp(g,xi,indexes,coeff,nbp)
   indexes = indexes+1
 end subroutine cinterp
 
+! compute the interpolated value fi at the location xi of a field f defined 
+! on the grid g. 
+! Input: 
+!   g (type(grid)): grid of f
+!   f: fields to interpolated (collapsed into a vector)
+!   xi: location of the interpolated value
+! Output:
+!   fi: interpolated value
+!   out: true where value out of grid
 
 subroutine interp(g,f,xi,fi,out)
  implicit none
  type(grid), intent(inout) :: g
- real, intent(in) :: f(:),xi(:)
+ real, intent(in) :: f(*),xi(:)
  real, intent(out) :: fi
  logical, intent(out) :: out
 
