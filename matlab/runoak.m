@@ -7,6 +7,7 @@ timeobs = [t0 time(obs)];
 
 simulation = cell(Nens,1);
 
+% time loop
 for n = 2:length(timeobs)
   % submit ensemble run
   for i=1:Nens    

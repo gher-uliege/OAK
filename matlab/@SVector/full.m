@@ -1,5 +1,5 @@
-% save(self,filenames)
-% makes sure that the state vector is available from the filenames
+% full(self)
+% load SVector in memory
 
 function x = full(self)
 
@@ -35,7 +35,7 @@ for i=1:length(self.variables)
     v{i} = self.variables{i};
   end  
 end
-
+whos v
 x = statevector_pack(self.sv,v{:});
 
 
