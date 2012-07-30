@@ -16,7 +16,8 @@ cmd = '';
 [args{1}] = gread_tilde_expand(args{1});
 
 for i = 1:length(args)
-    cmd = [cmd ' "' num2str(args{i}) '" ' ];
+%    cmd = [cmd ' "' num2str(args{i}) '" ' ];
+    cmd = [cmd ' ' num2str(args{i}) ' ' ];
 end
 
 cmd = [cmd ' >> ' name '.out & echo $!'];
