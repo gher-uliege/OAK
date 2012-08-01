@@ -3221,10 +3221,12 @@ end function
       write(stdlog,*) '  Sea points: ',ObsML%varsizesea(v)
       write(stdlog,*) '  Sea points out of grid: ',count(invsqrtR(i1:i2).eq.0.)
 
-      call report(stdlog,trim(prefix)//'forecast.',mjd,ingrid,invsqrtR(i1:i2),HSf(i1:i2,:),yo_Hxf(i1:i2))
+      if (ObsML%varsizesea(v) > 0) then
+        call report(stdlog,trim(prefix)//'forecast.',mjd,ingrid,invsqrtR(i1:i2),HSf(i1:i2,:),yo_Hxf(i1:i2))
 
-      if (runtype.eq.AssimRun) then
-        call report(stdlog,trim(prefix)//'analysis.',mjd,ingrid,invsqrtR(i1:i2),HSa(i1:i2,:),yo_Hxa(i1:i2))
+        if (runtype.eq.AssimRun) then
+          call report(stdlog,trim(prefix)//'analysis.',mjd,ingrid,invsqrtR(i1:i2),HSa(i1:i2,:),yo_Hxa(i1:i2))
+        end if
       end if
 
       write(stdlog,*) 
