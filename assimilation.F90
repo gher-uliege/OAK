@@ -3215,7 +3215,7 @@ end function
       i2 = ObsML%endIndexSea(v)
       ingrid = count(invsqrtR(i1:i2).ne.0.)
 
-      write(stdlog,*) 'Variable number ',v
+      write(stdlog,*) 'Variable number ',v,trim(obsnames(v))
       write(stdlog,*) '  Shape: ',ObsML%varshape(1:ObsML%ndim(v),v)
       write(stdlog,*) '  Size: ',ObsML%varsize(v)
       write(stdlog,*) '  Sea points: ',ObsML%varsizesea(v)
