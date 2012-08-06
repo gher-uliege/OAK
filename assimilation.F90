@@ -1180,80 +1180,6 @@ contains
  !_______________________________________________________
  !
 
-
- !_______________________________________________________
- !
-
- subroutine loadVectorSpace_test(str,ML,S,mean)
-  use initfile
-  use ufileformat
-  use matoper
-  use parall
-  character(len=*), intent(in) :: str
-  type(MemLayout),  intent(in) :: ML
-  real, intent(out)            :: S(:,:)
-  real, intent(out), optional  :: mean(:)
-
-  integer                      :: k,dim,enstype
-  real                         :: scale
-  real, pointer                :: spaceScale(:)
-  logical                      :: doSpaceScaling = .false.
-  real, allocatable            :: ensembleMean(:)
-  character(len=maxLen)        :: prefix
-
-  prefix = str(1:index(str,'.',.true.))
-
-  call getInitValue(initfname,trim(prefix)//'scale',scale,default=1.)
-  write(6,*) 'VectorSpace ',scale
-! load space dependent scale is present 
-
-  if (presentInitValue(initfname,trim(prefix)//'spaceScale')) then
-    doSpaceScaling = .true.
-    allocate(spaceScale(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel))
-    call loadVector(trim(prefix)//'spaceScale',ML,spaceScale)
-  end if
-
-  call loadEnsemble(str,ML,S)
-  dim = size(S,2)
-
-! type = 1 vectors are anomalies
-! type = 2 vectors are ensemble members (with mean)
-  
-  call getInitValue(initfname,trim(prefix)//'type',enstype,default=1)
-
-  if (enstype.eq.2) then
-! compute the ensemble mean
-    allocate(ensembleMean(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel))
-
-    ensembleMean = sum(S,2)/dim
-
-    if (present(mean)) mean = ensembleMean;
-
-#   ifdef DEBUG   
-#    if ASSIM_SCALING == 0
-       write(stddebug,*) 'remove ensemble mean and scale each member by 1/sqrt(dim)'
-#    else
-       write(stddebug,'("remove ensemble mean and scale each member by 1/sqrt(dim -",I2,")")') ASSIM_SCALING
-#    endif
-#   endif
-  end if
-
-! simple post processing of the ensemble
-  do k=1,dim
-    if (enstype.eq.2)  S(:,k) = (S(:,k)-ensembleMean)/sqrt(1.*dim - ASSIM_SCALING)
-!    if (doSpaceScaling) S(:,k) = spaceScale * S(:,k)
-!    if (scale.ne.1) S(:,k) = scale * S(:,k)
-  end do
-
-  write(6,*) 'sum(S(1,:)**2) ',sum(S(1,:)**2)
-  if (doSpaceScaling) deallocate(spaceScale)  
-  if (enstype.eq.2)  deallocate(ensembleMean)
-
- end subroutine 
-
- !_______________________________________________________
- !
-
  subroutine loadEnsemble(str,ML,S)
   use initfile
   use ufileformat
@@ -1869,7 +1795,7 @@ contains
  !
  !
  ! specialised input and output routines
- !
+ ! depreciated
 
  subroutine loadStateVector_byfilenames(path,filenames,StateVector)
   use initfile
@@ -1883,6 +1809,7 @@ contains
 
  !_______________________________________________________
  !
+ ! depreciated
 
  subroutine loadStateVector_byinitval(str,StateVector)
   use initfile
@@ -1896,6 +1823,7 @@ contains
 
  !_______________________________________________________
  !
+ ! depreciated
 
  subroutine saveStateVector_byfilenames(path,filenames,StateVector)
   use initfile
@@ -1909,6 +1837,7 @@ contains
 
  !_______________________________________________________
  !
+ ! depreciated
 
  subroutine saveStateVector_byinitval(str,StateVector)
   use initfile

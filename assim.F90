@@ -59,8 +59,8 @@ program assimtest
  call getInitValue(initfname,'ErrorSpace.type',enstype,default=1)
  if (enstype == 1) then
    ! Sf are error modes and xf is the forecast
-   call loadErrorSpace('ErrorSpace.init',Sf)
-   call loadStateVector('Forecast'//ntimeindex//'value',xf)
+   call loadVectorSpace('ErrorSpace.init',ModMLParallel,Sf)
+   call loadVector('Forecast'//ntimeindex//'value',ModMLParallel,xf)
 !$omp parallel
    call assim(ntime,Sf,Sa,xf,xa)
 !$omp end parallel

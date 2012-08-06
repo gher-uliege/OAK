@@ -1,10 +1,10 @@
 function [t0,data,model,Eic,Eforcing, obs, fun, h ] = oak_create_test(testdir,initfile)
 
-success = mkdir(testdir);
-success = mkdir(fullfile(testdir,'Common'));
-success = mkdir(fullfile(testdir,'Obs'));
-success = mkdir(fullfile(testdir,'Analysis001'));
-success = mkdir(fullfile(testdir,'Analysis002'));
+[success,message] = mkdir(testdir);
+[success,message] = mkdir(fullfile(testdir,'Common'));
+[success,message] = mkdir(fullfile(testdir,'Obs'));
+[success,message] = mkdir(fullfile(testdir,'Analysis001'));
+[success,message] = mkdir(fullfile(testdir,'Analysis002'));
 
 
 init = InitFile(initfile);

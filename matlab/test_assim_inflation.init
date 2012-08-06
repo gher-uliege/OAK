@@ -17,7 +17,7 @@ Config.coupling = 1
 
 # State vector definition
 
-Model.variables     = [          'var1',          'var2']
+Model.variables	    = [          'var1',          'var2']
 Model.gridX         = [ 'domain.nc#lon', 'domain.nc#lon']
 Model.gridY         = [ 'domain.nc#lat', 'domain.nc#lat']
 Model.gridZ         = [   'domain.nc#z',   'domain.nc#z']
@@ -30,10 +30,12 @@ ErrorSpace.dimension = 10
 ErrorSpace.path      = './'
 ErrorSpace.init      = ['("Ens",I3.3,"/model.nc#var1")','("Ens",I3.3,"/model.nc#var2")']
 ErrorSpace.type      = 2
+ErrorSpace.scale      = 10
 
 anamorphosistype = 0
-Anamorphosis.transform = ['anam.nc#trans','_id']
-Anamorphosis.path = './';
+Anamorphosis.x = ['_id','_id']
+Anamorphosis.y = ['_id','_id']
+
 
 # runtype = integer: possible values of runtype are:
 #   0 = do nothing, i.e. a pure run of the model 
