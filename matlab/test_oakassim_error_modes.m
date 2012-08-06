@@ -12,15 +12,20 @@ randn('state',0)
 
 init = InitFile(initfile);
 
+scale = get(init,'ErrorSpace.scale',1);
 
 scheduler = SchedulerShell();
 
 n = 1;
 cd(testdir)
+delete('analysis001.out')
 Ef = oak_assim(Eic,n,data,scheduler);
 
 xa2 = load(init,mask(Eic),sprintf('Diag%03g.xa',n));
 Sa2 = load(init,mask(Eic),sprintf('Diag%03g.Sa',n),1:size(Eic,2));
+stddevxf = load(init,mask(Eic),sprintf('Diag%03g.stddevxf',n));
+
+type('analysis001.out')
 
 cd(currentdir)
 
@@ -31,7 +36,7 @@ R = spdiag(obs(1).RMSE.^2);
 
 n = size(Eic,1);
 xf = 2*ones(n,1);
-S = full(Eic);
+S = scale * full(Eic);
 Pf = S*S';
 
 I = eye(n,n);
@@ -44,4 +49,4 @@ yo = obs(1).yo;
 
 rms (full(xa2), xa)
 rms(Pa2,Pa)
-
+rms(full(stddevxf),sqrt(diag(Pf)))

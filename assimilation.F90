@@ -1077,7 +1077,7 @@ contains
  !_______________________________________________________
  !
 
- subroutine loadVectorSpace_old(str,ML,S,mean)
+ subroutine loadVectorSpace(str,ML,S,mean)
   use initfile
   use ufileformat
   use matoper
@@ -1184,7 +1184,7 @@ contains
  !_______________________________________________________
  !
 
- subroutine loadVectorSpace(str,ML,S,mean)
+ subroutine loadVectorSpace_test(str,ML,S,mean)
   use initfile
   use ufileformat
   use matoper
@@ -1204,6 +1204,7 @@ contains
   prefix = str(1:index(str,'.',.true.))
 
   call getInitValue(initfname,trim(prefix)//'scale',scale,default=1.)
+  write(6,*) 'VectorSpace ',scale
 ! load space dependent scale is present 
 
   if (presentInitValue(initfname,trim(prefix)//'spaceScale')) then
@@ -1240,14 +1241,16 @@ contains
 ! simple post processing of the ensemble
   do k=1,dim
     if (enstype.eq.2)  S(:,k) = (S(:,k)-ensembleMean)/sqrt(1.*dim - ASSIM_SCALING)
-    if (doSpaceScaling) S(:,k) = spaceScale * S(:,k)
-    if (scale.ne.1) S(:,k) = scale * S(:,k)
+!    if (doSpaceScaling) S(:,k) = spaceScale * S(:,k)
+!    if (scale.ne.1) S(:,k) = scale * S(:,k)
   end do
 
+  write(6,*) 'sum(S(1,:)**2) ',sum(S(1,:)**2)
   if (doSpaceScaling) deallocate(spaceScale)  
   if (enstype.eq.2)  deallocate(ensembleMean)
 
- end subroutine loadVectorSpace
+ end subroutine 
+
  !_______________________________________________________
  !
 
@@ -1264,6 +1267,11 @@ contains
   integer                      :: v,k,dim
   character(len=maxLen), pointer   :: filenames(:), formats(:)
   character(len=maxLen)            :: prefix,path
+  real                             :: scale
+  real, allocatable                :: ensembleMean(:),ensembleAnom(:)
+  real, pointer                    :: spaceScale(:)
+  logical                          :: doSpaceScaling = .false.
+
 # ifdef PROFILE
   real(8) :: cputime(2)
 # endif
@@ -1303,6 +1311,39 @@ contains
   write(stddebug,*) 'load data  ',cputime(2)-cputime(1)
   call flush(stddebug,istat)
 # endif
+
+  ! scaling of ensemble
+  call getInitValue(initfname,trim(prefix)//'scale',scale,default=1.)
+
+! load space dependent scale is present 
+  if (presentInitValue(initfname,trim(prefix)//'spaceScale')) then
+    doSpaceScaling = .true.
+    allocate(spaceScale(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel))
+    call loadVector(trim(prefix)//'spaceScale',ML,spaceScale)
+  end if
+
+  if (scale /= 1 .or. doSpaceScaling) then
+    write(stddebug,*) 'Apply scaling to ensemble ',scale
+
+    allocate( &
+      ensembleMean(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel), &
+      ensembleAnom(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel) &     
+      )
+
+    ensembleMean = sum(S,2)/dim
+
+    ! simple post processing of the ensemble
+    do k=1,dim
+      ensembleAnom = S(:,k)-ensembleMean
+
+      if (scale /= 1) ensembleAnom = scale * ensembleAnom
+      if (doSpaceScaling) ensembleAnom = spaceScale * ensembleAnom
+
+      S(:,k) = ensembleMean + ensembleAnom
+    end do
+
+    deallocate(ensembleMean,ensembleAnom)
+  end if
 
  end subroutine loadEnsemble
 

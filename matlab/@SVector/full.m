@@ -35,7 +35,7 @@ for i=1:length(self.variables)
     v{i} = self.variables{i};
   end  
 end
-whos v
+
 x = statevector_pack(self.sv,v{:});
 
 
