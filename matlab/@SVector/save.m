@@ -24,7 +24,7 @@ for j=1:size(self,2)
             filenamet = gfilename(target);
             
             if ~strcmp(realpath(filename),realpath(filenamet))                
-                source{end+1} = filename;
+                source{end+1} = realpath(filename);
                 dest{end+1} = filenamet;
             end
         else
