@@ -31,14 +31,14 @@ program applyobsoper
 
  implicit none
 
- real, pointer      :: xf(:),invsqrtR(:),Hshift(:)
- integer :: iargc,ntime,startntime,endntime
- character(len=4) :: ntimeindex
+ real, pointer      :: xf(:), invsqrtR(:), Hshift(:)
+ integer            :: iargc,ntime,startntime,endntime
+ character(len=4)   :: ntimeindex
  character(len=124) :: str,path
  character(len=256) :: prefix, Oprefix, Dprefix
- integer :: m,n,k
+ integer            :: m,n,k
  type(SparseMatrix) :: H
- type(MemLayout) :: ObsML
+ type(MemLayout)    :: ObsML
 
  if (iargc().ne.2.and.iargc().ne.3) then
    write(stderr,*) 'Usage: applyobsoper <init file> <time index> '
@@ -60,9 +60,9 @@ program applyobsoper
    write(Oprefix,'(A,I3.3,A)') 'Obs',ntime,'.'
    write(Dprefix,'(A,I3.3,A)') 'Diag',ntime,'.'
 
-   allocate(xf(StateVectorSizeSea))
+   allocate(xf(ModMLParallel%effsize))
 
-   call loadStateVector('Forecast'//ntimeindex//'value',xf)
+   call loadVector('Forecast'//ntimeindex//'value',ModMLParallel,xf)
    call MemoryLayout(Oprefix,ObsML)
 
    allocate(invsqrtR(ObsML%effsize),Hshift(ObsML%effsize))
@@ -74,8 +74,6 @@ program applyobsoper
    !
 
    call loadObservationOper(ntime,ObsML,H,Hshift,invsqrtR)
-
-!   call loadObservationOper(ntime,ObsML,H,invsqrtR)
 
    call saveVector(trim(Dprefix)//'Hxf',ObsML,(H.x.xf)+Hshift,invsqrtR.ne.0.)
 

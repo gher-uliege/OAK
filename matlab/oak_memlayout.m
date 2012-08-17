@@ -10,10 +10,15 @@ masks = cell(1,length(masksnames));
 
 la.StartIndex(1) = 1;
 la.StartIndexSea(1) = 1;
+la.nvar = length(masksnames);
+la.VarShape = ones(5,la.nvar);
 
 for m=1:length(masksnames)
   masks{m} = ~isnan(gread(fullfile(path,masksnames{m})));
-  la.VarShape{m} = size(masks{m});
+  %la.VarShape{m} = size(masks{m});
+  sz = size(masks{m});
+  la.VarShape(1:length(sz),m) = sz;
+  la.ndim = 1:length(sz);
   
   la.VarSize(m) = numel(masks{m});
   la.VarSizeSea(m) = sum(masks{m}(:) == 1);    
@@ -29,17 +34,17 @@ end
 
 la.TotSizeSea = sum(la.VarSizeSea);
 la.TotSize = sum(la.VarSize);
+la.effsize = la.TotSizeSea;
 
 for m=1:length(masksnames)
   la.mask(la.StartIndex(m):la.EndIndex(m)) = masks{m}(:);
 end
 
-la.SeaIndex = -ones(la.TotSizeSea,1);
-la.InvIndex = -ones(la.TotSizeSea,1);
+la.SeaIndex = -ones(la.TotSize,1);
 
 ind = find(la.mask);
 la.SeaIndex(ind) = 1:length(ind);
-la.InvIndex(1:length(ind)) = ind;
+la.InvIndex = ind;
 
 %j = 1;
 %for i=1:la.TotSize

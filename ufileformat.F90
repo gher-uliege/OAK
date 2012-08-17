@@ -317,8 +317,11 @@ contains
 
   character(len=256) :: fname,unzipfname
   logical :: isNetcdf, isZipped
-  integer ::  kb, nbmots,length,iu, stat, pos
+  integer ::  kb, length,iu, stat, pos
   integer, parameter :: kblanc=10
+
+  ! variables with well defined kind
+  integer(4) ::  imaxc,jmaxc,kmaxc,iprec,nbmots
 
   real (kind=4) :: valex4
 
@@ -363,10 +366,23 @@ contains
       read(iu,err=99,end=99)
     end do
 
-    read(iu,err=99,end=99) vshape(1),vshape(2),vshape(3),prec,nbmots,valex4
+    read(iu,err=99,end=99) imaxc,jmaxc,kmaxc,iprec,nbmots,valex4
     close(iu)
 
+    vshape(1:3) = (/ imaxc,jmaxc,kmaxc /)
+    prec = iprec
     valex = valex4
+
+    if (iprec /= 4 .and. iprec /= 8) then
+      write(stderr,*) 'uinquire: error while opening file "',trim(filename),'".'
+      write(stderr,*) 'The precision variable "iprec" is ',iprec,'while it should be 4 or 8. '
+
+      if (iprec == 67108864 .or. iprec == 134217728) then
+        write(stderr,*) 'Byte order is swaped.'
+      end if
+
+      ERROR_STOP      
+    end if
 
     isdegen = any(vshape(1:3).lt.0)
     vshape(1:3) = abs(vshape(1:3))
