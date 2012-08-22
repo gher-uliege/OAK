@@ -70,7 +70,7 @@ simulation.job = submit(self.scheduler,{...
 
 %cd(olddir);
 
-system('sleep 10');
+%system('sleep 10');
 
 variables = var(ic);
 
