@@ -7,7 +7,11 @@ function retval = DataSetInitFile(filename,n)
 
 self.filename = filename;
 self.init = InitFile(filename);
-self.n = n;
+self.n = [];
+
+if nargin == 2
+  self.n = n;
+end
 
 self.exec = get(self.init,'Config.exec','assim');
 self.calendar = get(self.init,'Config.calendar','standard');

@@ -3,7 +3,7 @@
 
 function la = oak_memlayout(init,key)
 
-path = get(init,[key '.path'])
+path = get(init,[key '.path']);
 masksnames = get(init,[key '.mask']);
 
 masks = cell(1,length(masksnames));
