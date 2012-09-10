@@ -63,6 +63,7 @@ for v = 1:length(varnames)
 
       % analysis stat
       diff = yo - Hxa;
+      diff(isnan(diff)) = 0; 
       rms_Hxa_yo = rms_Hxa_yo + diff.^2;
       bias_Hxa_yo = bias_Hxa_yo + diff;       
     end
