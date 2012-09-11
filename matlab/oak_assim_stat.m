@@ -13,6 +13,13 @@ init = InitFile(initname);
 for v = 1:length(varnames)
   varname = varnames{v};
 
+  rms_Hxf_yo = 0;
+  bias_Hxf_yo = 0;
+  rms_Hxa_yo = 0;
+  bias_Hxa_yo = 0;
+
+  Hxf_yo_count = 0;
+  
   n = 1;
 
   while 1
@@ -31,14 +38,6 @@ for v = 1:length(varnames)
 
     i = find(strcmp(varname,names));
     
-    rms_Hxf_yo = 0;
-    bias_Hxf_yo = 0;
-
-    rms_Hxa_yo = 0;
-    bias_Hxa_yo = 0;
-
-    Hxf_yo_count = 0;
-
     if ~isempty(i)
       path = get(init,sprintf('Obs%03g.path',n));  
       dpath = get(init,sprintf('Diag%03g.path',n));  
@@ -83,4 +82,6 @@ for v = 1:length(varnames)
 
   stat.(varname).('analysis').('rms') =  rms_Hxa_yo;
   stat.(varname).('analysis').('bias') =  bias_Hxa_yo;
+
+  stat.(varname).('count') =  Hxf_yo_count;
 end
