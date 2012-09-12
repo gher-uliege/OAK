@@ -21,7 +21,10 @@ for v = 1:length(varnames)
   stddevHxa = 0;
   
   Hxf_yo_count = 0;
-  
+
+  stddevHxf_yo_count = 0; 
+  stddevHxa_yo_count = 0; 
+ 
   n = 1;
 
   while 1
@@ -33,10 +36,9 @@ for v = 1:length(varnames)
       break
     end
     
-     if n > 5
-       warning('debuggg')
-       break
-     end
+%     if n > 5
+%       warning('debuggg');       break
+%     end
 
     i = find(strcmp(varname,names));
     
@@ -51,11 +53,29 @@ for v = 1:length(varnames)
       
       disp([dpath  yo_name{i}])
       
-      %  yo = gread([path values{i}]);
       yo  = gread([dpath  yo_name{i}]);
       Hxf = gread([dpath Hxf_name{i}]);
       Hxa = gread([dpath Hxa_name{i}]);
 
+      if strcmp(varname,'icec')
+        val = gread([path values{i}]);        
+        mz = isnan(yo) & ~isnan(val);
+        yo(mz) = 0;            
+        Hxf(mz) = 0;            
+        Hxa(mz) = 0;             
+     end
+
+     if strcmp(varname,'ui_ice') || strcmp(varname,'vi_ice')
+        val = gread([path values{i}]);
+        
+        mz = isnan(yo) & val == 0;
+        yo(mz) = NaN;
+        Hxf(mz) = NaN;
+        Hxa(mz) = NaN;
+     end
+
+     
+     
       % forecast stat
       diff = yo - Hxf;
       Hxf_yo_count = Hxf_yo_count + ~isnan(diff);
@@ -71,10 +91,29 @@ for v = 1:length(varnames)
     
       
       stddevHxf_name = get(init,sprintf('Diag%03g.stddevHxf',n));
-      stddevHxa_name = get(init,sprintf('Diag%03g.stddevHxa',n));
-      tmp = gread([dpath Hxf_name{i}]);
+      tmp = gread([dpath stddevHxf_name{i}]);
+      if strcmp(varname,'icec')
+        tmp(mz) = 0;             
+      end          
+      if strcmp(varname,'ui_ice') || strcmp(varname,'vi_ice')
+        tmp(mz) = NaN;
+      end
+      
+      stddevHxf_yo_count = stddevHxf_yo_count + ~isnan(tmp);
       tmp(isnan(tmp)) = 0;
       stddevHxf = stddevHxf + tmp.^2;
+    
+      stddevHxa_name = get(init,sprintf('Diag%03g.stddevHxa',n));
+      tmp = gread([dpath stddevHxa_name{i}]);
+      if strcmp(varname,'icec')
+        tmp(mz) = 0;             
+      end          
+      if strcmp(varname,'ui_ice') || strcmp(varname,'vi_ice')
+        tmp(mz) = NaN;
+      end
+      stddevHxa_yo_count = stddevHxa_yo_count + ~isnan(tmp);
+      tmp(isnan(tmp)) = 0;
+      stddevHxa = stddevHxa + tmp.^2;
     end
 
     n = n + 1;
@@ -89,10 +128,11 @@ for v = 1:length(varnames)
   % save in stat
   stat.(varname).('forecast').('rms') =  rms_Hxf_yo;
   stat.(varname).('forecast').('bias') =  bias_Hxf_yo;
-  stat.(varname).('forecast').('stddevHx') =  sqrt(stddevHxf ./ Hxf_yo_count);
+  stat.(varname).('forecast').('stddevHx') =  sqrt(stddevHxf ./ stddevHxf_yo_count);
 
   stat.(varname).('analysis').('rms') =  rms_Hxa_yo;
   stat.(varname).('analysis').('bias') =  bias_Hxa_yo;
+  stat.(varname).('analysis').('stddevHx') =  sqrt(stddevHxa ./ stddevHxa_yo_count);
 
   stat.(varname).('count') =  Hxf_yo_count;
 end
