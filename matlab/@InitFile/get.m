@@ -31,7 +31,7 @@ if ~found
   if nargin == 3
     val = default;
   else    
-    error(['key ' key ' not found in ' initfile]);
+    error(['key ' key ' not found in ' self.filename]);
   end
 end
         

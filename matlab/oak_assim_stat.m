@@ -17,7 +17,9 @@ for v = 1:length(varnames)
   bias_Hxf_yo = 0;
   rms_Hxa_yo = 0;
   bias_Hxa_yo = 0;
-
+  stddevHxf = 0;
+  stddevHxa = 0;
+  
   Hxf_yo_count = 0;
   
   n = 1;
@@ -31,10 +33,10 @@ for v = 1:length(varnames)
       break
     end
     
-%     if n > 5
-%       warning('debuggg')
-%       break
-%     end
+     if n > 5
+       warning('debuggg')
+       break
+     end
 
     i = find(strcmp(varname,names));
     
@@ -46,6 +48,7 @@ for v = 1:length(varnames)
       Hxa_name = get(init,sprintf('Diag%03g.Hxa',n));
       yo_name = get(init,sprintf('Diag%03g.yo',n));
 
+      
       disp([dpath  yo_name{i}])
       
       %  yo = gread([path values{i}]);
@@ -65,6 +68,13 @@ for v = 1:length(varnames)
       diff(isnan(diff)) = 0; 
       rms_Hxa_yo = rms_Hxa_yo + diff.^2;
       bias_Hxa_yo = bias_Hxa_yo + diff;       
+    
+      
+      stddevHxf_name = get(init,sprintf('Diag%03g.stddevHxf',n));
+      stddevHxa_name = get(init,sprintf('Diag%03g.stddevHxa',n));
+      tmp = gread([dpath Hxf_name{i}]);
+      tmp(isnan(tmp)) = 0;
+      stddevHxf = stddevHxf + tmp.^2;
     end
 
     n = n + 1;
@@ -79,6 +89,7 @@ for v = 1:length(varnames)
   % save in stat
   stat.(varname).('forecast').('rms') =  rms_Hxf_yo;
   stat.(varname).('forecast').('bias') =  bias_Hxf_yo;
+  stat.(varname).('forecast').('stddevHx') =  sqrt(stddevHxf ./ Hxf_yo_count);
 
   stat.(varname).('analysis').('rms') =  rms_Hxa_yo;
   stat.(varname).('analysis').('bias') =  bias_Hxa_yo;
