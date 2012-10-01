@@ -873,13 +873,14 @@ contains
  !
 
 
- subroutine srepmat(szx,x,szy,y)
+ subroutine srepmat(szx,x,szy,y,ierr)
 
   implicit none
   integer, intent( in) :: szx(:)
   real,    intent( in) :: x(*)
   integer, intent( in) :: szy(:)
   real,    intent(out) :: y(*)
+  integer, intent(out), optional :: ierr
 
   integer, dimension(size(szx)) :: imap, offsetx, ix
   integer, dimension(size(szy)) :: map, offsety, iy
@@ -887,9 +888,12 @@ contains
 
   integer :: i,j,js,ndimx,ndimy,k,lx,ly
 
-
+  if (present(ierr)) then
+    ierr = 0
+  end if
+    
   map = 0
-
+  
   ndimx = size(szx)
   ndimy = size(szy)
 
@@ -914,7 +918,13 @@ contains
 
         if (j < js) then
           write(stderr,*) 'Error: permutation is not supported';
-          ERROR_STOP
+
+          if (present(ierr)) then
+            ierr = -1
+          else
+            ERROR_STOP
+          end if
+
         else
           map(j) = i;
           imap(i) = j
@@ -922,8 +932,13 @@ contains
         end if
 
       else
-        write(stderr,*) 'Error: unexpected dimension'
-        ERROR_STOP
+        write(stderr,*) 'Error: unexpected dimension'        
+        if (present(ierr)) then
+          ierr = -1
+        else
+          ERROR_STOP
+        end if
+        return
       end if
     end if
   end do
@@ -978,7 +993,7 @@ contains
   integer, optional, intent( in) :: force_shape(:)
 
 
-  integer :: ndimc,vshapec(MaxDimensions),prec
+  integer :: ndimc,vshapec(MaxDimensions),prec,ierr
   real :: valexc
   real, pointer :: x(:,:,:)
   logical :: isdegenc
@@ -996,7 +1011,13 @@ contains
       call uload(filename,x,valexc)     
       !write(6,*) 'vshapec ',vshapec(1:ndimc)
       !write(6,*) 'force_shape ',force_shape
-      call srepmat(vshapec(1:ndimc),x,force_shape,c)
+      call srepmat(vshapec(1:ndimc),x,force_shape,c,ierr)
+
+      if (ierr /= 0) then
+        write(stderr,*) 'srepmat failed for file,',filename
+        ERROR_STOP
+      end if
+
       deallocate(x)     
     end if
   else
