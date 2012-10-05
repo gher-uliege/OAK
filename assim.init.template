@@ -13,6 +13,14 @@ Model.gridZ         = [   'domain.nc#z',   'domain.nc#z']
 Model.mask          = ['domain.nc#mask','domain.nc#mask']
 Model.path          = 'Common/'
 
+# General configuration options
+
+Config.exec = '/path/to/assim-executable'
+Config.calendar = 'standard'
+Config.time_origin  = '0001-01-01T00:00:00'
+Config.FillValue    = -999999. 
+
+
 # Error space of the state vector
 
 ErrorSpace.dimension = 10
@@ -103,6 +111,19 @@ Analysis001.path  =  'Analysis001/'
 #   from the FillValue_ attribute are include in the state vector
 #
 # Model.path = 'where/can/I/find/the/files/'
+
+# Configuration entries for matlab code
+#
+# Config.exec = string: path of the executable assim
+#
+# Config.calendar = string:
+#    'standard', 'gregorian' (default): standard greogorian calendar with leap years
+#    'noleap', '365_day': assume all years are always 365 days long.
+#    'all_leap', '366_day': assume all years are always 366 days long.
+#
+# Config.time_origin  = string: Time origin in the format YYYY-MM-DDThh:mm:ss, e.g. '0001-01-01T00:00:00'
+#
+# Config.FillValue    = real: netcdf attribute _FillValue for output files
 
 #
 # Error space of the state vector
