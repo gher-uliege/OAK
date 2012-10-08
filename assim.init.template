@@ -95,7 +95,7 @@ Analysis001.path  =  'Analysis001/'
 
 # State vector definition
 #
-# Model.variables = vector of strings. Each string a the name of the variable.
+# Model.variables = vector of strings. Each string is the name of the variable.
 #
 # Model.gridX = vector of strings. Each string is a file name containing 
 #   the longitude of the corresponding variable.
@@ -108,7 +108,7 @@ Analysis001.path  =  'Analysis001/'
 #
 # Model.mask = vector of strings. Each string is a file name containing 
 #   the binary mask of the corresponding variable. Only values where the mask is different
-#   from the FillValue_ attribute are include in the state vector
+#   from the FillValue_ attribute are included in the state vector
 #
 # Model.path = 'where/can/I/find/the/files/'
 
@@ -144,7 +144,7 @@ Analysis001.path  =  'Analysis001/'
 # Zones.partition = vector of strings. Each string is a file name containing 
 #   the zone file of the corresponding variable. The zone files contains an 
 #   array of integers (fractional parts are ignored). Variables are in the same 
-#   zone if the same integer is associated to them. 
+#   zone if the same integer is associated with them. 
 #
 # Zones.corrLength = vector of strings. Each string is a file name containing 
 #   the correlation length of the corresponding variable.
