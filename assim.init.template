@@ -77,6 +77,7 @@ Diag*.stddevxf  =  ['stddevxf.nc#var1','stddevxf.nc#var2']
 Diag*.stddevxa  =  ['stddevxa.nc#var1','stddevxa.nc#var2']
 Diag*.xf        =  ['forecast.nc#var1','forecast.nc#var2']
 Diag*.xa-xf     =  [     'inc.nc#var1',     'inc.nc#var2']
+Diag*.xa        =  ['analysis.nc#var1','analysis.nc#var2']
 
 Diag001.Hxf       = [       'diag1.nc#xf']
 Diag001.Hxa       = [       'diag1.nc#xa']
@@ -85,12 +86,6 @@ Diag001.invsqrtR  = [ 'diag1.nc#invsqrtR']
 Diag001.stddevHxf = ['diag1.nc#stddevHxf']
 Diag001.stddevHxa = ['diag1.nc#stddevHxa']
 Diag001.path   = 'Analysis001/'
-
-# Analysis
-
-Analysis*.value =  ['analysis.nc#var1','analysis.nc#var2']
-Analysis001.path  =  'Analysis001/'
-
 
 
 # State vector definition
@@ -223,9 +218,15 @@ Analysis001.path  =  'Analysis001/'
 #
 # DiagXXX.stddevxa  = vector of strings. Error standard deviation of analysis
 #
-# DiagXXX.xf        = vector of strings. Forecast
+# DiagXXX.xf        = vector of strings. Forecast (ensemble mean)
+#
+# DiagXXX.xa        = vector of strings. Analysis (ensemble mean)
 #
 # DiagXXX.xa-xf     = vector of strings. Analysis increment
+#
+# DiagXXX.Ef        = vector of strings. Forecast ensemble, same Fortran formats as ErrorSpace.init
+#
+# DiagXXX.Ea        = vector of strings. Analysis ensemble, same Fortran formats as ErrorSpace.init
 #
 # DiagXXX.Hxf       = vector of strings. Forecast at observation location
 #
