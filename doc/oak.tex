@@ -214,7 +214,7 @@ Burne Shell (see also man page of sh and gmatch).
 
 \subsection{Reduced order analysis}
 
-The best linear unbiased estimator (BLUE) of the model's state vector
+Let $N$ be the error space dimension, \emph{i.e} the ensemble size, and $r$ the observation space dimension. The best linear unbiased estimator (BLUE) of the model's state vector
 given the model forecast $\mathbf x^f$ with error covariance $\mathbf
 P^f$ and the observation $\mathbf y^o$ with error covariance $\mathbf
 R$ is given by $\mathbf x^a$:
@@ -222,43 +222,78 @@ R$ is given by $\mathbf x^a$:
 \begin{eqnarray}
 \mathbf x^a &=& \mathbf x^f + \mathbf K 
 \left(\mathbf y^o - \mathbf H \mathbf x^f \right) \\
-\mathbf K &=& \mathbf P^f \mathbf H^T 
+\mathbf{K} &=& \mathbf P^f \mathbf H^T 
 \left( \mathbf H \mathbf P^f \mathbf H^T + \mathbf R \right)^{-1} 
-\\
+\label{KPf} \\
 \mathbf P^a &=&
-\mathbf P^f - \mathbf K \mathbf H \mathbf P^f
+\mathbf P^f - \mathbf K \mathbf H \mathbf P^f \label{PaPf}
 \end{eqnarray}
 
 where $\mathbf H$ is the observation operator extracting the observed
 part of the state vector and $\mathbf P^a$ the error covariance of the
-analysis $\mathbf x^a$. As many other assimilation schemes (SEEK,
-RRSQRT, ESSE, EnKF) we decompose $\mathbf P^f$ in terms of its square root 
-matrices $\mathbf S^f$:
-
+analysis $\mathbf x^a$. Let
 \begin{equation}
-\mathbf P^f = \mathbf S^f {\mathbf S^f}^T  
+\mathbf{\overline{x^{\{a,f\}}}}=\frac{1}{N}\sum_{k=1}^Nx^{\{a,f\}(k)} \label{ensmean}
+\end{equation}
+be respectively the analysis (a) and forecast (f)  ensemble mean.
+We construct the matrix $\mathbf S^f$ by:
+\begin{equation}
+\mathbf{S}^f=\frac{\mathbf{x}^f(k)-\mathbf{\overline{x}^f}}{\sqrt{N-1}} \label{Saf}
+\end{equation}
+Where $\mathbf S^f$ is a $N \times r$ matrix, which each column being the difference between each member its ensemble mean, and which column-wise mean is zero.
+As many other assimilation schemes (SEEK, RRSQRT, ESSE, EnKF) we decompose $\mathbf P^f$ in terms of its square root 
+matrices $\mathbf S^f$:
+\begin{equation}
+\mathbf P^f = \mathbf S^f {\mathbf S^f}^T   
+\label{PfSf}
 \end{equation}
 
-Where $\mathbf S^f$ is a $n \times r$ matrix. The reduced order
+The reduced order
 implementation is only effective if $r$ is small ($r << n$). Furthermore
-$\mathbf R$ must be diagonal.\\
-
-In practise, the following eigenvalue decomposition is made,
-
-\begin{equation}
-\left(\mathbf H \mathbf S^f\right)^T  \mathbf R^{-1} \mathbf H \mathbf S^f
-= \mathbf U \mathbf \Lambda \mathbf U^T
-\end{equation} 
-
-where $\mathbf U^T \mathbf U = \mathbf I$ and where $\Lambda$ is
-diagonal. $\mathbf U$ and $\Lambda$ are both of the size $r \times
-r$. The Kalman gain $\mathbf K$ and $\mathbf S^a$ can be computed
-by:
+$\mathbf R$ must be diagonal. Basically what we want to do is express $\mathbf{P}^a$ as a product of $\mathbf{S}^a{\mathbf{S}^a}^T$ as well.
+\\
+Let's  first calculate the Kalman gain in order to reuse it in \eqref{PaPf}. Injecting \eqref{PfSf} in \eqref{KPf}, one can write
 
 \begin{eqnarray}
-   \mathbf K &=& \mathbf S^f \mathbf U (1+ \mathbf \Lambda)^{-1} \mathbf U^T (\mathbf H \mathbf S^f)^T \mathbf R^{-1} \\
-   \mathbf S^a &=& \mathbf S^f \mathbf U (1+ \mathbf \Lambda)^{-1/2} \mathbf U^T \mathbf \Omega
+\mathbf{K}&=&{\mathbf{S}^f\mathbf{S}^f}^T\mathbf{H}^T\left[(\mathbf{HS}^f)(\mathbf{HS}^f)^T+\mathbf{R}\right]^{-1}\label{beforeSherman}\\
+&=&\mathbf{S}^f\left[\mathbf{I}+(\mathbf{H}\mathbf{S}^f)^T\mathbf{R}^{-1}(\mathbf{HS}^f)\right]^{-1}(\mathbf{H}\mathbf{S}^f)^T\mathbf{R}^{-1}\label{afterSherman}
 \end{eqnarray}
+
+Where the Sherman-Morison-Woodbury identity has been applied from \eqref{beforeSherman} to \eqref{afterSherman}. This identity can be expressed as:
+
+\begin{equation}
+{\left(\mathbf{A}^{-1}+\mathbf{B}^T\mathbf{C}^{-1}\mathbf{B}\right)}^{-1}\mathbf{B}^T\mathbf{C}^{-1}=\mathbf{AB}^T{\left(\mathbf{C}+\mathbf{BAB}^T\right)}^{-1}
+\end{equation}
+
+with $\mathbf A=1$, $\mathbf B=\mathbf{HS}^f$, $\mathbf{C}=\mathbf{R}$.
+That is, instead of performing the inverse in space of matrix $\mathbf{A}$ the inverse is done in space of matrix $\mathbf C$.\newline
+Furthermore, in practise, the following eigenvalue decomposition is made :
+\begin{equation}
+\left(\mathbf H \mathbf S^f\right)^T  \mathbf R^{-1} \mathbf H \mathbf S^f
+= \mathbf U \mathbf \Lambda \mathbf U^T \label{Udec}
+\end{equation} 
+where $\mathbf U^T \mathbf U = \mathbf I$ and where $\Lambda$ is
+diagonal.
+%The Kalman gain $\mathbf K$ and $\mathbf S^a$ can therefore be computed
+%by:
+%\begin{equation}
+ %\mathbf K = \mathbf S^f \mathbf U (1+ \mathbf \Lambda)^{-1} \mathbf U^T (\mathbf H \mathbf S^f)^T \mathbf R^{-1}\label{KU}
+%\end{equation}
+ $\mathbf U$ and $\Lambda$ are both of the size $r \times r$.\newline  
+Using \eqref{Udec} in \eqref{afterSherman} and injecting \eqref{afterSherman} and \eqref{PfSf} in \eqref{PaPf} leads to
+
+\begin{eqnarray}
+\mathbf{P}^a&=&\mathbf{S}^f\left[1-(1+{(\mathbf{U\Lambda U^T})}^{-1}\mathbf{U\Lambda U^T}\right]{\mathbf{S}^f}^T\\
+&=&\mathbf{S}^f\left[1-(1+{\mathbf{U\Lambda U^T})}^{-1}(\mathbf{U\Lambda U^T}+1-1)\right]{\mathbf{S}^f}^T \label{PaSfSft2} \\
+&=&\mathbf{S}^f\mathbf{U}{\left(1+\mathbf{\Lambda}\right)}^{-1}\mathbf{U}^T {\mathbf{S}^f}^T \label{PaSfSft}
+\end{eqnarray}
+
+using $1=\mathbf{UU^T}$ from \eqref{PaSfSft2} to \eqref{PaSfSft}.
+So we found a decomposition of $\mathbf{P}^a=\mathbf{S}^a{\mathbf{S}^a}^T$ with $\mathbf{S}^a=\mathbf{S}^f\mathbf{U}(1+\Lambda)^{-1/2}$. But  in order to ensure \eqref{ensmean}, given \eqref{Saf}, the mean of $\mathbf S^a$ has to be zero, so is the mean of $\mathbf S^f$. So we will transform $\mathbf S^a$ so that the identity \eqref{PaSfSft} is preserved. One way to do this is
+
+\begin{equation}
+   \mathbf S^a = \mathbf S^f \mathbf U (1+ \mathbf \Lambda)^{-1/2} \mathbf U^T \mathbf \Omega
+\end{equation}
 
 \newcommand{\one}{ \mathbf I_{r \times 1}}
 
