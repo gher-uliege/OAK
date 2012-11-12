@@ -66,7 +66,7 @@ debugfile = 'assim.debug'
 #
 # observations
 
-Obs001.time      = '2010-07-06T00:30:00'
+Obs001.time      = '2010-07-06T00:00:00'
 Obs001.path      = 'Obs/'
 Obs001.variables  = [              'var1']
 Obs001.names      = [      'var1_surface']
@@ -78,7 +78,7 @@ Obs001.mask       = [      'obs1.nc#var1']
 Obs001.rmse       = [      'obs1.nc#rmse']
 
 
-Obs002.time      = '2010-07-06T00:30:00'
+Obs002.time      = '2010-07-07T00:00:00'
 Obs002.path      = 'Obs/'
 Obs002.variables  = [              'var1']
 Obs002.names      = [      'var1_surface']
