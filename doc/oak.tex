@@ -236,9 +236,9 @@ analysis $\mathbf x^a$. Let
 \mathbf{\overline{x^{\{a,f\}}}}=\frac{1}{N}\sum_{k=1}^Nx^{\{a,f\}(k)} \label{ensmean}
 \end{equation}
 be respectively the analysis (a) and forecast (f)  ensemble mean.
-We construct the matrix $\mathbf S^f$ by:
+We construct the columns of the matrix $\mathbf S^f$ by:
 \begin{equation}
-\mathbf{S}^f=\frac{\mathbf{x}^f(k)-\mathbf{\overline{x}^f}}{\sqrt{N-1}} \label{Saf}
+\left( \mathbf{S}^f \right)_k =\frac{{\mathbf{x}^f}^{(k)}-\mathbf{\overline{x}^f}}{\sqrt{N-1}} \label{Saf}
 \end{equation}
 Where $\mathbf S^f$ is a $N \times r$ matrix, which each column being the difference between each member its ensemble mean, and which column-wise mean is zero.
 As many other assimilation schemes (SEEK, RRSQRT, ESSE, EnKF) we decompose $\mathbf P^f$ in terms of its square root 
@@ -398,12 +398,13 @@ strings attributing to each variable a user chosen name. The keys
 of each variable. The files in \code{Model.gridZ} can be plain files
 and contains the depth. The key \code{Model.mask} is used to determine
 the sea-land mask of each variable. The exclusion value (or missing
-value in NetCDF terminology) marks a land point all other values, a sea
+value or \_FillValue in NetCDF terminology) marks a land point all other values, a sea
 points. Every files assembled into a state vector should have physical
 values where mask assumes a sea point. The shape of the arrays in
 \code{Model.gridX}, \code{Model.gridY}, \code{Model.gridZ} and
-\code{Model.mask} must be the same. No check is performed for the
-shape neither for the mask so be careful. \\
+\code{Model.mask} must be the same. 
+%No check is performed for the shape neither for the mask so be careful. 
+\\
 
 The string in \code{Model.path} in prepended to each file names.
 Example:
@@ -463,6 +464,62 @@ Each error mode is multiplied by this real number. The default is 1.
 \code{ErrorSpace.spaceScale} & vector of strings &
 Each error mode is multiplied element by element by this vector. The
 default is a vector with all elements equal to 1.
+\\
+\hline
+\end{keytabular}
+
+\subsubsection{Zones}
+
+When the local version of the assimilation algorithm (\code{schemetype} = 0) is used, then the assimilation is performed in a number of zones independently. Zones are defined by specifying a partition vector which has the same number of variables as the model state vector and each variable has the same size as the corresponding \code{Model.mask}. This vector contains only integer values starting with one and represent labels: all elements in the state vector which have the same partition number belong to the same zone. For example, for a state vector with 5 elements and the partition vector $\mathbf p$:
+
+\begin{equation}
+\mathbf x = 
+\left( 
+\begin{array}{c}
+x_1 \\
+x_2 \\
+x_3 \\
+x_4 \\
+x_5
+\end{array}
+\right) 
+\qquad
+\mathbf p = 
+\left( 
+\begin{array}{c}
+1 \\
+1 \\
+2 \\
+2 \\
+3
+\end{array}
+\right) 
+\end{equation}
+
+This partition vector defined three zones: the first zone contains elements $x_1$ and $x_2$, the second zone $x_3$ and $x_4$ and the third zone $x_3$. There should be no gaps in the partition vector. For example the vector $(1,1,2,2,4)^T$ would cause an error. 
+In practice, the state vector is partitioned along water columns.
+The assimilation is performed independently in each zone using only observations within the search radius given by 
+\code{Zones.maxLength}. The weight of the observations $\frac{1}{R'}$ is multiplied by a Gaussian function:
+\begin{equation}
+\frac{1}{R'} = \frac{1}{R'} \exp(- (d/L)^2)
+\end{equation}
+
+where $d$ is the horizontal distance (in m) the first point of a zone and a single observation and $L$ a length-scale (in m) given by \code{Zones.corrLength}. \code{Zones.maxLength} and \code{Zones.corrLength} have the same size as the model state vector. In most cases these values are constant can be specified by, e.g.:
+
+\begin{verbatim} 
+Zones.corrLength.const = [           30e3,             30e3]
+Zones.maxLength.const  = [         2000e3,           2000e3]
+\end{verbatim}
+
+\begin{keytabular}
+\code{Zones.partition} & vector of strings & Each string is a file name containing
+  the partition file for the given model variable
+\\
+\code{Zones.corrLength} & vector of strings & Each string is a file name containing 
+  the correlation length
+\\
+\code{Zones.maxLength} & vector of strings & Each string is a file name containing 
+  the maximum correlation length
 \\
 \hline
 \end{keytabular}
@@ -550,6 +607,8 @@ observation operator.
   operator is created by a trilinear interpolation using the module \code{grids}. 
 \end{enumerate}   
 
+Note that the individual arrays in \code{ObsXXX.value}, \code{ObsXXX.rmse}, \code{ObsXXX.mask}, \code{ObsXXX.gridX},
+\code{ObsXXX.gridY} and \code{ObsXXX.gridZ} should have the same size.
 
 \subsubsubsection{Format of the observation operator}\label{format_oper}
 
@@ -683,6 +742,13 @@ possible values of \code{runtype} are:
 \item[0:] do nothing, i.e. a pure run of the model  
 \item[1:] still do not assimilate, but compare model to observations
 \item[2:] assimilate observations
+\end{description}
+\\
+\code{schemetype} & integer &
+possible values of \code{schemetype} are:
+\begin{description}
+\item[0:] global assimilation (default)
+\item[1:] local assimilation (\code{Zones} need to be defined)
 \end{description}
 \\
 \code{moderrtype} & integer &

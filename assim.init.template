@@ -142,16 +142,16 @@ Diag001.path   = 'Analysis001/'
 #   zone if the same integer is associated with them. 
 #
 # Zones.corrLength = vector of strings. Each string is a file name containing 
-#   the correlation length of the corresponding variable.
+#   the correlation length of the corresponding variable (in meters).
 #
 # Zones.corrLength.const = vector of reals. Each real value is the constant 
-#   correlation length of the corresponding variable.
+#   correlation length of the corresponding variable (in meters).
 #
 # Zones.maxLength = vector of strings. Each string is a file name containing 
-#   the maximum correlation length of the corresponding variable.
+#   the maximum correlation length of the corresponding variable (in meters).
 #
 # Zones.maxLength.const = vector of reals. Each real value is the constant 
-#   maximum correlation length of the corresponding variable.
+#   maximum correlation length of the corresponding variable (in meters).
 #
 # Zones.path = string. Path where all files for the zone definition can be found
 
