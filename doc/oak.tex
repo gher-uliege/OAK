@@ -232,14 +232,17 @@ R$ is given by $\mathbf x^a$:
 where $\mathbf H$ is the observation operator extracting the observed
 part of the state vector and $\mathbf P^a$ the error covariance of the
 analysis $\mathbf x^a$. Let
+
 \begin{equation}
-\mathbf{\overline{x^{\{a,f\}}}}=\frac{1}{N}\sum_{k=1}^Nx^{\{a,f\}(k)} \label{ensmean}
+\overline{\mathbf x^{a,f}}=\frac{1}{N}\sum_{k=1}^N \mathbf x^{a,f^{(k)}} \label{ensmean}
 \end{equation}
 be respectively the analysis (a) and forecast (f)  ensemble mean.
 We construct the columns of the matrix $\mathbf S^f$ by:
+
 \begin{equation}
-\left( \mathbf{S}^f \right)_k =\frac{{\mathbf{x}^f}^{(k)}-\mathbf{\overline{x}^f}}{\sqrt{N-1}} \label{Saf}
+\left( \mathbf{S}^f \right)_k =\frac{{\mathbf{x}^f}^{(k)}-\overline{\mathbf{x}^f}}{\sqrt{N-1}} \label{Saf}
 \end{equation}
+
 Where $\mathbf S^f$ is a $N \times r$ matrix, which each column being the difference between each member its ensemble mean, and which column-wise mean is zero.
 As many other assimilation schemes (SEEK, RRSQRT, ESSE, EnKF) we decompose $\mathbf P^f$ in terms of its square root 
 matrices $\mathbf S^f$:
@@ -255,8 +258,13 @@ $\mathbf R$ must be diagonal. Basically what we want to do is express $\mathbf{P
 Let's  first calculate the Kalman gain in order to reuse it in \eqref{PaPf}. Injecting \eqref{PfSf} in \eqref{KPf}, one can write
 
 \begin{eqnarray}
-\mathbf{K}&=&{\mathbf{S}^f\mathbf{S}^f}^T\mathbf{H}^T\left[(\mathbf{HS}^f)(\mathbf{HS}^f)^T+\mathbf{R}\right]^{-1}\label{beforeSherman}\\
-&=&\mathbf{S}^f\left[\mathbf{I}+(\mathbf{H}\mathbf{S}^f)^T\mathbf{R}^{-1}(\mathbf{HS}^f)\right]^{-1}(\mathbf{H}\mathbf{S}^f)^T\mathbf{R}^{-1}\label{afterSherman}
+\mathbf K  
+&=& 
+(\mathbf S ^f {\mathbf S ^f}^T) \mathbf H ^T \left[\mathbf H (\mathbf S^f  {\mathbf S^f}^T) \mathbf H^T + \mathbf R  \right]^{-1}\label{beforeSherman}\\
+&=& 
+\mathbf S ^f {\mathbf S ^f}^T \mathbf H ^T \left[(\mathbf H \mathbf S^f)(\mathbf H \mathbf S^f)^T+\mathbf R  \right]^{-1}\label{beforeSherman}\\
+&=&
+\mathbf S^f\left[\mathbf I + (\mathbf H \mathbf S^f)^T\mathbf R^{-1}(\mathbf H \mathbf S^f)\right]^{-1}(\mathbf H \mathbf S^f)^T\mathbf R^{-1}\label{afterSherman}
 \end{eqnarray}
 
 Where the Sherman-Morison-Woodbury identity has been applied from \eqref{beforeSherman} to \eqref{afterSherman}. This identity can be expressed as:
@@ -265,7 +273,7 @@ Where the Sherman-Morison-Woodbury identity has been applied from \eqref{beforeS
 {\left(\mathbf{A}^{-1}+\mathbf{B}^T\mathbf{C}^{-1}\mathbf{B}\right)}^{-1}\mathbf{B}^T\mathbf{C}^{-1}=\mathbf{AB}^T{\left(\mathbf{C}+\mathbf{BAB}^T\right)}^{-1}
 \end{equation}
 
-with $\mathbf A=1$, $\mathbf B=\mathbf{HS}^f$, $\mathbf{C}=\mathbf{R}$.
+with $\mathbf A= \mathbf I$, $\mathbf B=\mathbf{HS}^f$, $\mathbf{C}=\mathbf{R}$.
 That is, instead of performing the inverse in space of matrix $\mathbf{A}$ the inverse is done in space of matrix $\mathbf C$.\newline
 Furthermore, in practise, the following eigenvalue decomposition is made :
 \begin{equation}
@@ -283,8 +291,10 @@ diagonal.
 Using \eqref{Udec} in \eqref{afterSherman} and injecting \eqref{afterSherman} and \eqref{PfSf} in \eqref{PaPf} leads to
 
 \begin{eqnarray}
-\mathbf{P}^a&=&\mathbf{S}^f\left[1-(1+{(\mathbf{U\Lambda U^T})}^{-1}\mathbf{U\Lambda U^T}\right]{\mathbf{S}^f}^T\\
-&=&\mathbf{S}^f\left[1-(1+{\mathbf{U\Lambda U^T})}^{-1}(\mathbf{U\Lambda U^T}+1-1)\right]{\mathbf{S}^f}^T \label{PaSfSft2} \\
+\mathbf{P}^a
+&=&
+\mathbf{S}^f\left[\mathbf I-(\mathbf I+{\mathbf{U\Lambda U^T})}^{-1}\mathbf{U\Lambda U^T}\right]{\mathbf{S}^f}^T\\
+&=&\mathbf{S}^f\left[\mathbf I-(1+{\mathbf{U\Lambda U^T})}^{-1}(\mathbf{U\Lambda U^T}+1-1)\right]{\mathbf{S}^f}^T \label{PaSfSft2} \\
 &=&\mathbf{S}^f\mathbf{U}{\left(1+\mathbf{\Lambda}\right)}^{-1}\mathbf{U}^T {\mathbf{S}^f}^T \label{PaSfSft}
 \end{eqnarray}
 
