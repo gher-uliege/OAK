@@ -262,9 +262,9 @@ Let's  first calculate the Kalman gain in order to reuse it in \eqref{PaPf}. Inj
 &=& 
 (\mathbf S ^f {\mathbf S ^f}^T) \mathbf H ^T \left[\mathbf H (\mathbf S^f  {\mathbf S^f}^T) \mathbf H^T + \mathbf R  \right]^{-1}\label{beforeSherman}\\
 &=& 
-\mathbf S ^f {\mathbf S ^f}^T \mathbf H ^T \left[(\mathbf H \mathbf S^f)(\mathbf H \mathbf S^f)^T+\mathbf R  \right]^{-1}\label{beforeSherman}\\
+\mathbf S ^f (\mathbf H \mathbf S ^f)^T  \left[ \mathbf H \mathbf S^f(\mathbf H \mathbf S^f)^T+\mathbf R  \right]^{-1}\label{beforeSherman}\\
 &=&
-\mathbf S^f\left[\mathbf I + (\mathbf H \mathbf S^f)^T\mathbf R^{-1}(\mathbf H \mathbf S^f)\right]^{-1}(\mathbf H \mathbf S^f)^T\mathbf R^{-1}\label{afterSherman}
+\mathbf S^f\left[\mathbf I + (\mathbf H \mathbf S^f)^T\mathbf R^{-1} \mathbf H \mathbf S^f \right]^{-1}(\mathbf H \mathbf S^f)^T\mathbf R^{-1}\label{afterSherman}
 \end{eqnarray}
 
 Where the Sherman-Morison-Woodbury identity has been applied from \eqref{beforeSherman} to \eqref{afterSherman}. This identity can be expressed as:
@@ -275,7 +275,36 @@ Where the Sherman-Morison-Woodbury identity has been applied from \eqref{beforeS
 
 with $\mathbf A= \mathbf I$, $\mathbf B=\mathbf{HS}^f$, $\mathbf{C}=\mathbf{R}$.
 That is, instead of performing the inverse in space of matrix $\mathbf{A}$ the inverse is done in space of matrix $\mathbf C$.\newline
-Furthermore, in practise, the following eigenvalue decomposition is made :
+
+\begin{eqnarray}
+\mathbf{P}^a
+&=&
+\mathbf P^f - \mathbf K \mathbf H \mathbf P^f \\
+&=&
+\mathbf S^f {\mathbf S^f}^T - \mathbf K \mathbf H \mathbf P^f \\
+&=&
+\mathbf S^f {\mathbf S^f}^T
+-
+{\color{blue}\mathbf S^f\left[\mathbf I + (\mathbf H \mathbf S^f)^T\mathbf R^{-1} \mathbf H \mathbf S^f\right]^{-1}(\mathbf H \mathbf S^f)^T\mathbf R^{-1}}
+\mathbf H \mathbf S {\mathbf S^f}^T \\
+&=&
+\mathbf S^f 
+\left[ 
+\mathbf I
+-
+\left(\mathbf I + (\mathbf H \mathbf S^f)^T\mathbf R^{-1} \mathbf H \mathbf S^f\right)^{-1}(\mathbf H \mathbf S^f)^T\mathbf R^{-1}
+\mathbf H \mathbf S 
+\right] {\mathbf S^f}^T 
+\end{eqnarray}
+
+In order to avoid to format $\mathbf P^a$ explicitely, we need to express $\mathbf P^a$ in terms of the much smaller square root matrices $\mathbf S^a$.
+
+\begin{equation}
+ \mathbf P^a = \mathbf S^a {\mathbf S^a}^T
+\end{equation}
+
+This is possible when the following eigenvalue decomposition is made :
+
 \begin{equation}
 \left(\mathbf H \mathbf S^f\right)^T  \mathbf R^{-1} \mathbf H \mathbf S^f
 = \mathbf U \mathbf \Lambda \mathbf U^T \label{Udec}
@@ -287,18 +316,39 @@ diagonal.
 %\begin{equation}
  %\mathbf K = \mathbf S^f \mathbf U (1+ \mathbf \Lambda)^{-1} \mathbf U^T (\mathbf H \mathbf S^f)^T \mathbf R^{-1}\label{KU}
 %\end{equation}
- $\mathbf U$ and $\Lambda$ are both of the size $r \times r$.\newline  
+ $\mathbf U$ and $\mathbf \Lambda$ are both of the size $r \times r$.\newline  
 Using \eqref{Udec} in \eqref{afterSherman} and injecting \eqref{afterSherman} and \eqref{PfSf} in \eqref{PaPf} leads to
+
 
 \begin{eqnarray}
 \mathbf{P}^a
 &=&
-\mathbf{S}^f\left[\mathbf I-(\mathbf I+{\mathbf{U\Lambda U^T})}^{-1}\mathbf{U\Lambda U^T}\right]{\mathbf{S}^f}^T\\
-&=&\mathbf{S}^f\left[\mathbf I-(1+{\mathbf{U\Lambda U^T})}^{-1}(\mathbf{U\Lambda U^T}+1-1)\right]{\mathbf{S}^f}^T \label{PaSfSft2} \\
-&=&\mathbf{S}^f\mathbf{U}{\left(1+\mathbf{\Lambda}\right)}^{-1}\mathbf{U}^T {\mathbf{S}^f}^T \label{PaSfSft}
+\mathbf S^f
+\left[
+\mathbf I - 
+(\mathbf I+ \mathbf U \mathbf \Lambda \mathbf U^T )^{-1}\mathbf U \mathbf \Lambda \mathbf U^T
+\right]
+{\mathbf S^f}^T\\
+&=&
+\mathbf S^f
+\left[
+\mathbf I - 
+(\mathbf I+ \mathbf U \mathbf \Lambda \mathbf U^T )^{-1}
+\left( \mathbf U \mathbf \Lambda \mathbf U^T + \mathbf I - \mathbf I\right) 
+\right]
+{\mathbf S^f}^T\\
+&=&
+\mathbf{S}^f
+\left[
+\mathbf I-(\mathbf I+{\mathbf{U\Lambda U^T})}^{-1}(\mathbf{U\Lambda U^T}+\mathbf I - \mathbf I)
+\right]{\mathbf{S}^f}^T \label{PaSfSft2} \\
+&=&
+\mathbf{S}^f
+\mathbf{U}
+{\left(\mathbf +\mathbf{\Lambda}\right)}^{-1}\mathbf{U}^T {\mathbf{S}^f}^T \label{PaSfSft}
 \end{eqnarray}
 
-using $1=\mathbf{UU^T}$ from \eqref{PaSfSft2} to \eqref{PaSfSft}.
+using $\mathbf{UU}^T = \mathbf I$ from \eqref{PaSfSft2} to \eqref{PaSfSft}.
 So we found a decomposition of $\mathbf{P}^a=\mathbf{S}^a{\mathbf{S}^a}^T$ with $\mathbf{S}^a=\mathbf{S}^f\mathbf{U}(1+\Lambda)^{-1/2}$. But  in order to ensure \eqref{ensmean}, given \eqref{Saf}, the mean of $\mathbf S^a$ has to be zero, so is the mean of $\mathbf S^f$. So we will transform $\mathbf S^a$ so that the identity \eqref{PaSfSft} is preserved. One way to do this is
 
 \begin{equation}
