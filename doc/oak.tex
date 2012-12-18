@@ -214,7 +214,7 @@ Burne Shell (see also man page of sh and gmatch).
 
 \subsection{Reduced order analysis}
 
-Let $N$ be the error space dimension, \emph{i.e} the ensemble size, and $r$ the observation space dimension. The best linear unbiased estimator (BLUE) of the model's state vector
+Let $N$ be the error space dimension, \emph{i.e} the ensemble size, and $m$ the observation space dimension. The best linear unbiased estimator (BLUE) of the model's state vector
 given the model forecast $\mathbf x^f$ with error covariance $\mathbf
 P^f$ and the observation $\mathbf y^o$ with error covariance $\mathbf
 R$ is given by $\mathbf x^a$:
@@ -231,31 +231,49 @@ R$ is given by $\mathbf x^a$:
 
 where $\mathbf H$ is the observation operator extracting the observed
 part of the state vector and $\mathbf P^a$ the error covariance of the
-analysis $\mathbf x^a$. Let
+analysis $\mathbf x^a$. 
+
+From the ensemble of forecast states $\mathbf {x^f}^{(k)}$ where $k=1,\dots,N$ one can compute the ensemble mean 
 
 \begin{equation}
-\overline{\mathbf x^{a,f}}=\frac{1}{N}\sum_{k=1}^N \mathbf x^{a,f^{(k)}} \label{ensmean}
+\overline{\mathbf x^{f}}=\frac{1}{N}\sum_{k=1}^N \mathbf x^{f^{(k)}} %\label{ensmean}
 \end{equation}
-be respectively the analysis (a) and forecast (f)  ensemble mean.
+
+and ensemble covariance:
+
+\begin{equation}
+\mathbf P^f =\frac{1}{N-1} \sum_{k=1}^N 
+\left( \mathbf x^{f^{(k)}} - \overline{\mathbf x^{f}} \right) 
+\left( \mathbf x^{f^{(k)}} - \overline{\mathbf x^{f}} \right)^T 
+\end{equation}
+
 We construct the columns of the matrix $\mathbf S^f$ by:
 
 \begin{equation}
 \left( \mathbf{S}^f \right)_k =\frac{{\mathbf{x}^f}^{(k)}-\overline{\mathbf{x}^f}}{\sqrt{N-1}} \label{Saf}
 \end{equation}
 
-Where $\mathbf S^f$ is a $N \times r$ matrix, which each column being the difference between each member its ensemble mean, and which column-wise mean is zero.
-As many other assimilation schemes (SEEK, RRSQRT, ESSE, EnKF) we decompose $\mathbf P^f$ in terms of its square root 
-matrices $\mathbf S^f$:
+where $\mathbf S^f$ is a $n \times N$ matrix, which each column being the difference between each member its ensemble mean.
+Its mean over all columns it thus zero.
+As many other assimilation schemes (SEEK, RRSQRT, ESSE, EnKF), $\mathbf P^f$ is decomposed in terms of this square root 
+matrix $\mathbf S^f$:
 \begin{equation}
-\mathbf P^f = \mathbf S^f {\mathbf S^f}^T   
-\label{PfSf}
+\mathbf P^f = \mathbf S^f {\mathbf S^f}^T   \label{PfSf}
 \end{equation}
 
-The reduced order
-implementation is only effective if $r$ is small ($r << n$). Furthermore
-$\mathbf R$ must be diagonal. Basically what we want to do is express $\mathbf{P}^a$ as a product of $\mathbf{S}^a{\mathbf{S}^a}^T$ as well.
-\\
-Let's  first calculate the Kalman gain in order to reuse it in \eqref{PaPf}. Injecting \eqref{PfSf} in \eqref{KPf}, one can write
+
+%\begin{equation}
+%\overline{\mathbf x^{a,f}}=\frac{1}{N}\sum_{k=1}^N \mathbf x^{a,f^{(k)}} \label{ensmean}
+%\end{equation}
+
+Typically, the number of ensemble members $N$ is much smaller than the state vector size $n$. We rewrite the Kalman Filter analysis, by avoiding any matrix of the size $n \times n$:
+
+% be respectively the analysis (a) and forecast (f)  ensemble mean.
+% The reduced order
+% implementation is only effective if $N$ is small ($N << n$). Furthermore
+% $\mathbf R$ must be diagonal for efficiency. Basically what we want to do is express $\mathbf{P}^a$ as a product of $\mathbf{S}^a{\mathbf{S}^a}^T$ as well.
+% \\
+%Let's  first calculate the Kalman gain in order to reuse it in \eqref{PaPf}. Injecting \eqref{PfSf} in \eqref{KPf}, one can write
 
 \begin{eqnarray}
 \mathbf K  
@@ -274,15 +292,15 @@ Where the Sherman-Morison-Woodbury identity has been applied from \eqref{beforeS
 {\left(\mathbf{A}^{-1}+\mathbf{B}^T\mathbf{C}^{-1}\mathbf{B}\right)}^{-1}\mathbf{B}^T\mathbf{C}^{-1}
 \end{equation}
 
-with $\mathbf A= \mathbf I$, $\mathbf B=\mathbf{HS}^f$, $\mathbf{C}=\mathbf{R}$.
-That is, instead of performing the inverse in space of matrix $\mathbf{A}$ the inverse is done in space of matrix $\mathbf C$.\newline
+with $\mathbf A = \mathbf I$, $\mathbf B=\mathbf{HS}^f$, $\mathbf{C}=\mathbf{R}$.
+That is, instead of performing the inverse in space of matrix $\mathbf{A}$ the inverse is done in the space of the matrix $\mathbf C$. We also substitute $\mathbf P^f$ in the expression of the analysis covariance error $\mathbf P^a$: \newline
 
 \begin{eqnarray}
 \mathbf{P}^a
 &=&
 \mathbf P^f - \mathbf K \mathbf H \mathbf P^f \\
 &=&
-\mathbf S^f {\mathbf S^f}^T - \mathbf K \mathbf H \mathbf P^f \\
+\mathbf S^f {\mathbf S^f}^T - \mathbf K \mathbf H \mathbf S^f {\mathbf S^f}^T \\
 &=&
 \mathbf S^f {\mathbf S^f}^T
 -
@@ -295,10 +313,10 @@ That is, instead of performing the inverse in space of matrix $\mathbf{A}$ the i
 -
 \left(\mathbf I + (\mathbf H \mathbf S^f)^T\mathbf R^{-1} \mathbf H \mathbf S^f\right)^{-1}(\mathbf H \mathbf S^f)^T\mathbf R^{-1}
 \mathbf H \mathbf S 
-\right] {\mathbf S^f}^T 
+\right] {\mathbf S^f}^T  \label{eqn:Pa_with_Sf}
 \end{eqnarray}
 
-In order to avoid to format $\mathbf P^a$ explicitely, we need to express $\mathbf P^a$ in terms of the much smaller square root matrices $\mathbf S^a$.
+In order to avoid to form $\mathbf P^a$ explicitly, we need to express $\mathbf P^a$ also in terms of the square root matrices $\mathbf S^a$.
 
 \begin{equation}
  \mathbf P^a = \mathbf S^a {\mathbf S^a}^T
@@ -315,31 +333,8 @@ where $\mathbf U^T \mathbf U = \mathbf I$ and where $\mathbf \Lambda$ is
 diagonal.
  $\mathbf U$ and $\mathbf \Lambda$ are both of the size $r \times r$.\newline  
 
-The Kalman gain $\mathbf K$ can therefore be computed
-by:
-
-
-\begin{eqnarray}
-%&=&
-%\label{afterSherman}
- \mathbf K 
-&=&
-\mathbf S^f
-\left[
-\mathbf I + (\mathbf H \mathbf S^f)^T\mathbf R^{-1} \mathbf H \mathbf S^f 
-\right]^{-1}
-(\mathbf H \mathbf S^f)^T\mathbf R^{-1} \\
-&=&
-\mathbf S^f
-\left[
-\mathbf U \mathbf U^T + \mathbf U \mathbf \Lambda \mathbf U^T
-\right]^{-1}
-(\mathbf H \mathbf S^f)^T\mathbf R^{-1} \\
-&=&
- \mathbf S^f \mathbf U (\mathbf I + \mathbf \Lambda)^{-1} \mathbf U^T (\mathbf H \mathbf S^f)^T \mathbf R^{-1}\label{KU}
-\end{eqnarray}
-Using \eqref{Udec} in \eqref{afterSherman} and injecting \eqref{afterSherman} and \eqref{PfSf} in \eqref{PaPf} leads to
-
+Using the decomposition \eqref{Udec} in equation (\ref{eqn:Pa_with_Sf}) one obtains:
+% \eqref{afterSherman} and injecting \eqref{afterSherman} and \eqref{PfSf} in \eqref{PaPf} leads to
 
 \begin{eqnarray}
 \mathbf{P}^a
@@ -396,11 +391,33 @@ Using \eqref{Udec} in \eqref{afterSherman} and injecting \eqref{afterSherman} an
 \mathbf U^T {\mathbf S^f}^T \label{PaSfSft}
 \end{eqnarray}
 
-So we found a square root decomposition of $\mathbf{P}^a$ in terms of $\mathbf{S}^f\mathbf{U}(\mathbf I + \mathbf \Lambda)^{-1/2}$. But  in order to ensure \eqref{ensmean}, given \eqref{Saf}, the mean of $\mathbf S^a$ has to be zero, so is the mean of $\mathbf S^f$. So we will transform $\mathbf S^a$ so that the identity \eqref{PaSfSft} is preserved. One way to do this is
+So we found a square root decomposition of $\mathbf{P}^a$ in terms of $\mathbf{S}^f\mathbf{U}(\mathbf I + \mathbf \Lambda)^{-1/2}$. But in order to construct an ensemble from the columns of $\mathbf S^a$, its mean has to be zero. So we will transform $\mathbf S^a$ so that the identity \eqref{PaSfSft} is preserved. One way to do this is
 
 \begin{equation}
    \mathbf S^a = \mathbf S^f \mathbf U (1+ \mathbf \Lambda)^{-1/2} \mathbf U^T \mathbf \Omega
 \end{equation}
+
+
+The decomposition (\ref{Udec}) can also be used in the computation of the Kalman gain $\mathbf K$:
+by:
+
+\begin{eqnarray}
+ \mathbf K 
+&=&
+\mathbf S^f
+\left[
+\mathbf I + (\mathbf H \mathbf S^f)^T\mathbf R^{-1} \mathbf H \mathbf S^f 
+\right]^{-1}
+(\mathbf H \mathbf S^f)^T\mathbf R^{-1} \\
+&=&
+\mathbf S^f
+\left[
+\mathbf U \mathbf U^T + \mathbf U \mathbf \Lambda \mathbf U^T
+\right]^{-1}
+(\mathbf H \mathbf S^f)^T\mathbf R^{-1} \\
+&=&
+ \mathbf S^f \mathbf U (\mathbf I + \mathbf \Lambda)^{-1} \mathbf U^T (\mathbf H \mathbf S^f)^T \mathbf R^{-1}\label{KU}
+\end{eqnarray}
 
 \newcommand{\one}{ \mathbf I_{r \times 1}}
 
