@@ -214,7 +214,7 @@ Burne Shell (see also man page of sh and gmatch).
 
 \subsection{Reduced order analysis}
 
-Let $N$ be the error space dimension, \emph{i.e} the ensemble size, and $m$ the observation space dimension. The best linear unbiased estimator (BLUE) of the model's state vector
+Let $N$ be the ensemble size, $n$ the size of the state vector and $m$ the observation space dimension. The best linear unbiased estimator (BLUE) of the model's state vector
 given the model forecast $\mathbf x^f$ with error covariance $\mathbf
 P^f$ and the observation $\mathbf y^o$ with error covariance $\mathbf
 R$ is given by $\mathbf x^a$:
@@ -331,7 +331,7 @@ This is possible when the following eigenvalue decomposition is made :
 \end{equation} 
 where $\mathbf U^T \mathbf U = \mathbf I$ and where $\mathbf \Lambda$ is
 diagonal.
- $\mathbf U$ and $\mathbf \Lambda$ are both of the size $r \times r$.\newline  
+ $\mathbf U$ and $\mathbf \Lambda$ are both of the size $N \times N$.\newline  
 
 Using the decomposition \eqref{Udec} in equation (\ref{eqn:Pa_with_Sf}) one obtains:
 % \eqref{afterSherman} and injecting \eqref{afterSherman} and \eqref{PfSf} in \eqref{PaPf} leads to
@@ -419,9 +419,9 @@ by:
  \mathbf S^f \mathbf U (\mathbf I + \mathbf \Lambda)^{-1} \mathbf U^T (\mathbf H \mathbf S^f)^T \mathbf R^{-1}\label{KU}
 \end{eqnarray}
 
-\newcommand{\one}{ \mathbf I_{r \times 1}}
+\newcommand{\one}{ \mathbf I_{N \times 1}}
 
-$\mathbf \Omega$ is an orthogonal matrix chosen such that sum of all columns of $\mathbf S^a$ is zero. This sum can be obtained by multiplying to the right with a vector $r \times 1$ with all elements equal to 1 ($\one$). Since $\mathbf S^f \one$ is zero, $\mathbf S^a \one$ is also zero if:
+$\mathbf \Omega$ is an orthogonal matrix chosen such that sum of all columns of $\mathbf S^a$ is zero. This sum can be obtained by multiplying to the right with a vector $N \times 1$ with all elements equal to 1 ($\one$). Since $\mathbf S^f \one$ is zero, $\mathbf S^a \one$ is also zero if:
 
 \begin{eqnarray}
   \mathbf U (\mathbf I + \mathbf \Lambda)^{-1/2} \mathbf U^T \mathbf \Omega \, \one &=& \one \\
@@ -431,7 +431,7 @@ $\mathbf \Omega$ is an orthogonal matrix chosen such that sum of all columns of 
 We defined the normalised vectors $\mathbf w$ and $\mathbf v$:
 
 \begin{eqnarray}
-  \mathbf w &=& \frac{1}{\sqrt{r}} \one \\
+  \mathbf w &=& \frac{1}{\sqrt{N}} \one \\
   \mathbf v &=& \alpha \mathbf U (\mathbf I + \mathbf \Lambda)^{-1/2} \mathbf U^T \one
 \end{eqnarray}
 
@@ -446,12 +446,12 @@ It can be computed by:
 \mathbf \Omega = \mathbf v \mathbf w^T  + \mathbf H({\mathbf v}) \mathbf H({\mathbf w})^T
 \end{eqnarray}
 
-where $\mathbf H(\mathbf v)$ is the $r \times (r-1)$ Householder matrix associated to the vector $\mathbf v$, i.e.
+where $\mathbf H(\mathbf v)$ is the $N \times (N-1)$ Householder matrix associated to the vector $\mathbf v$, i.e.
 all columns of $\mathbf H({\mathbf v})$ are vectors perpendicular to $\mathbf v$ \citep{Hoteit02}:
 
 \begin{eqnarray}
-\mathbf H(\mathbf v)_{i,j} &=& \delta_{i,j} - \frac{\mathbf v_i \mathbf v_j}{|\mathbf v_r| + 1}   \qquad \mbox{for $i \le r-1$} \\
-\mathbf H(\mathbf v)_{r,j} &=& - \frac{(\mathbf v_r + \sgn(\mathbf v_r)) \mathbf v_j }{|\mathbf v_r| + 1}
+\mathbf H(\mathbf v)_{i,j} &=& \delta_{i,j} - \frac{\mathbf v_i \mathbf v_j}{|\mathbf v_N| + 1}   \qquad \mbox{for $i \le N-1$} \\
+\mathbf H(\mathbf v)_{N,j} &=& - \frac{(\mathbf v_N + \sgn(\mathbf v_N)) \mathbf v_j }{|\mathbf v_N| + 1}
 \end{eqnarray}
 
 %% \begin{equation*}
@@ -497,7 +497,7 @@ $\mathbf S^a$ is the square root of $\mathbf P^a$:
 Based on $\mathbf x^a$ and $\mathbf S^a$, an ensemble can be reconstructed:
 
 \begin{equation}
-{\mathbf x^a}^{(k)} = \mathbf x^a + {\sqrt{r-1}} \; {\mathbf S^a}^{(k)}
+{\mathbf x^a}^{(k)} = \mathbf x^a + {\sqrt{N-1}} \; {\mathbf S^a}^{(k)}
 \end{equation}
 
 The bias aware analysis scheme of \citet{dee98} is also implemented. But the error space $\mathbf S^a$ is not computed.
@@ -1083,7 +1083,7 @@ Diag<INDEX>.Hxf =  ['xf.<EXT>']
 \begin{verbatim}
 [TEM SAL ETA other]=[...]
 \end{verbatim}
-It will only be used by the assimilation routine if no other observation error covariance"R" matrix is specified. GenObsFile only uses values corresponding to variables present in your observations list.
+It will only be used by the assimilation routine if no other observation error covariance $\mathbf R$ matrix is specified. GenObsFile only uses values corresponding to variables present in your observations list.
 
 \item obstime : time of the day at which observations should be assimilated
 
