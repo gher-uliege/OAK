@@ -46,14 +46,14 @@ The software is structured in different modules
 
 \item \code{ufileformat:} Binary output and input of large 1D, 2D or 3D
 matrices in the GHER or NetCDF.
-\item \code{initfile:} Input of integers, floating number, strings and small
+\item \code{initfile:} Input of integers, floating numbers, strings and small
 vectors of those data types.
 \item \code{matoper:} Basic matrix operating: multiplication, matrix
   inversion, eigenvalue/eigenvectors and singular value decomposition
-  (relying and BLAS and LAPACK).
+  (relying on BLAS and LAPACK).
 \item \code{date:} module for conversion between modified Julian day number
   and Gregorian date.
-\item \code{grids:} interpolation for one grid to another of 1D, 2D or
+\item \code{grids:} interpolation from one grid to another of 1D, 2D or
   3D data.
 \item \code{rrsqrt:} The analysis equation
 \item \code{assimilation:} I/O of state vector, observations, error
@@ -61,7 +61,7 @@ vectors of those data types.
   and computation of diagnostics.
 \end{itemize}
 
-These module can either be used for specific task with standalone programs \ref{sec_standalone} or by a hydrodynamic model
+These modules can be either used for specific task with standalone programs \ref{sec_standalone} or by a hydrodynamic model
 in the case of a simulation assimilating observations. The GHER
 hydrodynamic model drives the data assimilation modules trough the
 following subroutines:
@@ -394,7 +394,7 @@ Using the decomposition \eqref{Udec} in equation (\ref{eqn:Pa_with_Sf}) one obta
 So we found a square root decomposition of $\mathbf{P}^a$ in terms of $\mathbf{S}^f\mathbf{U}(\mathbf I + \mathbf \Lambda)^{-1/2}$. But in order to construct an ensemble from the columns of $\mathbf S^a$, its mean has to be zero. So we will transform $\mathbf S^a$ so that the identity \eqref{PaSfSft} is preserved. One way to do this is
 
 \begin{equation}
-   \mathbf S^a = \mathbf S^f \mathbf U (1+ \mathbf \Lambda)^{-1/2} \mathbf U^T \mathbf \Omega
+   \mathbf S^a = \mathbf S^f \mathbf U (\mathbf I + \mathbf \Lambda)^{-1/2} \mathbf U^T \mathbf \Omega
 \end{equation}
 
 
@@ -424,15 +424,15 @@ by:
 $\mathbf \Omega$ is an orthogonal matrix chosen such that sum of all columns of $\mathbf S^a$ is zero. This sum can be obtained by multiplying to the right with a vector $r \times 1$ with all elements equal to 1 ($\one$). Since $\mathbf S^f \one$ is zero, $\mathbf S^a \one$ is also zero if:
 
 \begin{eqnarray}
-  \mathbf U (1+ \mathbf \Lambda)^{-1/2} \mathbf U^T \mathbf \Omega \, \one &=& \one \\
-  \mathbf \Omega \, \one &=& \mathbf U (1+ \mathbf \Lambda)^{1/2} \mathbf U^T \one
+  \mathbf U (\mathbf I + \mathbf \Lambda)^{-1/2} \mathbf U^T \mathbf \Omega \, \one &=& \one \\
+  \mathbf \Omega \, \one &=& \mathbf U (\mathbf I + \mathbf \Lambda)^{1/2} \mathbf U^T \one
 \end{eqnarray}
 
 We defined the normalised vectors $\mathbf w$ and $\mathbf v$:
 
 \begin{eqnarray}
   \mathbf w &=& \frac{1}{\sqrt{r}} \one \\
-  \mathbf v &=& \alpha \mathbf U (1+ \mathbf \Lambda)^{-1/2} \mathbf U^T \one
+  \mathbf v &=& \alpha \mathbf U (\mathbf I + \mathbf \Lambda)^{-1/2} \mathbf U^T \one
 \end{eqnarray}
 
 $\mathbf \Omega$ is thus a matrix which rotates $\mathbf w$ onto $\mathbf v$. 
@@ -594,7 +594,7 @@ default is a vector with all elements equal to 1.
 
 \subsubsection{Zones}
 
-When the local version of the assimilation algorithm (\code{schemetype} = 0) is used, then the assimilation is performed in a number of zones independently. Zones are defined by specifying a partition vector which has the same number of variables as the model state vector and each variable has the same size as the corresponding \code{Model.mask}. This vector contains only integer values starting with one and represent labels: all elements in the state vector which have the same partition number belong to the same zone. For example, for a state vector with 5 elements and the partition vector $\mathbf p$:
+When the local version of the assimilation algorithm (\code{schemetype} = 1) is used, then the assimilation is performed in a number of zones independently. Zones are defined by specifying a partition vector which has the same number of variables as the model state vector and each variable has the same size as the corresponding \code{Model.mask}. This vector contains only integer values starting with one and represent labels: all elements in the state vector which have the same partition number belong to the same zone. For example, for a state vector with 5 elements and the partition vector $\mathbf p$:
 
 \begin{equation}
 \mathbf x = 
@@ -757,12 +757,12 @@ Inter-polation coefficient \\
 \hline
 \end{tabular}
 
-The first integer value are related to the observation. The index of
+The first integer value is related to the observation. The index of
 the variable is the position where the observed variable appears 
 in \code{ObsXXX.value} and i,j,k-index are the three spatial indexes
 of a single scalar observation. \\
 
-The integer in column 5 to 8
+The integers in column 5 to 8
 are related to the model state vector. Again the index of
 the variable is the position where the observed variable appears 
 in \code{Model.variables} and  i,j,k-index are the three spatial indexes
@@ -770,7 +770,7 @@ of a single scalar model forecast.
 If one of the model indexes is -1 the corresponding observation is
 treated "out of grid" and the associated weight will be zero.
 
-The column 9 is a real value between 0 and 1 in the case of a simple a
+The column 9 is a real value between 0 and 1 in the case of a simple
 trilinear interpolation. 
 The observation operator can be generated offline using a trilinear interpolation 
 with the tool "\code{genobsoper}".
@@ -949,11 +949,11 @@ If the program is called with three arguments:
 genobsoper <initfile> <start time index>  <end time index>
 \end{verbatim}
 
-The action is repeated for all time indexes between the start and end time index.
+The action is repeated for all time indexes between the start and the end time index.
 
 \subsection{Program \code{applyobsoper}}
 
-The standalone program \code{applyobsoper} extract from a state vector the observations.
+The standalone program \code{applyobsoper} extracts from a state vector the observations.
 
 \begin{verbatim}
 applyobsoper <initfile> <time index>
