@@ -254,7 +254,8 @@ contains
   implicit none
   character(len=*), intent(in) :: fname
   integer                      :: v,vmax,n
-  character(len=MaxFNameLength), pointer   :: filenamesX(:),filenamesY(:),filenamesZ(:)
+  character(len=MaxFNameLength), pointer   :: filenamesX(:),filenamesY(:),filenamesZ(:),    &
+                                              filenamesT(:)
   character(len=MaxFNameLength)            :: path
   real, pointer                :: maxCorr(:),tmp(:)
   integer                      :: NZones, zi, istat
@@ -328,17 +329,14 @@ contains
 
 
       if (n > 3) then
-        write(stderr,*) 'The dimension of variable ',trim(ModML%varnames(v)),' is ',n
-        write(stderr,*) 'Error: Only 3-d grids are supported for now. '
+        !write(stderr,*) 'The dimension of variable ',trim(ModML%varnames(v)),' is ',n
+        !write(stderr,*) 'Error: Only 3-d grids are supported for now. '
 
-        ERROR_STOP 
+        !ERROR_STOP 
 
-
-        deallocate(filenamesZ)
-        call getInitValue(initfname,'Model.gridT',filenamesZ)
-        call setCoord(ModelGrid(v),4,trim(path)//filenamesZ(v))
-
-
+        call getInitValue(initfname,'Model.gridT',filenamesT)
+        call setCoord(ModelGrid(v),4,trim(path)//filenamesT(v))
+        deallocate(filenamesT)
       end if
     end if
     
@@ -1365,17 +1363,17 @@ contains
 
   call uload(trim(path)//filename,Hop,valex,check_vshape=[9,-1])
 
-  allocate(Hcoeff(size(Hop,2)),Hindex(8,size(Hop,2)))
+  allocate(Hcoeff(size(Hop,2)),Hindex(10,size(Hop,2)))
 
 ! bug in compiler ?
   do j=1,size(Hop,2)
-    do i=1,8
+    do i=1,10
       Hindex(i,j) = Hop(i,j)
     end do
-    Hcoeff(j) = Hop(9,j)
+    Hcoeff(j) = Hop(11,j)
   end do
-  !Hindex = Hop(:8,:)
-  !Hcoeff = Hop(9,:)
+  !Hindex = Hop(:10,:)
+  !Hcoeff = Hop(11,:)
 
   deallocate(Hop)
 
@@ -1435,7 +1433,7 @@ contains
   if (present(valid1)) nz = nz + count(.not.valid1)
   if (present(valid2)) nz = nz + count(.not.valid2)
 
-  allocate(Hindex(8,nz),Hcoeff(nz),Hop(9,nz))
+  allocate(Hindex(10,nz),Hcoeff(nz),Hop(11,nz))
 
 
   call unpackSparseMatrix(Hindex(:,:H%nz),Hcoeff(:H%nz),ML1,ML2,H)
@@ -1449,10 +1447,10 @@ contains
       if (.not.valid1(i)) then
         k=k+1
         call ind2sub(ML1,i,Hindex(1,k),Hindex(2,k),Hindex(3,k),Hindex(4,k))
-        Hindex(5,k)=-1
         Hindex(6,k)=-1
         Hindex(7,k)=-1
         Hindex(8,k)=-1
+        Hindex(9,k)=-1
         Hcoeff(k) = 0.
       end if
     end do
@@ -1466,7 +1464,7 @@ contains
         Hindex(2,k)=-1
         Hindex(3,k)=-1
         Hindex(4,k)=-1
-        call ind2sub(ML2,i,Hindex(5,k),Hindex(6,k),Hindex(7,k),Hindex(8,k))          
+        call ind2sub(ML2,i,Hindex(6,k),Hindex(7,k),Hindex(8,k),Hindex(9,k))          
         Hcoeff(k) = 0.
       end if
     end do
@@ -1475,13 +1473,13 @@ contains
 
 ! bug in compiler ?
   do j=1,size(Hcoeff)
-    do i=1,8
+    do i=1,10
       Hop(i,j) = Hindex(i,j)
     end do
-    Hop(9,j) = Hcoeff(j) 
+    Hop(11,j) = Hcoeff(j) 
   end do
-  !Hop(1:8,:) = Hindex
-  !Hop(9,:)   = Hcoeff
+  !Hop(1:10,:) = Hindex
+  !Hop(11,:)   = Hcoeff
 
   call usave(trim(path)//filename,Hop,valex)
 
@@ -2065,9 +2063,9 @@ contains
     write(stddebug,*) 'Load observation correlation: ',trim(str)
 #endif
     call uload(trim(path)//str,Cop,valex,check_vshape=[9,-1])
-    allocate(Ccoeff(size(Cop,2)),Cindex(8,size(Cop,2)))
-    Cindex = Cop(1:8,:)
-    Ccoeff = Cop(9,:)
+    allocate(Ccoeff(size(Cop,2)),Cindex(10,size(Cop,2)))
+    Cindex = Cop(1:10,:)
+    Ccoeff = Cop(11,:)
     deallocate(Cop)
   else
 #ifdef DEBUG
@@ -2082,9 +2080,9 @@ contains
   if (presentInitValue(initfname,trim(Dprefix)//'Correlation')) then 
     call getInitValue(initfname,trim(Dprefix)//'Correlation',str)
     call getInitValue(initfname,trim(Dprefix)//'path',path,default='')
-    allocate(Cop(9,size(Ccoeff)))
-    Cop(1:8,:) = Cindex
-    Cop(9,:) = Ccoeff
+    allocate(Cop(11,size(Ccoeff)))
+    Cop(1:10,:) = Cindex
+    Cop(11,:) = Ccoeff
     call usave(trim(path)//trim(str),Cop,9999.)      
     deallocate(Cop)
   end if
@@ -2120,6 +2118,7 @@ contains
  !    ObsXXX.gridX
  !    ObsXXX.gridY
  !    ObsXXX.gridZ
+ !    ObsXXX.gridT (optional)
  !
  !_______________________________________________________
  !
@@ -2164,17 +2163,17 @@ contains
 #ifdef DEBUG
     write(stddebug,*) 'Load observation operator: ',trim(str)
 #endif
-    call uload(trim(path)//str,Hop,valex,check_vshape=[9,-1])
+    call uload(trim(path)//str,Hop,valex,check_vshape=[11,-1])
     
-    allocate(Hcoeff(size(Hop,2)),Hindex(8,size(Hop,2)))
+    allocate(Hcoeff(size(Hop,2)),Hindex(10,size(Hop,2)))
     do j=1,size(Hop,2)
-      do i=1,8
+      do i=1,10
         Hindex(i,j) = Hop(i,j)
       end do
-      Hcoeff(j) = Hop(9,j)
+      Hcoeff(j) = Hop(11,j)
     end do
-    !Hindex = Hop(:8,:)
-    !Hcoeff = Hop(9,:)
+    !Hindex = Hop(:10,:)
+    !Hcoeff = Hop(11,:)
     deallocate(Hop)
 
   elseif (presentInitValue(initfname,trim(prefix)//'HperObs')) then
@@ -2189,17 +2188,17 @@ contains
       nz = nz + nbentries
     end do
 
-    allocate(Hcoeff(nz),Hindex(8,nz))
+    allocate(Hcoeff(nz),Hindex(10,nz))
 
     nz=1
 
     do m=1,ObsML%nvar
-      call uload(trim(path)//filenames(m),Hop,valex,check_vshape=[9,-1])
+      call uload(trim(path)//filenames(m),Hop,valex,check_vshape=[11,-1])
 
       do i=1,size(Hop,2)
         Hindex(1,nz) = m
-        Hindex(2:8,nz) = floor(Hop(2:8,i)+.5)
-        Hcoeff(nz) = Hop(9,i)
+        Hindex(2:10,nz) = floor(Hop(2:10,i)+.5)
+        Hcoeff(nz) = Hop(11,i)
         nz = nz + 1         
       end do
       deallocate(Hop)
@@ -2221,9 +2220,9 @@ contains
   if (presentInitValue(initfname,trim(Dprefix)//'H')) then 
     call getInitValue(initfname,trim(Dprefix)//'H',str)
     call getInitValue(initfname,trim(Dprefix)//'path',path,default='')
-    allocate(Hop(9,size(Hcoeff)))
-    Hop(1:8,:) = Hindex
-    Hop(9,:) = Hcoeff
+    allocate(Hop(11,size(Hcoeff)))
+    Hop(1:10,:) = Hindex
+    Hop(11,:) = Hcoeff
     call usave(trim(path)//trim(str),Hop,9999.)      
     deallocate(Hop)
   end if
@@ -2333,7 +2332,7 @@ contains
   real, allocatable    :: tmpHcoeff(:)
   character(len=maxLen), pointer :: varNames(:)
   character(len=maxLen)    :: path
-  real, allocatable, dimension(:) :: obsX, obsY, obsZ
+  real, allocatable, dimension(:) :: obsX, obsY, obsZ, obsT
 
   character(len=maxLen)   :: prefix
   type(MemLayout), intent(in) :: ObsML
@@ -2356,7 +2355,10 @@ contains
   ! assume that land-point are removed 
   ! ObsML%removeLandPoints == .true.
 
-  allocate(tmpHindex(8,8*omaxSea),tmpHcoeff(8*omaxSea))
+  ! n highest dimensions (here n=4)
+  ! 10 = 2 + 2 n
+  ! 16 = 2^n
+  allocate(tmpHindex(10,16*omaxSea),tmpHcoeff(16*omaxSea))
   nz = 0
 
   call getInitValue(initfname,trim(prefix)//'variables',varNames)
@@ -2367,6 +2369,11 @@ contains
   call loadVector(trim(prefix)//'gridX',ObsML,obsX)
   call loadVector(trim(prefix)//'gridY',ObsML,obsY)
   call loadVector(trim(prefix)//'gridZ',ObsML,obsZ)
+
+  if (presentInitValue(initfname,trim(prefix)//'gridT')) then
+    call loadVector(trim(prefix)//'gridT',ObsML,obsT)
+  end if
+
 
   do m=1, mmax
     ! preliminary check if variable is known
@@ -2424,10 +2431,10 @@ contains
               ! ok variable v is a candidate
               minres = hres(v)
               n = tn
-              tmpHindex(5,nz+1:nz+n) = v
-              tmpHindex(6,nz+1:nz+n) = ti(1:n)
-              tmpHindex(7,nz+1:nz+n) = tj(1:n)
-              tmpHindex(8,nz+1:nz+n) = tk(1:n)
+              tmpHindex(6,nz+1:nz+n) = v
+              tmpHindex(7,nz+1:nz+n) = ti(1:n)
+              tmpHindex(8,nz+1:nz+n) = tj(1:n)
+              tmpHindex(9,nz+1:nz+n) = tk(1:n)
 
               tmpHcoeff(nz+1:nz+n) = tc(1:n)
             end if
@@ -2438,19 +2445,19 @@ contains
           ! unknown variable
           n=1
 
-          tmpHindex(5,nz+1:nz+n) = -1
-          tmpHindex(6,nz+1:nz+n) = 0
+          tmpHindex(6,nz+1:nz+n) = -1
           tmpHindex(7,nz+1:nz+n) = 0
           tmpHindex(8,nz+1:nz+n) = 0
+          tmpHindex(9,nz+1:nz+n) = 0
           tmpHcoeff(nz+1:nz+n) = 0
         elseif (n.eq.-1) then
           ! out of domain
           n=1
           
-          tmpHindex(5,nz+1:nz+n) = v
-          tmpHindex(6,nz+1:nz+n) = -1
+          tmpHindex(6,nz+1:nz+n) = v
           tmpHindex(7,nz+1:nz+n) = -1
           tmpHindex(8,nz+1:nz+n) = -1
+          tmpHindex(9,nz+1:nz+n) = -1
           tmpHcoeff(nz+1:nz+n) = 0
         end if
 
@@ -2482,9 +2489,9 @@ contains
   end do
 
 
-  allocate(Hindex(8,nz),Hcoeff(nz))
+  allocate(Hindex(10,nz),Hcoeff(nz))
   do j=1,nz
-    do i=1,8
+    do i=1,10
       Hindex(i,j) = tmpHindex(i,j)
     end do
     Hcoeff(j) = tmpHcoeff(j)
@@ -3689,10 +3696,10 @@ end function
     linindex1 = sub2ind(ML1,Hindex(1,i),Hindex(2,i),Hindex(3,i),Hindex(4,i),val1)
 
     ! space 2: origin
-    ! transform [Hindex(5,i) Hindex(6,i) Hindex(7,i) Hindex(8,i)] into the
+    ! transform [Hindex(6,i) Hindex(7,i) Hindex(8,i) Hindex(9,i)] into the
     ! linear index linindex2 and trapp error in variable val2
 
-    linindex2 = sub2ind(ML2,Hindex(5,i),Hindex(6,i),Hindex(7,i),Hindex(8,i),val2)
+    linindex2 = sub2ind(ML2,Hindex(6,i),Hindex(7,i),Hindex(8,i),Hindex(9,i),val2)
 
     ! return the valid flags is desiered
 
@@ -3744,7 +3751,7 @@ end function
   use matoper
   implicit none
   type(SparseMatrix), intent(in)  :: H
-  integer, intent(out)  :: Hindex(8,H%nz)
+  integer, intent(out)  :: Hindex(10,H%nz)
   real, intent(out) :: Hcoeff(H%nz)
   type(MemLayout), intent(in) :: ML1,ML2
 
@@ -3752,7 +3759,7 @@ end function
 
   do nz=1,H%nz
     call ind2sub(ML1,H%i(nz),Hindex(1,nz),Hindex(2,nz),Hindex(3,nz),Hindex(4,nz))
-    call ind2sub(ML2,H%j(nz),Hindex(5,nz),Hindex(6,nz),Hindex(7,nz),Hindex(8,nz))
+    call ind2sub(ML2,H%j(nz),Hindex(6,nz),Hindex(7,nz),Hindex(8,nz),Hindex(9,nz))
     Hcoeff(nz) = H%s(nz) 
   end do
 
