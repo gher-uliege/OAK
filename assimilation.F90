@@ -2340,9 +2340,9 @@ contains
   character(len=maxLen)   :: prefix
   type(MemLayout), intent(in) :: ObsML
 
-  integer              :: ti(16),tj(16),tk(16),tnn(16), &
-       i,j,k,nn, &
-       v,tv,m,mmax,omaxSea,n,tn,nz,linindex, &
+  integer              ::  &
+       i,j,k,n, &
+       v,tv,m,mmax,omaxSea,tn,nz,linindex, &
        tindexes(4,16), tmpm
   integer :: istat
   real                 :: tc(16), minres
@@ -2400,11 +2400,11 @@ contains
 
     ! loop over all observation (only non-masked) in the mth observation
     do linindex = ObsML%StartIndexSea(m),ObsML%EndIndexSea(m)
-        call ind2sub(ObsML,linindex,tmpm,i,j,k,nn)
+        call ind2sub(ObsML,linindex,tmpm,i,j,k,n)
 
         minres = huge(minres)
         v = -1
-        n = -1
+        tn = 0
 
         do tv=1,size(ModML%varnames)
           if (varNames(m).eq.ModML%varnames(tv).and.minres.ge.hres(tv)) then
@@ -2433,40 +2433,39 @@ contains
             if (tn.ne.0) then
               ! ok variable v is a candidate
               minres = hres(v)
-              n = tn
-              tmpHindex(6,nz+1:nz+n) = v
-              tmpHindex(7:10,nz+1:nz+n) = tindexes(:,1:tn)
-              tmpHcoeff(nz+1:nz+n) = tc(1:n)
+              tmpHindex(6,nz+1:nz+tn) = v
+              tmpHindex(7:10,nz+1:nz+tn) = tindexes(:,1:tn)
+              tmpHcoeff(nz+1:nz+tn) = tc(1:tn)
             end if
           end if
         end do
 
         if (v.eq.-1) then
           ! unknown variable
-          n=1
+          tn=1
 
-          tmpHindex(6,nz+1:nz+n) = -1
-          tmpHindex(7:10,nz+1:nz+n) = 0
-          tmpHcoeff(nz+1:nz+n) = 0
-        elseif (n.eq.-1) then
+          tmpHindex(6,nz+1:nz+tn) = -1
+          tmpHindex(7:10,nz+1:nz+tn) = 0
+          tmpHcoeff(nz+1:nz+tn) = 0
+        elseif (tn.eq.0) then
           ! out of domain
-          n=1
+          tn=1
           
-          tmpHindex(6,nz+1:nz+n) = v
-          tmpHindex(7:10,nz+1:nz+n) = -1
-          tmpHcoeff(nz+1:nz+n) = 0
+          tmpHindex(6,nz+1:nz+tn) = v
+          tmpHindex(7:10,nz+1:nz+tn) = -1
+          tmpHcoeff(nz+1:nz+tn) = 0
         end if
 
         ! observation part
 
-        tmpHindex(1,nz+1:nz+n) = m
-        tmpHindex(2,nz+1:nz+n) = i
-        tmpHindex(3,nz+1:nz+n) = j
-        tmpHindex(4,nz+1:nz+n) = k
-        tmpHindex(5,nz+1:nz+n) = nn
+        tmpHindex(1,nz+1:nz+tn) = m
+        tmpHindex(2,nz+1:nz+tn) = i
+        tmpHindex(3,nz+1:nz+tn) = j
+        tmpHindex(4,nz+1:nz+tn) = k
+        tmpHindex(5,nz+1:nz+tn) = n
         !                write(stdout,*) 'n,tc ',n,(tc(1:n))
 
-        nz = nz+n
+        nz = nz+tn
 
 #       ifdef DEBUG
             !             if (any(tmpHindex(5,1:nz).eq.0)) then
