@@ -25,7 +25,7 @@
 #define PROFILE
 
 module assimilation
- use ndgrid, cinterp_nd => cinterp
+ use ndgrid
 
  interface loadStateVector
    module procedure loadStateVector_byinitval, loadStateVector_byfilenames
@@ -2416,13 +2416,13 @@ contains
             tindexes = 1
 
             if (ModML%ndim(v).eq.2) then
-              call cinterp_nd(ModelGrid(v), (/ obsX(linindex),obsY(linindex) /), &
-                       tindexes(1:2,1:4),tc(1:4),tn)
+              call cinterp(ModelGrid(v), (/ obsX(linindex),obsY(linindex) /), &
+                   tindexes(1:2,1:4),tc(1:4),tn)
             elseif (ModML%ndim(v).eq.3) then
-              call cinterp_nd(ModelGrid(v), (/ obsX(linindex),obsY(linindex),obsZ(linindex) /), &
-                   tindexes,tc,tn)
+              call cinterp(ModelGrid(v), (/ obsX(linindex),obsY(linindex),obsZ(linindex) /), &
+                   tindexes(1:3,1:8),tc(1:8),tn)
             elseif (ModML%ndim(v).eq.4) then
-              call cinterp_nd(ModelGrid(v), (/ obsX(linindex),obsY(linindex),obsZ(linindex),obsT(linindex) /), &
+              call cinterp(ModelGrid(v), (/ obsX(linindex),obsY(linindex),obsZ(linindex),obsT(linindex) /), &
                    tindexes,tc,tn)
             else
               write(stderr,*) 'more than 4 dimensions are not supported'
@@ -2436,7 +2436,6 @@ contains
               n = tn
               tmpHindex(6,nz+1:nz+n) = v
               tmpHindex(7:10,nz+1:nz+n) = tindexes(:,1:tn)
-              write(stderr,*) 'toto ',tindexes(1:4,1:tn)
               tmpHcoeff(nz+1:nz+n) = tc(1:n)
             end if
           end if
@@ -2447,20 +2446,14 @@ contains
           n=1
 
           tmpHindex(6,nz+1:nz+n) = -1
-          tmpHindex(7,nz+1:nz+n) = 0
-          tmpHindex(8,nz+1:nz+n) = 0
-          tmpHindex(9,nz+1:nz+n) = 0
-          tmpHindex(10,nz+1:nz+n) = 0
+          tmpHindex(7:10,nz+1:nz+n) = 0
           tmpHcoeff(nz+1:nz+n) = 0
         elseif (n.eq.-1) then
           ! out of domain
           n=1
           
           tmpHindex(6,nz+1:nz+n) = v
-          tmpHindex(7,nz+1:nz+n) = -1
-          tmpHindex(8,nz+1:nz+n) = -1
-          tmpHindex(9,nz+1:nz+n) = -1
-          tmpHindex(10,nz+1:nz+n) = -1
+          tmpHindex(7:10,nz+1:nz+n) = -1
           tmpHcoeff(nz+1:nz+n) = 0
         end if
 
