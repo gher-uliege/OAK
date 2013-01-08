@@ -979,6 +979,8 @@ contains
     deallocate(xt)
 
   else
+
+    if (procnum.eq.1) then
     if (ML%permute) call ipermute(zoneIndex,vec,vec)
 
     if (ML%removeLandPoints) then
@@ -1032,6 +1034,7 @@ contains
       end do
 
       deallocate(x)
+      end if
     end if
   end if
 
