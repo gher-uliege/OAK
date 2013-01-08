@@ -1446,11 +1446,8 @@ contains
     do i=1,size(valid1)
       if (.not.valid1(i)) then
         k=k+1
-        call ind2sub(ML1,i,Hindex(1,k),Hindex(2,k),Hindex(3,k),Hindex(4,k))
-        Hindex(6,k)=-1
-        Hindex(7,k)=-1
-        Hindex(8,k)=-1
-        Hindex(9,k)=-1
+        call ind2sub(ML1,i,Hindex(1,k),Hindex(2,k),Hindex(3,k),Hindex(4,k),Hindex(5,k))
+        Hindex(6:10,k) = -1
         Hcoeff(k) = 0.
       end if
     end do
@@ -1460,11 +1457,8 @@ contains
     do i=1,size(valid2)
       if (.not.valid2(i)) then
         k=k+1
-        Hindex(1,k)=-1
-        Hindex(2,k)=-1
-        Hindex(3,k)=-1
-        Hindex(4,k)=-1
-        call ind2sub(ML2,i,Hindex(6,k),Hindex(7,k),Hindex(8,k),Hindex(9,k))          
+        Hindex(1:5,k) = -1
+        call ind2sub(ML2,i,Hindex(6,k),Hindex(7,k),Hindex(8,k),Hindex(9,k),Hindex(10,k))
         Hcoeff(k) = 0.
       end if
     end do
@@ -1699,11 +1693,11 @@ contains
  !_______________________________________________________
  !
 
- function sub2ind(ML,v,i,j,k,valid) result(index)
+ function sub2ind(ML,v,i,j,k,n,valid) result(index)
   implicit none
   type(MemLayout) :: ML
   integer :: index
-  integer, intent(in) :: v,i,j,k
+  integer, intent(in) :: v,i,j,k,n
   logical, optional,intent(out) :: valid
 
   logical :: val
@@ -1716,10 +1710,13 @@ contains
     val = &
          1.le.i.and.i.le.ML%varshape(1,v).and. &
          1.le.j.and.j.le.ML%varshape(2,v).and. &
-         1.le.k.and.k.le.ML%varshape(3,v)
+         1.le.k.and.k.le.ML%varshape(3,v).and. &
+         1.le.n.and.n.le.ML%varshape(4,v)
 
     if (val) then
-      index = ML%StartIndex(v) + i-1 + ML%varshape(1,v) * (j-1 + ML%varshape(2,v) * (k-1))
+      index = ML%StartIndex(v) + i-1 + & 
+           ML%varshape(1,v) * (j-1 + ML%varshape(2,v) * (k-1 + ML%varshape(3,v) * (n-1)))
+
       index = ML%SeaIndex(index)
       val =  index.ne.-1
     end if
@@ -1737,11 +1734,11 @@ contains
  ! Fix me:
  ! make it work for distributed and permuted vectors
 
- subroutine ind2sub(ML,index,v,i,j,k)
+ subroutine ind2sub(ML,index,v,i,j,k,n)
   implicit none
   type(MemLayout) :: ML
   integer, intent(in) :: index
-  integer, intent(out) :: v,i,j,k
+  integer, intent(out) :: v,i,j,k,n
   integer :: linindex
 
 
@@ -1754,14 +1751,20 @@ contains
   do v=1,ML%nvar
     if (ML%startIndex(v).le.linindex.and.linindex.le.ML%endIndex(v)) then
       linindex = linindex - ML%startIndex(v) 
-      ! i,j,k zero-based
+      ! i,j,k,n zero-based
+      n = linindex/(ML%varshape(1,v)*ML%varshape(2,v)*ML%varshape(3,v))
+      linindex = linindex - n*(ML%varshape(1,v)*ML%varshape(2,v)*ML%varshape(3,v))
+
       k = linindex/(ML%varshape(1,v)*ML%varshape(2,v))
       linindex = linindex - k*(ML%varshape(1,v)*ML%varshape(2,v))
+
       j = linindex/ML%varshape(1,v)
-      i = linindex - j*(ML%varshape(1,v))
+      linindex = linindex - j*(ML%varshape(1,v))
+
+      i = linindex
 
       ! i,j,k one-based
-      i=i+1; j=j+1; k=k+1;
+      i=i+1; j=j+1; k=k+1; n=n+1;
       return
     end if
   end do
@@ -2337,12 +2340,12 @@ contains
   character(len=maxLen)   :: prefix
   type(MemLayout), intent(in) :: ObsML
 
-  integer              :: ti(8),tj(8),tk(8), &
-       i,j,k, &
+  integer              :: ti(16),tj(16),tk(16),tnn(16), &
+       i,j,k,nn, &
        v,tv,m,mmax,omaxSea,n,tn,nz,linindex, &
-       tindexes(3,8), tmpm
+       tindexes(4,16), tmpm
   integer :: istat
-  real                 :: tc(8), minres
+  real                 :: tc(16), minres
 
 
   write(prefix,'(A,I3.3,A)') 'Obs',ntime,'.'
@@ -2397,7 +2400,7 @@ contains
 
     ! loop over all observation (only non-masked) in the mth observation
     do linindex = ObsML%StartIndexSea(m),ObsML%EndIndexSea(m)
-        call ind2sub(ObsML,linindex,tmpm,i,j,k)
+        call ind2sub(ObsML,linindex,tmpm,i,j,k,nn)
 
         minres = huge(minres)
         v = -1
@@ -2410,20 +2413,20 @@ contains
 
             ! compute interpolation coefficients
             
-            tindexes=1
+            tindexes = 1
+
             if (ModML%ndim(v).eq.2) then
               call cinterp_nd(ModelGrid(v), (/ obsX(linindex),obsY(linindex) /), &
                        tindexes(1:2,1:4),tc(1:4),tn)
-              ti(1:tn) =  tindexes(1,1:tn)
-              tj(1:tn) =  tindexes(2,1:tn)
-              tk(1:tn) = 1
-            else
+            elseif (ModML%ndim(v).eq.3) then
               call cinterp_nd(ModelGrid(v), (/ obsX(linindex),obsY(linindex),obsZ(linindex) /), &
                    tindexes,tc,tn)
-              
-              ti(1:tn) =  tindexes(1,1:tn)
-              tj(1:tn) =  tindexes(2,1:tn)
-              tk(1:tn) =  tindexes(3,1:tn)
+            elseif (ModML%ndim(v).eq.4) then
+              call cinterp_nd(ModelGrid(v), (/ obsX(linindex),obsY(linindex),obsZ(linindex),obsT(linindex) /), &
+                   tindexes,tc,tn)
+            else
+              write(stderr,*) 'more than 4 dimensions are not supported'
+              ERROR_STOP
             end if
 
 
@@ -2432,10 +2435,8 @@ contains
               minres = hres(v)
               n = tn
               tmpHindex(6,nz+1:nz+n) = v
-              tmpHindex(7,nz+1:nz+n) = ti(1:n)
-              tmpHindex(8,nz+1:nz+n) = tj(1:n)
-              tmpHindex(9,nz+1:nz+n) = tk(1:n)
-
+              tmpHindex(7:10,nz+1:nz+n) = tindexes(:,1:tn)
+              write(stderr,*) 'toto ',tindexes(1:4,1:tn)
               tmpHcoeff(nz+1:nz+n) = tc(1:n)
             end if
           end if
@@ -2449,6 +2450,7 @@ contains
           tmpHindex(7,nz+1:nz+n) = 0
           tmpHindex(8,nz+1:nz+n) = 0
           tmpHindex(9,nz+1:nz+n) = 0
+          tmpHindex(10,nz+1:nz+n) = 0
           tmpHcoeff(nz+1:nz+n) = 0
         elseif (n.eq.-1) then
           ! out of domain
@@ -2458,6 +2460,7 @@ contains
           tmpHindex(7,nz+1:nz+n) = -1
           tmpHindex(8,nz+1:nz+n) = -1
           tmpHindex(9,nz+1:nz+n) = -1
+          tmpHindex(10,nz+1:nz+n) = -1
           tmpHcoeff(nz+1:nz+n) = 0
         end if
 
@@ -2467,6 +2470,7 @@ contains
         tmpHindex(2,nz+1:nz+n) = i
         tmpHindex(3,nz+1:nz+n) = j
         tmpHindex(4,nz+1:nz+n) = k
+        tmpHindex(5,nz+1:nz+n) = nn
         !                write(stdout,*) 'n,tc ',n,(tc(1:n))
 
         nz = nz+n
@@ -3400,7 +3404,7 @@ end function
 !     logical, intent(out) :: relevantObs(size(weight))
      logical, intent(out) :: relevantObs(:)
 
-     integer v,i,j,k,index,l
+     integer v,i,j,k,n,index,l
 
 ! x,y=longitude and latitude of the element the "index"th component of 
 ! model state vector
@@ -3416,7 +3420,7 @@ end function
      ! is state vector permuted ? yes -> in local analysis
      index = zoneIndex(ind)
 
-     call ind2sub(ModML,index,v,i,j,k)
+     call ind2sub(ModML,index,v,i,j,k,n)
 
      if (ModML%ndim(v).eq.2) then
       x2 = getCoord(ModelGrid(v),(/ i,j /),out);
@@ -3693,13 +3697,13 @@ end function
     ! transform [Hindex(1,i) Hindex(2,i) Hindex(3,i) Hindex(4,i)] into the
     ! linear index linindex1 and trapp error in variable val1
 
-    linindex1 = sub2ind(ML1,Hindex(1,i),Hindex(2,i),Hindex(3,i),Hindex(4,i),val1)
+    linindex1 = sub2ind(ML1,Hindex(1,i),Hindex(2,i),Hindex(3,i),Hindex(4,i),Hindex(5,i),val1)
 
     ! space 2: origin
     ! transform [Hindex(6,i) Hindex(7,i) Hindex(8,i) Hindex(9,i)] into the
     ! linear index linindex2 and trapp error in variable val2
 
-    linindex2 = sub2ind(ML2,Hindex(6,i),Hindex(7,i),Hindex(8,i),Hindex(9,i),val2)
+    linindex2 = sub2ind(ML2,Hindex(6,i),Hindex(7,i),Hindex(8,i),Hindex(9,i),Hindex(10,i),val2)
 
     ! return the valid flags is desiered
 
@@ -3758,8 +3762,8 @@ end function
   integer nz 
 
   do nz=1,H%nz
-    call ind2sub(ML1,H%i(nz),Hindex(1,nz),Hindex(2,nz),Hindex(3,nz),Hindex(4,nz))
-    call ind2sub(ML2,H%j(nz),Hindex(6,nz),Hindex(7,nz),Hindex(8,nz),Hindex(9,nz))
+    call ind2sub(ML1,H%i(nz),Hindex(1,nz),Hindex(2,nz),Hindex(3,nz),Hindex(4,nz),Hindex(5,nz))
+    call ind2sub(ML2,H%j(nz),Hindex(6,nz),Hindex(7,nz),Hindex(8,nz),Hindex(9,nz),Hindex(10,nz))
     Hcoeff(nz) = H%s(nz) 
   end do
 
@@ -4067,7 +4071,7 @@ subroutine ensAnalysisAnamorph2(yo,Ef,HEf,invsqrtR,  &
   real, intent(inout) :: x(:)
   type(MemLayout) :: ML
 
-  integer :: v,i,j,k,l,nout=0, ti,tj
+  integer :: v,i,j,k,n,l,nout=0, ti,tj
   logical :: out
 
   if (.not.associated(AnamTrans%anam)) then
@@ -4080,7 +4084,7 @@ subroutine ensAnalysisAnamorph2(yo,Ef,HEf,invsqrtR,  &
   ! loop over all elements
   do l=1,size(x)    
     ! get variable index v for element l
-    call ind2sub(ML,l,v,i,j,k)
+    call ind2sub(ML,l,v,i,j,k,n)
 
     !write(0,*) 'init ',x(l),AnamTrans%anam(v)%type,foreward
 
