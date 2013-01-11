@@ -967,7 +967,7 @@ contains
 #endif
 
           call usave(trim(path)//filenames(v), &
-               tmp1,FillValue,3,(/ ML%varshape(1,v),ML%varshape(2,v),ML%varshape(3,v) /),.false.)
+               tmp1,FillValue,4,ML%varshape(1:4,v),.false.)
 
           deallocate(tmp1)
         end do
@@ -998,7 +998,10 @@ contains
              unpack(vec(j0:j1), &
              ML%Mask(ML%StartIndex(v):ML%EndIndex(v)).eq.1,FillValue),  &
                                 !                     ML%varshape(1:ML%ndim(v),v)), &
-             (/ ML%varshape(1,v),ML%varshape(2,v),ML%varshape(3,v) /) ),  &
+             !(/ ML%varshape(1,v),ML%varshape(2,v),ML%varshape(3,v) /)       &
+             ! ML%varshape(1:ML%ndim(v),v) &
+             ML%varshape(1:4,v) &
+             ),  &
              FillValue);
 
 
@@ -1024,7 +1027,8 @@ contains
         call usave(trim(path)//filenames(v), &
              reshape(x(j0:j1), &
                                 !                     ML%varshape(1:ML%ndim(v),v)), &
-             (/ ML%varshape(1,v),ML%varshape(2,v),ML%varshape(3,v) /)), &
+             !(/ ML%varshape(1,v),ML%varshape(2,v),ML%varshape(3,v) /)), &
+             ML%varshape(1:4,v)), &
              FillValue);
 
 
@@ -2367,7 +2371,8 @@ contains
   call getInitValue(initfname,trim(prefix)//'variables',varNames)
 
   ! load position of observations
-  allocate(obsX(ObsML%effsize),obsY(ObsML%effsize),obsZ(ObsML%effsize))
+  allocate(obsX(ObsML%effsize),obsY(ObsML%effsize),          &
+       obsZ(ObsML%effsize),obsT(ObsML%effsize))
 
   call loadVector(trim(prefix)//'gridX',ObsML,obsX)
   call loadVector(trim(prefix)//'gridY',ObsML,obsY)
@@ -3806,8 +3811,6 @@ end function
      allocate(X(ModML%varshape(1,v),ModML%varshape(2,v),ModML%varshape(3,v)), &
               Y(ModML%varshape(1,v),ModML%varshape(2,v),ModML%varshape(3,v)))
 
-!     call usave('/u/abarth/Assim/Data2/toto.TEM',unpack3DVariable(ModML,statevector,vT),0.)
-!     call usave('/u/abarth/Assim/Data2/toto.SAL',unpack3DVariable(ModML,statevector,vS),0.)
 
 ! temporaly disabled
 
@@ -3815,9 +3818,6 @@ end function
 !       unpack3DVariable(ModML,statevector,vT),  &
 !       unpack3DVariable(ModML,statevector,vS),  &
 !       X,Y)
-
-!     call usave('/u/abarth/Assim/Data2/toto.TEM2',X,0.)
-!     call usave('/u/abarth/Assim/Data2/toto.SAL2',Y,0.)
 
       call pack3DVariable(ModML,X,v,statevector)
       call pack3DVariable(ModML,Y,v+1,statevector)
