@@ -27,9 +27,9 @@ t = t(~isnan(t));
 rmsfa = [rmsf; rmsa];
 tfa = [t; t];
 
-whos rmsf rmsfa
+%whos rmsf rmsfa
+%rg(t)
 
-rg(t)
 plot(t,rmsfree,'k-',...
      tfa(1,:),rmsfa(1,:),...
      'ro',tfa(2,:),rmsfa(2,:),'gx',...
@@ -38,3 +38,5 @@ plot(t,rmsfree,'k-',...
 datetick('x');
 
 legend('Free','Forecast','Analysis');
+
+fprintf('mean RMS forecast %s %g\n',var,sqrt(nanmean(rmsf.^2)))
