@@ -17,6 +17,9 @@ cd $tmpd
 svn export svn+ssh://$host/home/svn/repos/OAK/tag/r$version OAK-$version
 cd $tmpd/OAK-$version
 rm -Rf Python
+# symbolic links
+cp --dereference $(find $HOME/Assim/OAK/matlab -type l) .
+
 mv config.mk.template config.mk
 cd $tmpd/OAK-$version/doc
 make pdf
