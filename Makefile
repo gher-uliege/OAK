@@ -38,6 +38,10 @@ OPENMP ?=
 DEBUG ?= 
 JOBS ?= 1
 
+OAK_SONAME ?= liboak.so.1
+
+OAK_LIBNAME ?= liboak.a
+
 include Compilers/$(OS)-$(strip $(FORT)).mk
 include Compilers/libs.mk
 
@@ -53,6 +57,9 @@ ASSIM_SRCS = anamorphosis.F90 assim.F90 assimilation.F90 date.F90 grids.F90 \
 
 ASSIM_OBJS = anamorphosis.o assim.o assimilation.o date.o grids.o initfile.o \
 	matoper.o ndgrid.o parall.o rrsqrt.o ufileformat.o match.o
+
+MODULES = anamorphosis.mod  assimilation.mod  date.mod  grids.mod  initfile.mod  \
+        matoper.mod  ndgrid.mod  parall.mod  rrsqrt.mod  ufileformat.mod
 
 #-----------------#
 #  Common macros  #
@@ -73,13 +80,17 @@ OBJS = $(ASSIM_OBJS)
 all: $(PROG)
 
 clean:
-	rm -f $(PROG) $(OBJS) *.mod
+	rm -f $(PROG) $(OBJS) $(MODULES)
 
 lib: $(OBJS)
-	ar rs liboak.a $(OBJS)
+	ar rs $(OAK_LIBNAME) $(OBJS)
 
 dynlib: $(OBJS)
-	$(CC) -shared -Wl,-soname,liboak.so.1 -o liboak.so.1 $(OBJS) $(LIBS) $(FRTLIB)
+	@if test $$(getconf LONG_BIT) = 64 -a ! "$(PIC)"; then \
+	  echo "Warning: Your system seems to be 64-bit and PIC is not activated. Creating dynamic libraries will probaly fail."; \
+	  echo "Use 'make PIC=on ...' or set PIC=on in config.mk"; \
+        fi 
+	$(CC) -shared -Wl,-soname,$(OAK_SONAME) -o $(OAK_SONAME) $(OBJS) $(LIBS) $(FRTLIB)
 
 allbin:
 	make -j $(JOBS) FORT=$(FORT) DEBUG=on clean
@@ -90,8 +101,25 @@ allbin:
 	make -j $(JOBS) FORT=$(FORT) DEBUG=on MPI=on all
 
 
+# create install directories (if needed)
+
+$(OAK_LIBDIR):
+	$(MKDIR_P) $(OAK_LIBDIR)
+
+$(OAK_INCDIR):
+	$(MKDIR_P) $(OAK_INCDIR)
+
+$(OAK_BINDIR):
+	$(MKDIR_P) $(OAK_BINDIR)
+
+install: all $(OAK_LIBDIR) $(OAK_INCDIR) $(OAK_BINDIR)
+	cp $(PROG) $(OAK_BINDIR)
+	if [ -e $(OAK_LIBNAME) ]; then cp $(OAK_LIBNAME) $(OAK_LIBDIR); fi
+	if [ -e $(OAK_SONAME) ]; then cp $(OAK_SONAME) $(OAK_LIBDIR); fi
+	cp $(MODULES) $(OAK_INCDIR)
+
 print:
-	echo $(LIBS) $(F90FLAGS) $(PRECISION)
+	echo $(LIBS) $(F90FLAGS) $(PRECISION) $(OAK_DIR)
 
 #---------------#
 #  Executables  #

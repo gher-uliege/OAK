@@ -52,7 +52,7 @@ while ischar(tline)  %Read all the file
         
         if ~isempty(regexp(tline,key,'match'))
             self.keys{end+1} = k;
-            self.values{end+1} = parseVal(v);
+            self.values{end+1} = parseVal_(v);
         end
     end
 end
@@ -63,7 +63,7 @@ retval = class(self,'InitFile');
 
 end
 
-function val = parseVal(str)
+function val = parseVal_(str)
 
 val = [];
 if str(1) == '[' && str(end) == ']'

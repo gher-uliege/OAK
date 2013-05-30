@@ -147,3 +147,14 @@ endif
 
 F90FLAGS += $(EXTRA_F90FLAGS)
 LDFLAGS += $(EXTRA_LDFLAGS)
+
+# Install directory for OAK for library, include file (.mod) and 
+# executables
+
+OAK_LIBDIR ?= $(OAK_DIR)/lib
+OAK_INCDIR ?= $(OAK_DIR)/include
+OAK_BINDIR ?= $(OAK_DIR)/bin
+
+# make directories in a Unix-like environment
+
+MKDIR_P = mkdir -p
