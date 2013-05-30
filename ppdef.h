@@ -50,3 +50,6 @@
 ! by 1/sqrt(r-1)
 
 #define ASSIM_SCALING 1
+
+! no parallel observation operator
+#define EXACT_OBS_OPER

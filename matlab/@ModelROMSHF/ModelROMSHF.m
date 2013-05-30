@@ -1,4 +1,4 @@
-% class representing a ROMS model
+% class representing a ROMS-HF model
 %
 % template
 % workdir
@@ -14,7 +14,7 @@
 %% grdname (string)
 %% frcname (cell array)
 
-function retval = ModelROMS(dt,script,template,param,scheduler)
+function retval = ModelROMSHF(dt,script,template,param,scheduler)
 
 self.dt = dt;
 self.template = template;
@@ -22,4 +22,4 @@ self.p = param;
 self.scheduler = scheduler;
 self.script = script;
 
-retval = class(self,'ModelROMS',Model(dt));
+retval = class(self,'ModelROMSHF',Model(dt));

@@ -7,7 +7,7 @@
 
 function simulation = run(self,t0,t1,ic,forcing)
 
-str = name(ic,1);
+str = name(ic,3);
 % assume first element is zeta (surface elevation)
 assert(~isempty(strfind(str,'zeta'))); 
 icname = gfilename(str);
@@ -32,13 +32,13 @@ freplace(self.template,fullfile(workdir,'ocean.in'), ...
 %symlink(self.p.varname,workdir,'delete');
 %symlink(self.p.grdname,workdir,'delete');
 
-for i=1:nvars(forcing)
-  frcname = gfilename(name(forcing,i));
+% for i=1:nvars(forcing)
+%   frcname = gfilename(name(forcing,i));
 
-  if ~strcmp(realpath(frcname),realpath(fullfile(workdir,basename(frcname))))
-    symlink(frcname,workdir,'delete');
-  end
-end
+%   if ~strcmp(realpath(frcname),realpath(fullfile(workdir,basename(frcname))))
+%     symlink(frcname,workdir,'delete');
+%   end
+% end
 
 
 if ~strcmp(realpath(icname),realpath(fullfile(workdir,'ic.nc')))
@@ -50,15 +50,29 @@ simulation.workdir = workdir;
 olddir = pwd;
 cd(workdir);
 
-simulation.job = submit(self.scheduler,{self.script, 'ocean.in'});
+args = {'srun','--nodes=1','--ntasks=1'};
+%args = {};
 
-ls('-l',workdir)
-rstname = 'ocean_rst.nc';
-variables = {[rstname '#zeta'],...
-             [rstname '#temp'],...
-             [rstname '#salt'],...
-             [rstname '#u'],...
-             [rstname '#v']};
+simulation.job = submit(self.scheduler,{args{:},self.script, 'ocean.in'});
+
+%ls('-l',workdir)
+%hfname = 'HFRadar/';
+%rstname = 'ocean_rst.nc';
+variables = var(ic);
+
+for i = 1:length(variables)
+  variables{i} = strrep(variables{i},'ic.nc','ocean_rst.nc');
+end
+
+
+% variables = {
+%     [hfname 'pal.nc#radvel'],...
+%     [hfname 'ros.nc#radvel'],...
+%     [rstname '#zeta'],...
+%     [rstname '#temp'],...
+%     [rstname '#salt'],...
+%     [rstname '#u'],...
+%     [rstname '#v']};
 
 % replace the variables in SVector ic 
 simulation.result = var(ic,variables);

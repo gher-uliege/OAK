@@ -582,6 +582,25 @@ contains
 
  !_______________________________________________________
  !
+subroutine fmtIndex(str1,index,str2,str)
+ implicit none
+ integer, intent(in) :: index
+ character(len=*), intent(in) :: str1, str2
+ character(len=*), intent(out) :: str
+ character(len=128) :: tmp
+
+ if (index < 999) then
+   write(str,'(A,I3.3,A)') str1,index,str2
+ else
+   write(tmp,*) index
+
+   str = trim(str1) // trim(adjustl(tmp)) // trim(str2)
+ end if
+
+end subroutine fmtIndex
+
+ !_______________________________________________________
+ !
 
  subroutine checkVar(var,name)
   use ufileformat
@@ -1872,8 +1891,8 @@ contains
   integer :: istat
   real :: s,seconds
 
-  write(prefix,'(A,I3.3,A)') 'Obs',ntime,'.'
-
+  !write(prefix,'(A,I3.3,A)') 'Obs',ntime,'.'
+  call fmtIndex('Obs',ntime,'.',prefix)
 
   if (presentInitValue(initfname,trim(prefix)//'time')) then
 
@@ -1970,7 +1989,9 @@ contains
   integer :: istat
   real, parameter :: min_rmse = 0.01
 
-  write(prefix,'(A,I3.3,A)') 'Obs',ntime,'.'
+  !write(prefix,'(A,I3.3,A)') 'Obs',ntime,'.'
+  call fmtIndex('Obs',ntime,'.',prefix)
+
   call getInitValue(initfname,trim(prefix)//'path',path,default='')
 
   omax = size(ObsML%Mask)
@@ -2053,7 +2074,9 @@ contains
   logical, pointer :: validobs(:)
 
 
-  write(prefix,'(A,I3.3,A)') 'Obs',ntime,'.'
+  !write(prefix,'(A,I3.3,A)') 'Obs',ntime,'.'
+  call fmtIndex('Obs',ntime,'.',prefix)
+
   call getInitValue(initfname,trim(prefix)//'path',path,default='')
 
   mmax = size(ObsML%VarSize)
@@ -2078,7 +2101,10 @@ contains
 
   ! save the obervation operator if desiered
 
-  write(Dprefix,'(A,I3.3,A)') 'Diag',ntime,'.'
+  !write(Dprefix,'(A,I3.3,A)') 'Diag',ntime,'.'
+  call fmtIndex('Diag',ntime,'.',Dprefix)
+
+
   if (presentInitValue(initfname,trim(Dprefix)//'Correlation')) then 
     call getInitValue(initfname,trim(Dprefix)//'Correlation',str)
     call getInitValue(initfname,trim(Dprefix)//'path',path,default='')
@@ -2153,7 +2179,9 @@ contains
   logical, allocatable :: validobs(:)
   real, allocatable :: shiftMod(:)
 
-  write(prefix,'(A,I3.3,A)') 'Obs',ntime,'.'
+  !write(prefix,'(A,I3.3,A)') 'Obs',ntime,'.'
+  call fmtIndex('Obs',ntime,'.',prefix)
+
   call getInitValue(initfname,trim(prefix)//'path',path,default='')
 
   mmax = size(ObsML%VarSize)
@@ -2217,7 +2245,10 @@ contains
 
   ! save the obervation operator if desiered
 
-  write(Dprefix,'(A,I3.3,A)') 'Diag',ntime,'.'
+  !write(Dprefix,'(A,I3.3,A)') 'Diag',ntime,'.'
+  call fmtIndex('Diag',ntime,'.',Dprefix)
+
+
   if (presentInitValue(initfname,trim(Dprefix)//'H')) then 
     call getInitValue(initfname,trim(Dprefix)//'H',str)
     call getInitValue(initfname,trim(Dprefix)//'path',path,default='')
@@ -2346,7 +2377,9 @@ contains
   real                 :: tc(8), minres
 
 
-  write(prefix,'(A,I3.3,A)') 'Obs',ntime,'.'
+  !write(prefix,'(A,I3.3,A)') 'Obs',ntime,'.'
+  call fmtIndex('Obs',ntime,'.',prefix)
+
   call getInitValue(initfname,trim(prefix)//'path',path,default='')
 
   mmax = size(ObsML%VarSize)
@@ -2548,7 +2581,8 @@ contains
   call cpu_time(cputime(1))
 # endif
 
-  write(prefix,'(A,I3.3,A)') 'Obs',ntime,'.'
+  !write(prefix,'(A,I3.3,A)') 'Obs',ntime,'.'
+  call fmtIndex('Obs',ntime,'.',prefix)
 
   allocate(x(ObsML%effsize),y(ObsML%effsize),z(ObsML%effsize))
 
@@ -2829,7 +2863,7 @@ end function
 
   ! local variables
   character(len=256)             :: prefix,path, str
-  character(len=4)               :: infix
+  character(len=256)             :: infix
   character(len=256), pointer    :: obsnames(:)
   real, pointer :: xf(:),xa(:)
 
@@ -2878,7 +2912,8 @@ end function
 # endif
 
   n = ModML%effsize
-  write(infix,'(I3.3,A)') ntime,'.'
+  !write(infix,'(I3.3,A)') ntime,'.'
+  call fmtIndex('',ntime,'.',infix)
 
 
   !
@@ -2886,7 +2921,7 @@ end function
   !
 
 
-  call MemoryLayout('Obs'//infix,ObsML,rmLPObs)
+  call MemoryLayout('Obs'//trim(infix),ObsML,rmLPObs)
 
   !    call loadObservationCorr(ntime,ObsML,C)
 
@@ -2929,11 +2964,11 @@ end function
       HSf(:,k) = obsoper(H,Sf(:,k)) + Hshift
     end do
 
-    if (presentInitValue(initfname,'Diag'//infix//'Ef')) & 
-      call saveEnsemble('Diag'//infix//'Ef',ModMLParallel,Sf)
+    if (presentInitValue(initfname,'Diag'//trim(infix)//'Ef')) & 
+      call saveEnsemble('Diag'//trim(infix)//'Ef',ModMLParallel,Sf)
 
-    if (presentInitValue(initfname,'Diag'//infix//'HEf')) & 
-      call saveEnsemble('Diag'//infix//'HEf',ObsML,HSf)
+    if (presentInitValue(initfname,'Diag'//trim(infix)//'HEf')) & 
+      call saveEnsemble('Diag'//trim(infix)//'HEf',ObsML,HSf)
 
     ! anamorphosis transform
     do k=1,size(Sf,2)
@@ -2978,54 +3013,54 @@ end function
     ! subroutine selectObservations
 
     allocate(obsGridX(ObsML%effsize),obsGridY(ObsML%effsize),locAmplitudes(size(Sf,2),size(zoneSize)))
-    call loadVector('Obs'//infix//'gridX',ObsML,obsGridX)
-    call loadVector('Obs'//infix//'gridY',ObsML,obsGridY)
+    call loadVector('Obs'//trim(infix)//'gridX',ObsML,obsGridX)
+    call loadVector('Obs'//trim(infix)//'gridY',ObsML,obsGridY)
   end if
 
-    if (presentInitValue(initfname,'Diag'//infix//'xf')) &
-         call saveVector('Diag'//infix//'xf',ModMLParallel,xf)
+    if (presentInitValue(initfname,'Diag'//trim(infix)//'xf')) &
+         call saveVector('Diag'//trim(infix)//'xf',ModMLParallel,xf)
 
-    if (presentInitValue(initfname,'Diag'//infix//'test')) &
-         call saveVector('Diag'//infix//'test',ModMLParallel,Sf(:,2))
+    if (presentInitValue(initfname,'Diag'//trim(infix)//'test')) &
+         call saveVector('Diag'//trim(infix)//'test',ModMLParallel,Sf(:,2))
 
-    if (presentInitValue(initfname,'Diag'//infix//'Hxf')) &
-         call saveVector('Diag'//infix//'Hxf',ObsML,Hxf,invsqrtR.ne.0.)
+    if (presentInitValue(initfname,'Diag'//trim(infix)//'Hxf')) &
+         call saveVector('Diag'//trim(infix)//'Hxf',ObsML,Hxf,invsqrtR.ne.0.)
 
-    if (presentInitValue(initfname,'Diag'//infix//'yo')) &
-         call saveVector('Diag'//infix//'yo',ObsML,yo,invsqrtR.ne.0.)
+    if (presentInitValue(initfname,'Diag'//trim(infix)//'yo')) &
+         call saveVector('Diag'//trim(infix)//'yo',ObsML,yo,invsqrtR.ne.0.)
 
-    if (presentInitValue(initfname,'Diag'//infix//'yo-Hxf')) &
-         call saveVector('Diag'//infix//'yo-Hxf',ObsML,yo_Hxf,invsqrtR.ne.0.)
+    if (presentInitValue(initfname,'Diag'//trim(infix)//'yo-Hxf')) &
+         call saveVector('Diag'//trim(infix)//'yo-Hxf',ObsML,yo_Hxf,invsqrtR.ne.0.)
 
-    if (presentInitValue(initfname,'Diag'//infix//'Sf')) &
-         call saveErrorSpace('Diag'//infix//'Sf',Sf)
+    if (presentInitValue(initfname,'Diag'//trim(infix)//'Sf')) &
+         call saveErrorSpace('Diag'//trim(infix)//'Sf',Sf)
 
-    if (presentInitValue(initfname,'Diag'//infix//'diagHPfHT')) & 
-         call saveVector('Diag'//infix//'diagHPfHT',ObsML,stddev(HSf),invsqrtR.ne.0.)
+    if (presentInitValue(initfname,'Diag'//trim(infix)//'diagHPfHT')) & 
+         call saveVector('Diag'//trim(infix)//'diagHPfHT',ObsML,stddev(HSf),invsqrtR.ne.0.)
 
-    if (presentInitValue(initfname,'Diag'//infix//'stddevHxf')) &
-         call saveVector('Diag'//infix//'stddevHxf',ObsML,stddev(HSf),invsqrtR.ne.0.)
+    if (presentInitValue(initfname,'Diag'//trim(infix)//'stddevHxf')) &
+         call saveVector('Diag'//trim(infix)//'stddevHxf',ObsML,stddev(HSf),invsqrtR.ne.0.)
 
-    if (presentInitValue(initfname,'Diag'//infix//'diagPf')) &
-         call saveVector('Diag'//infix//'diagPf',ModMLParallel,stddev(Sf))
+    if (presentInitValue(initfname,'Diag'//trim(infix)//'diagPf')) &
+         call saveVector('Diag'//trim(infix)//'diagPf',ModMLParallel,stddev(Sf))
 
-    if (presentInitValue(initfname,'Diag'//infix//'stddevxf')) &
-         call saveVector('Diag'//infix//'stddevxf',ModMLParallel,stddev(Sf))
+    if (presentInitValue(initfname,'Diag'//trim(infix)//'stddevxf')) &
+         call saveVector('Diag'//trim(infix)//'stddevxf',ModMLParallel,stddev(Sf))
 
-    if (presentInitValue(initfname,'Diag'//infix//'invsqrtR'))  &
-         call saveVector('Diag'//infix//'invsqrtR',ObsML,invsqrtR)
+    if (presentInitValue(initfname,'Diag'//trim(infix)//'invsqrtR'))  &
+         call saveVector('Diag'//trim(infix)//'invsqrtR',ObsML,invsqrtR)
 
-    if (presentInitValue(initfname,'Diag'//infix//'innov_amplitudes')) then
-      call getInitValue(initfname,'Diag'//infix//'path',path)
-      call getInitValue(initfname,'Diag'//infix//'innov_amplitudes',str)
+    if (presentInitValue(initfname,'Diag'//trim(infix)//'innov_amplitudes')) then
+      call getInitValue(initfname,'Diag'//trim(infix)//'path',path)
+      call getInitValue(initfname,'Diag'//trim(infix)//'innov_amplitudes',str)
       call usave(trim(path)//str,innov_amplitudes,9999.)
     end if
 
-    if (presentInitValue(initfname,'Diag'//infix//'innov_projection'))  &
-         call saveVector('Diag'//infix//'innov_projection',ObsML,innov_projection,invsqrtR.ne.0)
+    if (presentInitValue(initfname,'Diag'//trim(infix)//'innov_projection'))  &
+         call saveVector('Diag'//trim(infix)//'innov_projection',ObsML,innov_projection,invsqrtR.ne.0)
 
-    if (presentInitValue(initfname,'Diag'//infix//'meanSf')) then
-      call saveVector('Diag'//infix//'meanSf',ModMLParallel,sum(Sf,2)/size(Sf,2))
+    if (presentInitValue(initfname,'Diag'//trim(infix)//'meanSf')) then
+      call saveVector('Diag'//trim(infix)//'meanSf',ModMLParallel,sum(Sf,2)/size(Sf,2))
     end if
 
 !$omp end master
@@ -3110,11 +3145,11 @@ end function
         HSa(:,k) = obsoper(H,Sa(:,k)) + Hshift
       end do
 
-      if (presentInitValue(initfname,'Diag'//infix//'Ea')) & 
-           call saveEnsemble('Diag'//infix//'Ea',ModMLParallel,Sa)
+      if (presentInitValue(initfname,'Diag'//trim(infix)//'Ea')) & 
+           call saveEnsemble('Diag'//trim(infix)//'Ea',ModMLParallel,Sa)
 
-      if (presentInitValue(initfname,'Diag'//infix//'HEa')) & 
-           call saveEnsemble('Diag'//infix//'HEa',ObsML,HSa)
+      if (presentInitValue(initfname,'Diag'//trim(infix)//'HEa')) & 
+           call saveEnsemble('Diag'//trim(infix)//'HEa',ObsML,HSa)
 
 
       xa = sum(Sa,2)/size(Sa,2)
@@ -3162,15 +3197,15 @@ end function
 !    write(stdlog,*) 'ensamplitudes: ',ensampl
 
 
-    call report(stdlog,infix//'forecast.',mjd,ingrid,invsqrtR,HSf,yo_Hxf)
+    call report(stdlog,trim(infix)//'forecast.',mjd,ingrid,invsqrtR,HSf,yo_Hxf)
     if (runtype.eq.AssimRun) then
-      call report(stdlog,infix//'analysis.',mjd,ingrid,invsqrtR,HSa,yo_Hxa)
+      call report(stdlog,trim(infix)//'analysis.',mjd,ingrid,invsqrtR,HSa,yo_Hxa)
     end if
 
     ! obsnames = name of each variable (only for output)
 
-    if (presentInitValue(initfname,'Obs'//infix//'names')) then
-      call getInitValue(initfname,'Obs'//infix//'names',obsnames)
+    if (presentInitValue(initfname,'Obs'//trim(infix)//'names')) then
+      call getInitValue(initfname,'Obs'//trim(infix)//'names',obsnames)
     else
       ! default names for log VarXX
       allocate(obsnames(ObsML%nvar))
@@ -3182,7 +3217,9 @@ end function
     write(stdlog,*) 'Per variables :'
 
     do v=1,ObsML%nvar
-      write(prefix,'(I3.3,A,A,A)') ntime,'.',trim(obsnames(v)),'.'
+      !write(prefix,'(I3.3,A,A,A)') ntime,'.',trim(obsnames(v)),'.'
+      call fmtIndex('',ntime,'.' // trim(obsnames(v)) // '.' ,prefix)
+
 
       i1 = ObsML%startIndexSea(v)
       i2 = ObsML%endIndexSea(v)
@@ -3214,9 +3251,9 @@ end function
 
     if (runtype.eq.AssimRun) then
 
-      if (presentInitValue(initfname,'Diag'//infix//'amplitudes')) then
-        call getInitValue(initfname,'Diag'//infix//'path',path)
-        call getInitValue(initfname,'Diag'//infix//'amplitudes',str)
+      if (presentInitValue(initfname,'Diag'//trim(infix)//'amplitudes')) then
+        call getInitValue(initfname,'Diag'//trim(infix)//'path',path)
+        call getInitValue(initfname,'Diag'//trim(infix)//'amplitudes',str)
         if (schemetype.eq.LocalScheme) then
           call usave(trim(path)//str,LocAmplitudes,9999.)
         else 
@@ -3225,55 +3262,55 @@ end function
       end if
 
 
-      if (presentInitValue(initfname,'Diag'//infix//'meanSa')) then
-        call saveVector('Diag'//infix//'meanSa',ModMLParallel,sum(Sa,2)/size(Sa,2))
+      if (presentInitValue(initfname,'Diag'//trim(infix)//'meanSa')) then
+        call saveVector('Diag'//trim(infix)//'meanSa',ModMLParallel,sum(Sa,2)/size(Sa,2))
       end if
 
-      if (presentInitValue(initfname,'Diag'//infix//'Hxa'))         &
-           call saveVector('Diag'//infix//'Hxa',ObsML,Hxa,invsqrtR.ne.0.)
+      if (presentInitValue(initfname,'Diag'//trim(infix)//'Hxa'))         &
+           call saveVector('Diag'//trim(infix)//'Hxa',ObsML,Hxa,invsqrtR.ne.0.)
 
-      if (presentInitValue(initfname,'Diag'//infix//'Hxa-Hxf'))     &
-           call saveVector('Diag'//infix//'Hxa-Hxf',ObsML,Hxa-Hxf,invsqrtR.ne.0.)
+      if (presentInitValue(initfname,'Diag'//trim(infix)//'Hxa-Hxf'))     &
+           call saveVector('Diag'//trim(infix)//'Hxa-Hxf',ObsML,Hxa-Hxf,invsqrtR.ne.0.)
 
-      if (presentInitValue(initfname,'Diag'//infix//'yo-Hxa')) &
-           call saveVector('Diag'//infix//'yo-Hxa',ObsML,yo_Hxa,invsqrtR.ne.0.)
+      if (presentInitValue(initfname,'Diag'//trim(infix)//'yo-Hxa')) &
+           call saveVector('Diag'//trim(infix)//'yo-Hxa',ObsML,yo_Hxa,invsqrtR.ne.0.)
 
-      if (presentInitValue(initfname,'Diag'//infix//'xa'))  &
-           call saveVector('Diag'//infix//'xa',ModMLParallel,xa)
+      if (presentInitValue(initfname,'Diag'//trim(infix)//'xa'))  &
+           call saveVector('Diag'//trim(infix)//'xa',ModMLParallel,xa)
 
-      if (presentInitValue(initfname,'Diag'//infix//'xa-xf')) &
-           call saveVector('Diag'//infix//'xa-xf',ModMLParallel,xa-xf)
+      if (presentInitValue(initfname,'Diag'//trim(infix)//'xa-xf')) &
+           call saveVector('Diag'//trim(infix)//'xa-xf',ModMLParallel,xa-xf)
 
-      if (presentInitValue(initfname,'Diag'//infix//'diagPa')) &
-           call saveVector('Diag'//infix//'diagPa',ModMLParallel,stddev(Sa))
+      if (presentInitValue(initfname,'Diag'//trim(infix)//'diagPa')) &
+           call saveVector('Diag'//trim(infix)//'diagPa',ModMLParallel,stddev(Sa))
 
-      if (presentInitValue(initfname,'Diag'//infix//'stddevxa')) &
-           call saveVector('Diag'//infix//'stddevxa',ModMLParallel,stddev(Sa))
+      if (presentInitValue(initfname,'Diag'//trim(infix)//'stddevxa')) &
+           call saveVector('Diag'//trim(infix)//'stddevxa',ModMLParallel,stddev(Sa))
 
-      if (presentInitValue(initfname,'Diag'//infix//'diagHPaHT')) &
-           call saveVector('Diag'//infix//'diagHPaHT',ObsML,stddev(HSa),invsqrtR.ne.0.)
+      if (presentInitValue(initfname,'Diag'//trim(infix)//'diagHPaHT')) &
+           call saveVector('Diag'//trim(infix)//'diagHPaHT',ObsML,stddev(HSa),invsqrtR.ne.0.)
 
-      if (presentInitValue(initfname,'Diag'//infix//'stddevHxa')) &
-           call saveVector('Diag'//infix//'stddevHxa',ObsML,stddev(HSa),invsqrtR.ne.0.)
+      if (presentInitValue(initfname,'Diag'//trim(infix)//'stddevHxa')) &
+           call saveVector('Diag'//trim(infix)//'stddevHxa',ObsML,stddev(HSa),invsqrtR.ne.0.)
 
-      if (presentInitValue(initfname,'Diag'//infix//'Sa')) &
-           call saveErrorSpace('Diag'//infix//'Sa',Sa)
+      if (presentInitValue(initfname,'Diag'//trim(infix)//'Sa')) &
+           call saveErrorSpace('Diag'//trim(infix)//'Sa',Sa)
 
     end if
 
     if (biastype.eq.ErrorFractionBias) then
       ! output bias estimation
 
-      if (presentInitValue(initfname,'Diag'//infix//'biasf'))  &
-           call saveVector('Diag'//infix//'biasf',ModMLParallel,biasf)
+      if (presentInitValue(initfname,'Diag'//trim(infix)//'biasf'))  &
+           call saveVector('Diag'//trim(infix)//'biasf',ModMLParallel,biasf)
 
-      if (presentInitValue(initfname,'Diag'//infix//'biasa'))  &
-           call saveVector('Diag'//infix//'biasa',ModMLParallel,biasa)
+      if (presentInitValue(initfname,'Diag'//trim(infix)//'biasa'))  &
+           call saveVector('Diag'//trim(infix)//'biasa',ModMLParallel,biasa)
     end if
 
 
 #   ifdef GZIPDiag
-    call getInitValue(initfname,'Diag'//infix//'path',path)
+    call getInitValue(initfname,'Diag'//trim(infix)//'path',path)
     write(stddebug,*) 'gzip ',trim(path)
     call system('gzip -f '//trim(path)//'*')
     write(stddebug,*) 'end gzip ',trim(path)

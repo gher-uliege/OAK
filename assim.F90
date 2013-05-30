@@ -35,7 +35,7 @@ program assimtest
 
  integer            :: iargc, ntime, enstype
  character(len=124) :: str
- character(len=4) :: ntimeindex
+ character(len=124) :: ntimeindex
 
  if (iargc().ne.2) then
    write(stderr,*) 'Usage: assim <init file> <time index> '
@@ -54,13 +54,14 @@ program assimtest
       Sa(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel,ErrorSpaceDim), &
       Sf(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel,ErrorSpaceDim))
 
- write(ntimeindex,'(I3.3,A)') ntime,'.'
- 
+ !write(ntimeindex,'(I3.3,A)') ntime,'.'
+ call fmtIndex('',ntime,'.',ntimeindex)
+
  call getInitValue(initfname,'ErrorSpace.type',enstype,default=1)
  if (enstype == 1) then
    ! Sf are error modes and xf is the forecast
    call loadVectorSpace('ErrorSpace.init',ModMLParallel,Sf)
-   call loadVector('Forecast'//ntimeindex//'value',ModMLParallel,xf)
+   call loadVector('Forecast'//trim(ntimeindex)//'value',ModMLParallel,xf)
 !$omp parallel
    call assim(ntime,Sf,Sa,xf,xa)
 !$omp end parallel
