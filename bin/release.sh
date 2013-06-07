@@ -15,7 +15,8 @@ mkdir $tmpd
 wd=$PWD
 
 cd $tmpd 
-svn export svn+ssh://$host/home/svn/repos/OAK/tag/r$version $oakd
+#svn export svn+ssh://$host/home/svn/repos/OAK/tag/r$version $oakd
+svn export svn+ssh://$host/home/svn/repos/OAK/trunk $oakd
 cd $tmpd/$oakd
 rm -Rf Python
 # symbolic links
