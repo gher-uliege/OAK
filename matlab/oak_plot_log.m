@@ -39,4 +39,9 @@ datetick('x');
 
 legend('Free','Forecast','Analysis');
 
-fprintf('mean RMS forecast %s %g\n',var,sqrt(nanmean(rmsf.^2)))
+
+mfree = sqrt(nanmean(rmsfree.^2));
+mf = sqrt(nanmean(rmsf.^2));
+ma = sqrt(nanmean(rmsa.^2));
+
+fprintf('%s: mean RMS free %10g forecast %10g analysis %10g \n',var,mfree,mf,ma)
