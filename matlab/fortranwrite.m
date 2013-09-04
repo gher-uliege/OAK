@@ -6,7 +6,14 @@ iargs = 1;
 if fmt(1) == '(' && fmt(end) == ')'
   % fortran format
   
-  part = strsplit(fmt(2:end-1),',');
+  %part = strsplit(fmt(2:end-1),',');
+  part = {};
+
+  i = 2;  
+  while i < length(fmt)-1
+    [part{end+1},i] = oak_nexttoken(fmt(1:end-1),i,',');
+  end
+  
   
   for i=1:length(part)
     
@@ -26,7 +33,7 @@ if fmt(1) == '(' && fmt(end) == ')'
     end
   end
 else
-  error('does not look like a fortran format');
+  error(['does not look like a fortran format:' fmt]);
 end
 
 str = strjoin('',p);

@@ -8,6 +8,7 @@ OS ?= Linux
 FORT ?= gfortran
 
 # Binary format (big_endian (default) or little_endian)
+# This setting is not used if you only use NetCDF files
 
 FORMAT ?= big_endian
 
@@ -18,6 +19,10 @@ PRECISION ?= single
 # Suffix for executables
 
 EXEC_SUFFIX ?= 
+
+# Install directory for OAK (current working directory is the default) 
+
+OAK_DIR ?= $(CURDIR)
 
 # uncomment/comment this line to activate/deactivate MPI support
 #MPI ?= on
