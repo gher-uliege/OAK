@@ -135,7 +135,8 @@ module ufileformat
         usave_degenerated, &
         usave_Real1D, &
         usave_Real2D, &
-        usave_Real3D
+        usave_Real3D, &
+        usave_Real4D
  end interface
 
  character(128) :: TmpdirDefault = '/tmp' 
@@ -2048,7 +2049,9 @@ contains
           write(stderr,*) 'ERROR: wrong number of (non-singelton) dimesion of variable ',trim(name),'".'
           write(stderr,*) 'Expected: ',count(ncvshape.ne.1), "shape ",pack(ncvshape,ncvshape.ne.1)
           write(stderr,*) 'Found: ',count(vshapep.ne.1), " shape ",pack(vshapep,vshapep.ne.1)
-          ERROR_STOP
+          write(stderr,*) 'File ',filename
+          call abort()
+          ERROR_STOP          
         end if
 
 
@@ -2288,6 +2291,17 @@ contains
 
  end subroutine usave_Real3D
 
+ !____________________________________________________________________
+ !
+
+ subroutine usave_Real4D(filename,c,valex)
+  implicit none
+  character(len=*), intent(in) :: filename
+  real, intent(in)  :: c(:,:,:,:), valex
+
+  call usave_generic(filename,c,valex,4,shape(c),.false.)
+
+ end subroutine usave_Real4D
 
  !____________________________________________________________________
  !
