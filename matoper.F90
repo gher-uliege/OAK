@@ -50,6 +50,7 @@ interface operator(.x.)
           dmat_mult_dvec,       &
     ssparsemat_mult_dvec,       &
           dvec_mult_dmat,       &
+          dvec_mult_ssparsemat, &
           dvec_mult_dvec
 end interface
 
@@ -63,10 +64,12 @@ interface operator(.xt.)
 ! single precision
     smat_mult_smatT, &
     smat_mult_ssparsematT, &
+    svec_mult_ssparsematT, &
     svec_mult_svecT, &
 ! double precision
     dmat_mult_dmatT, &
     dmat_mult_ssparsematT, &
+    dvec_mult_ssparsematT, &
     dvec_mult_dvecT
 end interface
 
@@ -76,9 +79,11 @@ interface operator(.tx.)
   module procedure &
 ! single precision
     smatT_mult_smat, &
+    ssparsematT_mult_smat, &
     smatT_mult_svec, &
 ! double precision
     dmatT_mult_dmat, &
+    dsparsematT_mult_dmat, &
     dmatT_mult_dvec
 end interface
 
@@ -141,6 +146,13 @@ interface symeig
   module procedure &
     symeig_sf90, &
     symeig_df90
+end interface
+
+
+interface chol
+  module procedure &
+    schol, &
+    dchol
 end interface
 
 
@@ -366,8 +378,8 @@ S%nz = count(X.ne.0)
 allocate(S%i(S%nz),S%j(S%nz),S%s(S%nz))
 k = 1
 
- do j=1,S%m
-   do i=1,S%n
+ do j=1,S%n
+   do i=1,S%m
      if (X(i,j).ne.0) then
        S%i(k) = i
        S%j(k) = j
@@ -594,6 +606,7 @@ end function ssparsemat_mult_ssparsemat
 #define dot_TYPE sdot
 #define gemm_TYPE sgemm
 #define syevx_TYPE ssyevx
+#define spotrf_TYPE spotrf
 
 #define diag_TYPE sdiag
 #define trace_TYPE strace
@@ -612,9 +625,11 @@ end function ssparsemat_mult_ssparsemat
 
 #define mat_mult_matT_TYPE smat_mult_smatT
 #define mat_mult_ssparsematT_TYPE smat_mult_ssparsematT
+#define vec_mult_ssparsematT_TYPE svec_mult_ssparsematT
 #define vec_mult_vecT_TYPE svec_mult_svecT
 #define matT_mult_mat_TYPE smatT_mult_smat
 #define matT_mult_vec_TYPE smatT_mult_svec
+#define ssparsematT_mult_mat_TYPE ssparsematT_mult_smat
 
 #define diag_mult_mat_TYPE sdiag_mult_smat
 #define diag_mult_vec_TYPE sdiag_mult_svec
@@ -628,6 +643,7 @@ end function ssparsemat_mult_ssparsemat
 #define ssvd_TYPE ssvd_singleprec
 #define gesvd_f90_TYPE gesvd_sf90 
 #define symeig_TYPE symeig_sf90
+#define chol_TYPE schol
 
 #include "matoper_inc.F90"
 
@@ -651,6 +667,7 @@ end function ssparsemat_mult_ssparsemat
 #undef dot_TYPE
 #undef gemm_TYPE
 #undef syevx_TYPE
+#undef spotrf_TYPE
 
 #undef diag_TYPE
 #undef trace_TYPE
@@ -670,9 +687,11 @@ end function ssparsemat_mult_ssparsemat
 
 #undef mat_mult_matT_TYPE
 #undef mat_mult_ssparsematT_TYPE
+#undef vec_mult_ssparsematT_TYPE 
 #undef vec_mult_vecT_TYPE
 #undef matT_mult_mat_TYPE
 #undef matT_mult_vec_TYPE
+#undef ssparsematT_mult_mat_TYPE
 
 #undef diag_mult_mat_TYPE
 #undef diag_mult_vec_TYPE
@@ -686,6 +705,7 @@ end function ssparsemat_mult_ssparsemat
 #undef ssvd_TYPE
 #undef gesvd_f90_TYPE
 #undef symeig_TYPE
+#undef chol_TYPE
 
 
 
@@ -733,6 +753,7 @@ end function ssparsemat_mult_ssparsemat
 #define dot_TYPE ddot
 #define gemm_TYPE dGEMM
 #define syevx_TYPE dsyevx
+#define spotrf_TYPE dpotrf
 
 #define diag_TYPE ddiag
 #define trace_TYPE dtrace
@@ -751,9 +772,11 @@ end function ssparsemat_mult_ssparsemat
 
 #define mat_mult_matT_TYPE dmat_mult_dmatT
 #define mat_mult_ssparsematT_TYPE dmat_mult_ssparsematT
+#define vec_mult_ssparsematT_TYPE dvec_mult_ssparsematT
 #define vec_mult_vecT_TYPE dvec_mult_dvecT
 #define matT_mult_mat_TYPE dmatT_mult_dmat
 #define matT_mult_vec_TYPE dmatT_mult_dvec
+#define ssparsematT_mult_mat_TYPE dsparsematT_mult_dmat
 
 #define diag_mult_mat_TYPE ddiag_mult_dmat
 #define diag_mult_vec_TYPE ddiag_mult_dvec
@@ -767,6 +790,7 @@ end function ssparsemat_mult_ssparsemat
 #define ssvd_TYPE ssvd_doubleprec
 #define gesvd_f90_TYPE gesvd_df90 
 #define symeig_TYPE symeig_df90
+#define chol_TYPE dchol
 
 
 #include "matoper_inc.F90"
