@@ -2874,6 +2874,7 @@ end function
   character(len=256)             :: infix
   character(len=256), pointer    :: obsnames(:)
   real, pointer :: xf(:),xa(:)
+  real, pointer :: modGrid(:,:)
 
   integer :: m,n,k,v,i1,i2,ingrid,error
   integer :: istat
@@ -3025,6 +3026,7 @@ end function
     call loadVector('Obs'//trim(infix)//'gridY',ObsML,obsGridY)
   end if
 
+
     if (presentInitValue(initfname,'Diag'//trim(infix)//'xf')) &
          call saveVector('Diag'//trim(infix)//'xf',ModMLParallel,xf)
 
@@ -3095,7 +3097,14 @@ end function
            call locanalysis(zoneSize,selectObservations, &
                 xf,Hxf,yo,Sf,HSf,invsqrtR, xa,Sa,locAmplitudes)
         end if
-     else
+
+      elseif (schemetype.eq.2) then
+        allocate(modGrid(ModML%effsize,2))
+        call loadVector('Model.gridX',ModML,modGrid(:,1))
+        call loadVector('Model.gridY',ModML,modGrid(:,2))
+
+        call locanalysis2(modGrid,xf,Sf,H,yo,invsqrtR, xa,Sa)
+      else
 !$omp master
         if (biastype.eq.ErrorFractionBias) then
            call biasedanalysis(biasgamma,xf,biasf,Hxf,Hbf,yo,Sf,HSf,invsqrtR, &
@@ -3421,6 +3430,55 @@ end function
  end subroutine report
 
 
+
+ ! distance between point p0 and p1
+ ! p0 and p1 are (/ longitude,latitude,... /)
+
+ real function distance(p0,p1)
+  implicit none
+  real, intent(in) :: p0(:), p1(:)
+  real :: a, b, C
+  real :: coeff
+  real, parameter :: EarthRadius = 6378137 ! m
+  real, parameter :: pi = 3.141592653589793238462643383279502884197
+  real :: d2r = pi/180.
+  
+  if (metrictype == CartesianMetric) then
+    distance = sqrt(sum((p1 - p0)**2))
+    
+  elseif (metrictype == SphericalMetric) then
+!#define DISTANCE_SIMPLE
+#ifdef DISTANCE_SIMPLE
+     coeff = pi*EarthRadius/(180.)     
+     distance = sqrt((coeff * cos((p0(2)+p1(2))* (pi/360.))*(p1(1)-p0(1)))**2 &
+          +(coeff * (p1(2)-p0(2)))**2)
+     
+#else
+
+     a = p0(2) * d2r
+     b = p1(2) * d2r
+     C = (p1(1) - p0(1)) * d2r
+     
+     coeff = sin(b) * sin(a) + cos(b) * cos(a) * cos(C)
+     coeff = max(min(coeff,1.),-1.)
+     ! distance in radian
+     distance = acos(coeff)
+
+     ! distance in km
+     distance = EarthRadius * distance
+#endif
+
+
+  else
+    write(stderr,*) 'Unsupported metric: ',metrictype
+    write(stderr,*) 'Supported metrics are CartesianMetric (0) and SphericalMetric (1)'
+    ERROR_STOP
+  end if
+
+ end function distance
+
+
+
  !_______________________________________________________
  !
  ! horizontal correlation function used by locanalysis
@@ -3480,56 +3538,112 @@ end function
 
    if (.not.noRelevantObs) weight = exp(- (weight/hCorrLengthToObs(index))**2)
 
-   contains 
-
-    ! distance between point p0 and p1
-    ! p0 and p1 are (/ longitude,latitude,... /)
-
-    real function distance(p0,p1)
-     implicit none
-     real, intent(in) :: p0(:), p1(:)
-     real :: d2r = pi/180.
-     real :: a, b, C
-     real :: coeff
-
-     if (metrictype == CartesianMetric) then
-       distance = sqrt(sum((p1 - p0)**2))
-
-     elseif (metrictype == SphericalMetric) then
-       ! assume sperical metric
-
-!#define DISTANCE_SIMPLE
-#ifdef DISTANCE_SIMPLE
-     coeff = pi*EarthRadius/(180.)     
-     distance = sqrt((coeff * cos((p0(2)+p1(2))* (pi/360.))*(p1(1)-p0(1)))**2 &
-          +(coeff * (p1(2)-p0(2)))**2)
-     
-#else
-
-     a = p0(2) * d2r
-     b = p1(2) * d2r
-     C = (p1(1) - p0(1)) * d2r
-     
-     coeff = sin(b) * sin(a) + cos(b) * cos(a) * cos(C)
-     coeff = max(min(coeff,1.),-1.)
-     ! distance in radian
-     distance = acos(coeff)
-
-     ! distance in km
-     distance = EarthRadius * distance
-#endif
-     else
-       write(stderr,*) 'Unsupported metric: ',metrictype
-       write(stderr,*) 'Supported metrics are CartesianMetric (0) and SphericalMetric (1)'
-       ERROR_STOP
-     end if
-
-    end function distance
-
-
 
 
    end subroutine 
+
+
+   subroutine locanalysis2(modGrid,xf,Sf,H,yo,invsqrtR, xa,Sa)
+    use matoper
+    use matoper2
+    use initfile
+    real, intent(in) :: modGrid(:,:), xf(:), yo(:), invsqrtR(:)
+    real, intent(in) :: Sf(:,:)
+    type(SparseMatrix), intent(in) :: H
+    real, intent(out) :: xa(:)
+    real, intent(out), optional :: Sa(:,:)
+
+    class(DiagCovar), allocatable :: Rc
+    real, pointer :: Hc(:,:)
+    real :: len
+    real, pointer :: Sf2(:,:)
+    integer :: leni, lenj
+
+    integer :: indexj(ModML%effsize), nnz, i
+    real :: w(ModML%effsize)
+
+    allocate(Rc)
+    call Rc%init(1./(invsqrtR**2))
+
+    call getInitValue(initfname,'CLoc.len',len)
+    call getInitValue(initfname,'CLoc.leni',leni)
+    call getInitValue(initfname,'CLoc.lenj',lenj)
+
+    write(6,*) 'len, leni, lenj ',len, leni, lenj
+    allocate(Hc(ModML%effsize,1))
+    !!! 'fix me'
+    Hc = 1
+    ! normalize
+    do i = 1,size(Hc,2)      
+      Hc(:,i) = Hc(:,i) / sqrt(sum(Hc(:,i)**2))
+    end do
+
+    allocate(Sf2(ModML%effsize,size(Sf,2)))
+    Sf2 = Sf
+    
+
+    call lpoints(1,nnz,indexj,w)
+
+!    call locensanalysis(xf,Sf2,H,yo,Rc,lpoints,Hc,xa,Sa)
+! test
+    call locensanalysis(xf,Sf2,H,yo,Rc,lpoints,Hc,xa)
+    Sa = Sf
+
+    
+    do i = 1,size(Hc,2)      
+      write(6,*) 'Hc*(xf-xa) ',i, sum(Hc(:,i) * (xf-xa))
+    end do
+
+    deallocate(Rc)
+    deallocate(Hc)
+    deallocate(Sf2)
+
+    contains
+     subroutine lpoints(indexi,nnz,indexj,w)
+      integer, intent(in) :: indexi
+      integer, intent(out) :: nnz,indexj(:)
+      real, intent(out) :: w(:)
+      
+      integer :: pi,pj,pk,pn,pv
+      integer :: i,j,k,n,v
+      integer :: tj
+      logical :: valid
+      real :: tw
+
+!      call locpoints(indexi,modGrid,len,nnz,indexj,w)  
+
+      call ind2sub(ModML,indexi,pv,pi,pj,pk,pn)
+      nnz = 0
+
+      do v = 1,ModML%nvar
+        do n = 1,1
+          do k = 1,ModML%varshape(3,v)
+            do j = max(pj-lenj, 1), min(pj+lenj, ModML%varshape(2,v))
+              do i = max(pi-leni, 1), min(pi+leni, ModML%varshape(1,v))
+                tj = sub2ind(ModML,v,i,j,k,n,valid)
+
+                !write(6,*) 'v,i,j,k,n ',v,i,j,k,n
+
+                if (valid) then
+                  tw = locfun(distance(modGrid(indexi,:), &
+                       modGrid(tj,:))/len)
+                  
+                  if (tw /= 0.) then                
+                    nnz = nnz + 1
+                    indexj(nnz) = tj
+                    w(nnz) = tw
+                  end if
+                end if
+              end do
+            end do
+          end do
+        end do
+      end do
+      
+!      write(6,*) 'indexi ',indexi,nnz, maxval(w),minval(w),count(w > 0.5)
+     end subroutine lpoints
+
+   end subroutine locanalysis2
 
  !_______________________________________________________
  !

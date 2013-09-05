@@ -18,16 +18,37 @@
 !
 
 
-module testmod
+module matoper2
 
 use matoper
 
+
 type Covar
-  integer          :: n
+  integer         :: n
+  real, pointer   :: CM(:,:)
    contains
-        procedure :: print => covar_print        
+!        procedure :: init => Covar_init
+        procedure :: print => Covar_print        
+        procedure :: mulmat => Covar_mulmat
+        procedure :: mulvec => Covar_mulvec
 end type Covar
 
+
+
+type, extends(Covar) :: DiagCovar
+  real, pointer :: diag(:)
+   contains
+        procedure :: init => DiagCovar_init
+        procedure :: print => DiagCovar_print
+        procedure :: mulmat => DiagCovar_mulmat
+        procedure :: mulvec => DiagCovar_mulvec
+end type DiagCovar
+
+#ifdef SUPPORT_CON
+interface DiagCovar
+  module procedure newDiagCovar
+end interface DiagCovar
+#endif
 
 interface
   subroutine locpoints_(i,nnz,j,w)
@@ -43,17 +64,26 @@ type, extends(Covar) :: LocCovar
   real, pointer :: S(:,:)
   procedure(locpoints_), pointer, nopass:: lpoints
    contains
-        procedure :: initialize => lcinitialize
-        procedure :: matmul2 => loccovar_smult_vec
+        procedure :: init => LocCovar_init
+        procedure :: mulvec => loccovar_smult_vec
+        procedure :: mulmat => loccovar_smult_mat
         procedure :: print => lc_print        
  end type LocCovar
 
+#ifdef SUPPORT_CON
+interface LocCovar
+  module procedure newLocCovar
+end interface LocCovar
+#endif
 
 type, extends(Covar) :: ConsCovar
   real, pointer :: h(:,:)
-  class(LocCovar), pointer :: C
+!  class(LocCovar), pointer :: C
+  class(Covar), pointer :: C
    contains
         procedure :: initialize => consInitialize
+        procedure :: mulvec => conscovar_smult_vec
+        procedure :: mulmat => conscovar_smult_mat
 end type ConsCovar
 
 
@@ -61,16 +91,16 @@ end type ConsCovar
 
 interface operator(.x.)
   module procedure              &
-   loccovar_smult_mat, &
-   loccovar_smult_vec, &
-   conscovar_smult_mat, &
-   conscovar_smult_vec
+   covar_mult_mat, &
+   covar_mult_vec
 end interface 
 
-
-interface matmul2
-  module procedure loccovar_smult_vec
+interface operator(*)
+  module procedure              &
+   covar_mult_mat, &
+   covar_mult_vec
 end interface 
+
 
 interface assert
   module procedure assert_scal
@@ -142,25 +172,101 @@ end interface
   end subroutine assert_mat
 
 
-  function covar_mult(this,x) result (Px)
-   type(Covar), intent(in) :: this
+  subroutine Covar_init(this,C)
+    class(Covar) :: this
+    real, target :: C(:,:)
+
+    this%n = size(C,1)
+    this%CM => C
+   end subroutine Covar_init
+
+  subroutine Covar_print(this)
+    class(Covar), intent(in) :: this
+    print *, 'Covar: ', this%n,this%n
+   end subroutine Covar_print
+
+  function Covar_mulmat(this,x) result(C)
+    class(Covar), intent(in) :: this
+    real, intent(in) :: x(:,:)
+    real :: C(size(x,1),size(x,2))
+    C = matmul(this%CM,x)
+   end function Covar_mulmat
+
+
+  function Covar_mulvec(this,x) result(C)
+    class(Covar), intent(in) :: this
+    real, intent(in) :: x(:)
+    real :: C(size(x,1))
+    C = matmul(this%CM,x)
+   end function Covar_mulvec
+
+
+  function Covar_mult_mat(this,x) result (Px)
+   class(Covar), intent(in) :: this
    real, intent(in) :: x(:,:)
    real ::  Px(this%n,size(x,2))
-    print *, 'covar_mult'
-    Px = 999.
-  end function covar_mult
 
-  integer function covar_print(this)
-    class(Covar), intent(in) :: this
-    print *, 'Covar: r = ', this%n
-    covar_print = 1
-   end function covar_print
+   Px = this%mulmat(x)
+  end function 
 
-  integer function lc_print(this)
-    class(LocCovar), intent(in) :: this
-    print *, 'lc : r = ', this%n
-    lc_print = 1
-   end function lc_print
+  function Covar_mult_vec(this,x) result (Px)
+   class(Covar), intent(in) :: this
+   real, intent(in) :: x(:)
+   real ::  Px(this%n)
+
+   Px = this%mulvec(x)
+  end function 
+
+
+  function newDiagCovar(diag) result(this)
+    type(DiagCovar) :: this
+    real, target :: diag(:)
+
+    this%n = size(diag)
+    this%diag => diag 
+  end function newDiagCovar
+
+
+  subroutine DiagCovar_init(this,C)
+    class(DiagCovar) :: this
+    real, target :: C(:)
+
+    this%n = size(C)
+    this%diag => C 
+   end subroutine DiagCovar_init
+
+  subroutine DiagCovar_print(this)
+    class(DiagCovar), intent(in) :: this
+    print *, 'Diag Covar: ', this%n,this%n
+   end subroutine DiagCovar_print
+
+  function DiagCovar_mulvec(this,x) result(C)
+    class(DiagCovar), intent(in) :: this
+    real, intent(in) :: x(:)
+    real :: C(size(x,1))
+    integer :: i,j
+
+    C = this%diag*x    
+   end function DiagCovar_mulvec
+
+  function DiagCovar_mulmat(this,x) result(C)
+    class(DiagCovar), intent(in) :: this
+    real, intent(in) :: x(:,:)
+    real :: C(size(x,1),size(x,2))
+    integer :: i,j
+
+    do j=1,size(x,2)
+      do i=1,size(x,1)
+        C(i,j) = this%diag(i)*x(i,j)
+      end do
+    end do
+   end function DiagCovar_mulmat
+
+!---------------------------------
+! LocCovar
+!  
+
+
 
   function locfun(r) result(fun)
    real :: r,fun
@@ -227,15 +333,31 @@ end interface
    end do
   end subroutine locpoints
 
-  subroutine lcinitialize(LC, S, lp)
-   class(LocCovar) :: LC
+  subroutine LocCovar_init(this, S, lp)
+   class(LocCovar) :: this
+   real, pointer :: S(:,:)
+   procedure(locpoints_) :: lp
+
+   this%n = size(S,1)
+   this%lpoints => lp
+   this%S => S
+  end subroutine LocCovar_init
+
+  function newLocCovar(S, lp) result(LC)
+   type(LocCovar) :: LC
    real, pointer :: S(:,:)
    procedure(locpoints_) :: lp
 
    LC%n = size(S,1)
    LC%lpoints => lp
    LC%S => S
-  end subroutine lcinitialize
+  end function newLocCovar
+
+  subroutine lc_print(this)
+    class(LocCovar), intent(in) :: this
+    print *, 'lc : r = ', this%n
+   end subroutine lc_print
+
 
 
   function loccovar_smult_vec(this,x) result (Px)
@@ -250,8 +372,8 @@ end interface
 
    do i = 1,this%n
     call this%lpoints(i,nnz,j,rho)
-    p = matmul(this%S(i,:),transpose(this%S(j(1:nnz),:)))    
-    tmp(1:nnz) = rho(1:nnz) * p
+    p(1:nnz) = matmul(this%S(i,:),transpose(this%S(j(1:nnz),:)))    
+    tmp(1:nnz) = rho(1:nnz) * p(1:nnz)
     Px(i) = Px(i) + sum(tmp(1:nnz) * x(j(1:nnz)))
   end do
  end function loccovar_smult_vec
@@ -267,8 +389,8 @@ end interface
 
    do i = 1,this%n
     call this%lpoints(i,nnz,j,rho)
-    p = matmul(this%S(i,:),transpose(this%S(j(1:nnz),:)))    
-    tmp(1:nnz) = rho(1:nnz) * p
+    p(1:nnz) = matmul(this%S(i,:),transpose(this%S(j(1:nnz),:)))    
+    tmp(1:nnz) = rho(1:nnz) * p(1:nnz)
     
     do k = 1,size(x,2)
         Px(i,k) = Px(i,k) + sum(tmp(1:nnz) * x(j(1:nnz),k))
@@ -279,13 +401,24 @@ end interface
 
   subroutine consInitialize(self,C,h)
    class(ConsCovar) :: self
-   class(LocCovar), pointer :: C
+!   class(LocCovar), pointer :: C
+   class(Covar), target :: C
    real, pointer :: h(:,:)
 
    self%n = C%n
    self%C => C
    self%h => h
   end subroutine consInitialize
+
+  function newConsCovar(C, H) result(self)
+   type(ConsCovar) :: self
+   class(Covar), target :: C
+   real, pointer :: H(:,:)
+
+   self%n = C%n
+   self%C => C
+   self%h => h
+  end function newConsCovar
 
 
   function conscovar_smult_vec(this,x) result (Px)
@@ -477,16 +610,21 @@ end interface
  end subroutine test_chol
 
 
- subroutine locensanalysis(xf,S,Hs,yo,R,lpoints,hc,xa,Sa)
+ subroutine locensanalysis(xf,S,Hs,yo,R,lpoints,Hc,xa,Sa)
   use matoper
-  real, intent(in) :: xf(:), R(:,:), yo(:)
-  real, pointer, intent(in) :: S(:,:), hc(:,:)
+  real, intent(in) :: xf(:), yo(:)
+!  real, intent(in) :: R(:,:)
+  class(Covar), intent(in) :: R
+  real, pointer, intent(in) :: S(:,:), Hc(:,:)
   type(SparseMatrix), intent(in) :: Hs
-  real, intent(inout) :: xa(:), Sa(:,:)
+  real, intent(inout) :: xa(:)
+  real, intent(inout), optional :: Sa(:,:)
   procedure(locpoints_) :: lpoints
 
-  class(LocCovar), pointer :: LC
-  class(ConsCovar), allocatable :: Pc
+!  class(LocCovar), pointer :: LC
+  type(LocCovar) :: LC
+!  class(ConsCovar), allocatable :: Pc
+  type(ConsCovar) :: Pc
   integer :: i,m,n,Nens
   real, allocatable :: tmp(:), d(:)
   real, allocatable :: U(:,:), Sigma(:), KU(:,:), PaU(:,:), A(:,:), Sp(:,:)
@@ -496,24 +634,32 @@ end interface
   m = size(yo)
   Nens = size(S,2)
 
+  if (size(Hc,1) /= n) then
+    write(0,*) 'locensanalysis: parameter Hc has wrong size'
+    stop
+  end if
+
   if (size(xa) /= n) then
     write(0,*) 'locensanalysis: parameter xa has wrong size'
     stop
   end if
 
-  if (size(Sa,1) /= n .or. size(Sa,2) /= Nens) then
-    write(0,*) 'locensanalysis: parameter Sa has wrong size'
-    stop
+  if (present(Sa)) then
+    if (size(Sa,1) /= n .or. size(Sa,2) /= Nens) then
+      write(0,*) 'locensanalysis: parameter Sa has wrong size'
+      stop
+    end if
   end if
 
-
   ! local covariance
-  allocate(LC)
-  call LC%initialize(S,lpoints)
+!  allocate(LC)
+!  call LC%init(S,lpoints)
+  LC = newLocCovar(S,lpoints)
 
   ! with conservation 
-  allocate(Pc)
-  call Pc%initialize(LC,hc)
+!  allocate(Pc)
+!  call Pc%initialize(LC,Hc)
+  Pc = newConsCovar(LC,Hc)
 
   allocate(tmp(m),d(m))
 
@@ -523,45 +669,47 @@ end interface
 
   xa = xf + K(d,n)
 
-  allocate(Sigma(Nens)) 
-  allocate(U(n,Nens))
-  allocate(PaU(Nens,Nens))
-  allocate(A(n,Nens))
-  allocate(Sp(n,Nens))
-  allocate(KU(m,Nens))
-  allocate(sqrtPaU(Nens,Nens))
+  if (present(Sa)) then
 
-  do i = 1,Nens
-    Sp(:,i) = S(:,i) - K(Hs.x.S(:,i),n)
-  end do
+    allocate(Sigma(Nens)) 
+    allocate(U(n,Nens))
+    allocate(PaU(Nens,Nens))
+    allocate(A(n,Nens))
+    allocate(Sp(n,Nens))
+    allocate(KU(m,Nens))
+    allocate(sqrtPaU(Nens,Nens))
 
-  Sigma = svd(Sp,U=U,V=sqrtPaU)
+    do i = 1,Nens
+      Sp(:,i) = S(:,i) - K(Hs.x.S(:,i),n)
+    end do
+    
+    Sigma = svd(Sp,U=U,V=sqrtPaU)
+    
+    do i = 1,Nens
+      KU(:,i) = iC(Hs.x.(Pc.x.U(:,i)));
+    end do
+    
+    ! A = U - H' K' U
+    A = U - (Hs.tx.KU)
+    
+    ! PaU = A' * (Pc * A) + KU' * (R * KU)
+    PaU = (A.tx.(Pc.x.A)) + (KU.tx.(R.x.KU))
+    
+    PaU = (PaU + transpose(PaU)) / 2
+    
+    sqrtPaU = chol(PaU);
+    
+    Sa = U.x.sqrtPaU
+
+    deallocate(U,Sigma) 
+    deallocate(PaU)
+    deallocate(A)
+    deallocate(KU)
+    deallocate(sqrtPaU)
   
-  do i = 1,Nens
-    KU(:,i) = iC(Hs.x.(Pc.x.U(:,i)));
-  end do
+  end if
 
- ! A = U - H' K' U
-  A = U - (Hs.tx.KU)
-
- ! PaU = A' * (Pc * A) + KU' * (R * KU)
- PaU = (A.tx.(Pc.x.A)) + (KU.tx.(R.x.KU))
- 
- PaU = (PaU + transpose(PaU)) / 2
-
- sqrtPaU = chol(PaU);
-
- Sa = U.x.sqrtPaU
-
-
- deallocate(tmp,d)
-
-
- deallocate(U,Sigma) 
- deallocate(PaU)
- deallocate(A)
-  deallocate(KU)
-  deallocate(sqrtPaU)
+  deallocate(tmp,d)
 contains
 
 
@@ -569,6 +717,8 @@ contains
  function fun_Cx(x) result(y)
   real, intent(in) :: x(:)
   real :: y(size(x))
+
+  write(6,*) 'call fun_Cx'
   y = locenscovx(Pc,Hs,R,x)
  end function fun_Cx
  
@@ -593,11 +743,10 @@ contains
   use matoper
   class(ConsCovar), intent(in) :: Pc
   type(SparseMatrix) :: H
-  real :: R(:,:)
+  class(Covar) :: R
   real :: y(:)
   real :: Cy(size(y,1))
   real :: Hty(Pc%n)
-
 
   Hty = y.x.H
   Cy = (H .x. (Pc.x.Hty))  + (R.x.y)
@@ -606,5 +755,37 @@ contains
  end subroutine locensanalysis
 
 
+ subroutine test_covar
+  use matoper
+  type(DiagCovar) :: C
+  !class(DiagCovar), allocatable :: C
+  real :: mdiag(2) = (/ 2.,3. /)
+
+  !allocate(C)
+  C = newDiagCovar(mdiag)
+  !C = DiagCovar(mdiag)
   
- end module testmod
+  call innersub(C)
+
+  contains 
+   subroutine innersub(B)
+    class(Covar) :: B
+    call B%print()
+
+    call assert(B%mulmat(2 * seye(2)), &
+       reshape([4.,0.,0.,6.],[2,2]), &
+       1e-7, 'DiagCovar*Matrix (method)')
+
+    call assert(B.x.(2 * seye(2)), &
+       reshape([4.,0.,0.,6.],[2,2]), &
+       1e-7, 'DiagCovar*Matrix (.x. operator)')
+
+    call assert(B * (2 * seye(2)), &
+       reshape([4.,0.,0.,6.],[2,2]), &
+       1e-7, 'DiagCovar*Matrix (* operator)')
+
+
+   end subroutine innersub
+ end subroutine test_covar
+  
+ end module matoper2

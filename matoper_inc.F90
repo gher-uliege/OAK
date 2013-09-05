@@ -811,7 +811,7 @@ end subroutine
   U = A
   call spotrf_TYPE('U', size(A,1), U, size(A,1), info)
   if (info .ne. 0) then
-    write(6,*) 'info ',info
+    write(6,*) 'info ',info, A
     stop 'chol failed'
   end if
 

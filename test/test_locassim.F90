@@ -4,22 +4,27 @@ module test_suite
 contains
 
  subroutine run_test
-  use testmod
+  use matoper2
+
   integer :: sz(2) = (/5,5/), n
   real :: len = 3
   integer :: Nens = 20
 
   class(LocCovar), pointer :: LC
   class(ConsCovar), allocatable :: Pc
+  class(DiagCovar), allocatable :: Rc
   real, pointer :: x(:,:)
   integer :: i,j,l,m,nnz
-  real, pointer :: v(:), v2(:), S(:,:),w(:),hc(:,:),P(:,:),Pr(:,:)
+  real, pointer :: v(:), v2(:), S(:,:),w(:),Hc(:,:),P(:,:),Pr(:,:)
   real, allocatable :: H(:,:), R(:,:), xf(:), xa(:), yo(:), xa2(:), tmp(:), d(:)
   real, allocatable :: Sp(:,:), U(:,:),Sigma(:), KU(:,:), PaU(:,:), A(:,:), Sa2(:,:)
-  real, allocatable :: Sa(:,:)
+  real, allocatable :: Sa(:,:), diagR(:)
   real, allocatable :: sqrtPaU(:,:)
   integer, pointer :: jj(:)
   type(SparseMatrix) :: Hs
+
+
+  call test_covar()
 
   n = product(sz)
   allocate(x(n,2))
@@ -34,6 +39,23 @@ contains
   S = 1
 
   S = randn(n,Nens)
+
+  allocate(Pc)
+  allocate(Hc(n,1))
+  Hc = 1
+  Hc = Hc/sqrt(sum(Hc**2))
+
+  ! apply constaint on S
+  do i = 1,Nens
+    do j = 1,size(Hc,2)
+      S(:,i) = S(:,i) - Hc(:,j) * sum(Hc(:,j) * S(:,i))
+    end do
+  end do
+
+  do i = 1,size(Hc,2)
+    call assert(maxval(abs(matmul(transpose(Hc),S))), &
+         0.,6e-5,'verifying constraint (Sf)')
+  end do
 
   l = 0
   do j = 1,sz(2)
@@ -66,17 +88,14 @@ contains
 
 
   allocate(LC)
-  call LC%initialize(S,lpoints)
-  call assert(LC.x.v,matmul(P,v),1e-6,'local covariance (2)')
+  call LC%init(S,lpoints)
+  call assert(LC.x.v,matmul(P,v),1e-5,'local covariance (2)')
 
   ! with conservation 
 
-  allocate(Pc,hc(n,1))
-  hc = 1
-  hc = hc/sqrt(sum(hc**2))
-  call Pc%initialize(LC,hc)
+  call Pc%initialize(LC,Hc)
 
-  Pr = eye(n) - matmul(hc,transpose(hc))
+  Pr = eye(n) - matmul(Hc,transpose(Hc))
   P = matmul(Pr,matmul(P,Pr))
 
   call assert(Pc.x.v,matmul(P,v),1e-5,'constrained local covariance')
@@ -108,8 +127,13 @@ contains
        1e-6,'covariance at observations')
 
   xa2 = xf + ((P.xt.Hs).x.(inv(((Hs.x.P).xt.Hs) + R).x.(yo - (Hs.x.xf))))
-
   call assert(xa,xa2,1e-6,'analysis using sparse matrix')
+
+  allocate(Rc)
+  allocate(diagR(m))
+  diagR = 1
+  call Rc%init(diagR)
+
 
   allocate(tmp(m),d(m))
 
@@ -205,10 +229,17 @@ contains
        1e-5,'Cholesky factorization (2)')
 
   allocate(Sa2(n,Nens)) 
-  call locensanalysis(xf,S,Hs,yo,R,lpoints,hc,xa2,Sa2)
+  call locensanalysis(xf,S,Hs,yo,Rc,lpoints,Hc,xa2,Sa2)
 
   call assert(xa,xa2,2e-5,'analysis using locensanalysis (xa)')
-  call assert(Sa,Sa2,4e-5,'analysis using locensanalysis (Sa)')
+  call assert(Sa,Sa2,6e-5,'analysis using locensanalysis (Sa)')
+
+  do i = 1,size(Hc,2)      
+    call assert(sum(Hc(:,i) * (xf-xa)),0.,6e-5,'verifying constraint (xa)')
+    call assert(maxval(abs(matmul(transpose(Hc),S))), &
+         0.,6e-5,'verifying constraint (Sf)')
+  end do
+
 
 
   deallocate(x)
@@ -219,7 +250,7 @@ contains
 
   deallocate(P)
   deallocate(Pr)
-  deallocate(Pc,hc)
+  deallocate(Pc,Hc)
   deallocate(H,R,xf,xa,xa2,yo)
   deallocate(tmp,d)
 
@@ -238,7 +269,7 @@ contains
   function fun_Cx(x) result(y)
    real, intent(in) :: x(:)
    real :: y(size(x))
-   y = locenscovx(Pc,Hs,R,x)
+   y = locenscovx(Pc,Hs,Rc,x)
   end function fun_Cx
 
   function iC(x) result(y)
@@ -259,18 +290,17 @@ contains
   end function K
 
 
-  function locenscovx(Pc,H,R,y) result(Cy)
+  function locenscovx(Pc,H,Rc,y) result(Cy)
    use matoper
    class(ConsCovar), intent(in) :: Pc
    type(SparseMatrix) :: H
-   real :: R(:,:)
+   class(Covar) :: Rc
    real :: y(:)
    real :: Cy(size(y,1))
    real :: Hty(Pc%n)
 
-
    Hty = y.x.H
-   Cy = (H .x. (Pc.x.Hty))  + (R.x.y)
+   Cy = (H .x. (Pc.x.Hty))  + (Rc.x.y)
   end function locenscovx
 
 

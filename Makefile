@@ -59,7 +59,7 @@ ASSIM_OBJS = anamorphosis.o assim.o assimilation.o date.o grids.o initfile.o \
 	matoper.o matoper2.o ndgrid.o parall.o rrsqrt.o ufileformat.o match.o
 
 MODULES = anamorphosis.mod  assimilation.mod  date.mod  grids.mod  initfile.mod  \
-        matoper.mod  ndgrid.mod  parall.mod  rrsqrt.mod  ufileformat.mod
+        matoper.mod matoper2.mod  ndgrid.mod  parall.mod  rrsqrt.mod  ufileformat.mod
 
 #-----------------#
 #  Common macros  #
@@ -77,7 +77,7 @@ OBJS = $(ASSIM_OBJS)
 
 
 
-all: $(PROG)
+all: $(PROG) 
 
 clean:
 	rm -f $(PROG) $(OBJS) $(MODULES)
@@ -133,13 +133,13 @@ $(ASSIM_PROG): $(ASSIM_OBJS)
 #----------------#
 
 assim.o: assim.F90 assimilation.o initfile.o matoper.o rrsqrt.o ufileformat.o \
-	ppdef.h
+	ppdef.h 
 
 ndgrid.o: ndgrid.F90 matoper.o ufileformat.o ppdef.h
 
 parall.o: parall.F90 ppdef.h
 
-matoper.o: matoper.F90 ppdef.h
+matoper.o: matoper.F90 ppdef.h matoper_inc.F90
 
 matoper2.o: matoper.o matoper2.F90
 
@@ -154,7 +154,7 @@ initfile.o: initfile.F90 ppdef.h
 rrsqrt.o: rrsqrt.F90 matoper.o parall.o ufileformat.o ppdef.h
 
 assimilation.o: assimilation.F90 anamorphosis.o date.o grids.o initfile.o \
-	matoper.o ndgrid.o parall.o rrsqrt.o ufileformat.o ppdef.h
+	matoper.o ndgrid.o parall.o rrsqrt.o ufileformat.o ppdef.h matoper2.o
 
 ufileformat.o: ufileformat.F90 ppdef.h
 
