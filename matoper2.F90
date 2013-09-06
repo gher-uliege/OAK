@@ -610,7 +610,7 @@ end interface
  end subroutine test_chol
 
 
- subroutine locensanalysis(xf,S,Hs,yo,R,lpoints,Hc,xa,Sa)
+ subroutine locensanalysis(xf,S,Hs,yo,R,lpoints,Hc,xa,Sa,out)
   use matoper
   real, intent(in) :: xf(:), yo(:)
 !  real, intent(in) :: R(:,:)
@@ -619,6 +619,8 @@ end interface
   type(SparseMatrix), intent(in) :: Hs
   real, intent(inout) :: xa(:)
   real, intent(inout), optional :: Sa(:,:)
+  real, intent(inout), optional :: out(:,:)
+!  real, intent(inout), optional :: out2(:) 
   procedure(locpoints_) :: lpoints
 
   type(LocCovar) :: LC
@@ -678,9 +680,10 @@ end interface
     end do
     
     Sigma = svd(Sp,U=U,V=sqrtPaU)
+!  write(6,*) 'Sigma ', Sigma
     
     do i = 1,Nens
-      KU(:,i) = iC(Hs.x.(Pc.x.U(:,i)));
+      KU(:,i) = iC(Hs.x.(Pc.x.U(:,i)))
     end do
     
     ! A = U - H' K' U
@@ -695,9 +698,17 @@ end interface
     
     Sa = U.x.sqrtPaU
 
-    deallocate(U,Sigma) 
+
+!    out = PaU
+    out = U
+!    out = (A.tx.(Pc.x.A))
+!    out = KU
+!    out = Sigma
+    deallocate(Sigma) 
+    deallocate(U)
     deallocate(PaU)
     deallocate(A)
+    deallocate(Sp)
     deallocate(KU)
     deallocate(sqrtPaU)
   

@@ -3,10 +3,24 @@ module test_suite
 
 contains
 
+ function testens(n,Nens) result(E)
+  integer :: n,Nens
+  integer :: i,j 
+  real :: E(n,Nens)
+  real, parameter :: pi = 3.141592654
+
+  do j = 1,Nens
+    do i = 1,n
+      E(i,j) = sin( pi * j * real(i-1) / real(n-1)) / j
+    end do
+  end do
+ end function testens
+
  subroutine run_test(sz)
   use matoper2
 
   integer, intent(in) :: sz(:)
+
   integer :: n
   real :: len = 3
   integer :: Nens = 20
@@ -19,11 +33,11 @@ contains
   real, pointer :: v(:), v2(:), S(:,:),w(:),Hc(:,:),P(:,:),Pr(:,:)
   real, allocatable :: H(:,:), R(:,:), xf(:), xa(:), yo(:), xa2(:), tmp(:), d(:)
   real, allocatable :: Sp(:,:), U(:,:),Sigma(:), KU(:,:), PaU(:,:), A(:,:), Sa2(:,:)
-  real, allocatable :: Sa(:,:), diagR(:)
+  real, allocatable :: Sa(:,:), diagR(:), Pa(:,:)
   real, allocatable :: sqrtPaU(:,:)
+  real, allocatable :: out(:,:)
   integer, pointer :: jj(:)
   type(SparseMatrix) :: Hs
-
   write(6,*) 'Running test with a domain ',sz
 
 
@@ -40,6 +54,7 @@ contains
   S = 1
 
   S = randn(n,Nens)
+  S = testens(n,Nens)
 
   allocate(Hc(n,1))
   Hc = 1
@@ -84,8 +99,6 @@ contains
   ! write(6,*) 'j, w',jj
   ! write(6,*) 'j, w',w
 
-  call test_locfun 
-  call test_pcg
 
   allocate(P(n,n))
   allocate(Pr(n,n))
@@ -111,11 +124,12 @@ contains
   Pr = eye(n) - matmul(Hc,transpose(Hc))
   P = matmul(Pr,matmul(P,Pr))
 
-  call assert(Pc.x.v,matmul(P,v),1e-5,'constrained local covariance')
+  call assert(Pc.x.v,matmul(P,v),5e-5,'constrained local covariance')
 
 
   m = 3
   allocate(H(m,n),R(m,m),xf(n),xa(n),xa2(n),yo(m))
+  allocate(Pa(n,n))
 
   R = eye(m)
   H = 0
@@ -129,6 +143,7 @@ contains
 
   ! write(6,*) 'xa',xa
 
+  Pa = P - ((P.xt.H).x.(inv(((H.x.P).xt.H) + R).x.(H.x.P)))
 
   xa2 = xf + ((P.xt.H).x.(inv(((H.x.P).xt.H) + R).x.(yo - (H.x.xf))))
   call assert(xa,xa2,1e-6,'analysis')
@@ -206,7 +221,7 @@ contains
 
   !  call gesvd('s','n',Sp,Sigma,U,A,info)
 
-  !  write(6,*) 'svd(Sp,U)', svd(Sp,U)
+  write(6,*) 'Sigma ', Sigma
 
 
   do i = 1,Nens
@@ -237,10 +252,28 @@ contains
        1e-5,'Cholesky factorization (2)')
 
   allocate(Sa2(n,Nens)) 
-  call locensanalysis(xf,S,Hs,yo,Rc,lpoints,Hc,xa2,Sa2)
+
+
+  allocate(out(n,Nens))
+!  allocate(out(m,Nens))
+!  allocate(out(Nens,Nens))
+!  allocate(out(Nens))
+
+  call locensanalysis(xf,S,Hs,yo,Rc,lpoints,Hc,xa2,Sa2,out)
+
+!  call assert(out,Sigma,2e-5,'analysis using locensanalysis (sigma)')
+!  call assert(out.xt.out,U.xt.U,2e-5,'analysis using locensanalysis (out)')
+!  call assert(out,PaU,2e-5,'analysis using locensanalysis (out)')
+  write(6,*) 'maxval ',maxval(abs(abs(U) - abs(out)))
+  write(6,*) 'maxval ',maxval(abs(U - out))
+!  write(6,*) 'maxval ',maxval(abs((A.tx.(Pc.x.A)) - out))
+!  write(6,*) 'maxval ',maxval(abs(Pau - out))
+!  write(6,*) 'maxval ',maxval(abs(KU - out))
+!  call assert(abs(out),abs(KU),2e-5,'analysis using locensanalysis (out)')
+  
 
   call assert(xa,xa2,2e-5,'analysis using locensanalysis (xa)')
-  call assert(Sa,Sa2,1e-4,'analysis using locensanalysis (Sa)')
+  call assert(Sa.xt.Sa,Sa2.xt.Sa2,1e-4,'analysis using locensanalysis (Sa)')
 
   do i = 1,size(Hc,2)      
     call assert(sum(Hc(:,i) * (xf-xa)),0.,6e-5,'verifying constraint (xa)')
@@ -454,6 +487,8 @@ program test
  use test_suite
  use matoper2
 
+  call test_locfun 
+  call test_pcg
 ! call test_covar()
 ! call test_chol()
  
