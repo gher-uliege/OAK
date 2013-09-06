@@ -11,9 +11,9 @@ contains
   real :: len = 3
   integer :: Nens = 20
 
-  class(LocCovar), pointer :: LC
-  class(ConsCovar), allocatable :: Pc
-  class(DiagCovar), allocatable :: Rc
+  type(LocCovar) :: LC
+  type(ConsCovar) :: Pc
+  type(DiagCovar) :: Rc
   real, pointer :: x(:,:)
   integer :: i,j,k,l,m,nnz
   real, pointer :: v(:), v2(:), S(:,:),w(:),Hc(:,:),P(:,:),Pr(:,:)
@@ -41,7 +41,6 @@ contains
 
   S = randn(n,Nens)
 
-  allocate(Pc)
   allocate(Hc(n,1))
   Hc = 1
   Hc = Hc/sqrt(sum(Hc**2))
@@ -102,13 +101,12 @@ contains
   end do
 
 
-  allocate(LC)
-  call LC%init(S,lpoints)
+  ! local covariance
+  LC = newLocCovar(S,lpoints)
   call assert(LC.x.v,matmul(P,v),5e-5,'local covariance')
 
   ! with conservation 
-
-  call Pc%initialize(LC,Hc)
+  Pc = newConsCovar(LC,Hc)
 
   Pr = eye(n) - matmul(Hc,transpose(Hc))
   P = matmul(Pr,matmul(P,Pr))
@@ -144,11 +142,9 @@ contains
   xa2 = xf + ((P.xt.Hs).x.(inv(((Hs.x.P).xt.Hs) + R).x.(yo - (Hs.x.xf))))
   call assert(xa,xa2,1e-6,'analysis using sparse matrix')
 
-  allocate(Rc)
   allocate(diagR(m))
   diagR = 1
-  call Rc%init(diagR)
-
+  Rc = newDiagCovar(diagR)
 
   allocate(tmp(m),d(m))
 
@@ -262,7 +258,7 @@ contains
 
   deallocate(P)
   deallocate(Pr)
-  deallocate(Pc,Hc)
+  deallocate(Hc)
   deallocate(H,R,xf,xa,xa2,yo)
   deallocate(tmp,d)
 

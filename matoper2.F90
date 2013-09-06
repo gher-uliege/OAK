@@ -621,9 +621,7 @@ end interface
   real, intent(inout), optional :: Sa(:,:)
   procedure(locpoints_) :: lpoints
 
-!  class(LocCovar), pointer :: LC
   type(LocCovar) :: LC
-!  class(ConsCovar), allocatable :: Pc
   type(ConsCovar) :: Pc
   integer :: i,m,n,Nens
   real, allocatable :: tmp(:), d(:)
@@ -652,13 +650,9 @@ end interface
   end if
 
   ! local covariance
-!  allocate(LC)
-!  call LC%init(S,lpoints)
   LC = newLocCovar(S,lpoints)
 
   ! with conservation 
-!  allocate(Pc)
-!  call Pc%initialize(LC,Hc)
   Pc = newConsCovar(LC,Hc)
 
   allocate(tmp(m),d(m))
