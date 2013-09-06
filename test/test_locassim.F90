@@ -35,7 +35,6 @@ contains
   real, allocatable :: Sp(:,:), U(:,:),Sigma(:), KU(:,:), PaU(:,:), A(:,:), Sa2(:,:)
   real, allocatable :: Sa(:,:), diagR(:), Pa(:,:)
   real, allocatable :: sqrtPaU(:,:)
-  real, allocatable :: out(:,:)
   integer, pointer :: jj(:)
   type(SparseMatrix) :: Hs
   write(6,*) 'Running test with a domain ',sz
@@ -217,12 +216,7 @@ contains
     Sp(:,i) = S(:,i) - KG(Hs.x.S(:,i),n);
   end do
 
-  Sigma = svd(Sp,U=U,V=sqrtPaU)
-
-  !  call gesvd('s','n',Sp,Sigma,U,A,info)
-
-  write(6,*) 'Sigma ', Sigma
-
+  Sigma = svd(Sp,U=U)
 
   do i = 1,Nens
     KU(:,i) = iC(Hs.x.(Pc.x.U(:,i)));
@@ -249,28 +243,11 @@ contains
 
   call assert(matmul(transpose(sqrtPaU),sqrtPaU), &
        PaU, &
-       1e-5,'Cholesky factorization (2)')
+       1e-5,'Cholesky factorization')
 
   allocate(Sa2(n,Nens)) 
 
-
-  allocate(out(n,Nens))
-!  allocate(out(m,Nens))
-!  allocate(out(Nens,Nens))
-!  allocate(out(Nens))
-
-  call locensanalysis(xf,S,Hs,yo,Rc,lpoints,Hc,xa2,Sa2,out)
-
-!  call assert(out,Sigma,2e-5,'analysis using locensanalysis (sigma)')
-!  call assert(out.xt.out,U.xt.U,2e-5,'analysis using locensanalysis (out)')
-!  call assert(out,PaU,2e-5,'analysis using locensanalysis (out)')
-  write(6,*) 'maxval ',maxval(abs(abs(U) - abs(out)))
-  write(6,*) 'maxval ',maxval(abs(U - out))
-!  write(6,*) 'maxval ',maxval(abs((A.tx.(Pc.x.A)) - out))
-!  write(6,*) 'maxval ',maxval(abs(Pau - out))
-!  write(6,*) 'maxval ',maxval(abs(KU - out))
-!  call assert(abs(out),abs(KU),2e-5,'analysis using locensanalysis (out)')
-  
+  call locensanalysis(xf,S,Hs,yo,Rc,lpoints,Hc,xa2,Sa2)
 
   call assert(xa,xa2,2e-5,'analysis using locensanalysis (xa)')
   call assert(Sa.xt.Sa,Sa2.xt.Sa2,1e-4,'analysis using locensanalysis (Sa)')
