@@ -464,14 +464,14 @@ program test
  use test_suite
  use matoper2
 
-  call test_locfun 
-  call test_pcg
-! call test_covar()
-! call test_chol()
+ call test_locfun 
+ call test_pcg
+ call test_covar
+ call test_chol
  
 ! call run_test([5,5])
- call run_test([5,5,10])
-! call run_test_large([50,50,10])
+! call run_test([5,5,10])
+ call run_test_large([50,50,10])
 end program test
 
 
