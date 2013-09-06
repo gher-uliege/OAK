@@ -3,10 +3,11 @@ module test_suite
 
 contains
 
- subroutine run_test
+ subroutine run_test(sz)
   use matoper2
 
-  integer :: sz(2) = (/5,5/), n
+  integer, intent(in) :: sz(:)
+  integer :: n
   real :: len = 3
   integer :: Nens = 20
 
@@ -14,7 +15,7 @@ contains
   class(ConsCovar), allocatable :: Pc
   class(DiagCovar), allocatable :: Rc
   real, pointer :: x(:,:)
-  integer :: i,j,l,m,nnz
+  integer :: i,j,k,l,m,nnz
   real, pointer :: v(:), v2(:), S(:,:),w(:),Hc(:,:),P(:,:),Pr(:,:)
   real, allocatable :: H(:,:), R(:,:), xf(:), xa(:), yo(:), xa2(:), tmp(:), d(:)
   real, allocatable :: Sp(:,:), U(:,:),Sigma(:), KU(:,:), PaU(:,:), A(:,:), Sa2(:,:)
@@ -23,11 +24,11 @@ contains
   integer, pointer :: jj(:)
   type(SparseMatrix) :: Hs
 
+  write(6,*) 'Running test with a domain ',sz
 
-  call test_covar()
 
   n = product(sz)
-  allocate(x(n,2))
+  allocate(x(n,size(sz)))
   allocate(v(n))
   allocate(v2(n))
   allocate(S(n,Nens))
@@ -58,13 +59,27 @@ contains
   end do
 
   l = 0
-  do j = 1,sz(2)
-    do i = 1,sz(1)
-      l = l+1
-      x(l,1) = i
-      x(l,2) = j
+
+  if (size(sz) == 2) then
+    do j = 1,sz(2)
+      do i = 1,sz(1)
+        l = l+1
+        x(l,1) = i
+        x(l,2) = j
+      end do
     end do
-  end do
+  else
+    do k = 1,sz(3)
+      do j = 1,sz(2)
+        do i = 1,sz(1)
+          l = l+1
+          x(l,1) = i
+          x(l,2) = j
+          x(l,3) = k
+        end do
+      end do
+    end do
+  end if
 
   call locpoints(1,x,len,nnz,jj,w)
   ! write(6,*) 'j, w',jj
@@ -89,7 +104,7 @@ contains
 
   allocate(LC)
   call LC%init(S,lpoints)
-  call assert(LC.x.v,matmul(P,v),1e-5,'local covariance (2)')
+  call assert(LC.x.v,matmul(P,v),5e-5,'local covariance')
 
   ! with conservation 
 
@@ -158,7 +173,7 @@ contains
 
   call assert(tmp, &
        (((Hs.x.P).xt.Hs) + R).x.(yo - (Hs.x.xf)), &
-       1e-5,'Cx')
+       5e-5,'Cx')
 
   !stop
   tmp = pcg(fun_Cx,yo - (Hs.x.xf))
@@ -178,8 +193,8 @@ contains
   xa2 = xf + (Pc.x.(tmp.x.Hs)) 
   call assert(xa,xa2,2e-5,'analysis using sparse matrix, pcg, ConsCovar')
 
-  xa2 = xf + K(d,n)
-  call assert(xa,xa2,2e-5,'analysis using K')
+  xa2 = xf + KG(d,n)
+  call assert(xa,xa2,2e-5,'analysis using KG')
 
   allocate(Sp(n,Nens),U(n,Nens),Sigma(Nens)) 
   allocate(PaU(Nens,Nens))
@@ -188,7 +203,7 @@ contains
   allocate(sqrtPaU(Nens,Nens))
 
   do i = 1,Nens
-    Sp(:,i) = S(:,i) - K(Hs.x.S(:,i),n);
+    Sp(:,i) = S(:,i) - KG(Hs.x.S(:,i),n);
   end do
 
   Sigma = svd(Sp,U=U,V=sqrtPaU)
@@ -210,9 +225,6 @@ contains
 
 
 
-  call test_chol()
-
-
   !write(6,*) 'mv ',maxval(abs(PaU - transpose(PaU)))
 
   PaU = (PaU + transpose(PaU)) / 2
@@ -232,12 +244,12 @@ contains
   call locensanalysis(xf,S,Hs,yo,Rc,lpoints,Hc,xa2,Sa2)
 
   call assert(xa,xa2,2e-5,'analysis using locensanalysis (xa)')
-  call assert(Sa,Sa2,6e-5,'analysis using locensanalysis (Sa)')
+  call assert(Sa,Sa2,1e-4,'analysis using locensanalysis (Sa)')
 
   do i = 1,size(Hc,2)      
     call assert(sum(Hc(:,i) * (xf-xa)),0.,6e-5,'verifying constraint (xa)')
-    call assert(maxval(abs(matmul(transpose(Hc),S))), &
-         0.,6e-5,'verifying constraint (Sf)')
+    call assert(maxval(abs(matmul(transpose(Hc),Sa))), &
+         0.,6e-5,'verifying constraint (Sa)')
   end do
 
 
@@ -280,14 +292,14 @@ contains
   end function iC
 
   ! Kalman gain
-  function K(d,n) result(x)
+  function KG(d,n) result(x)
    real, intent(in) :: d(:)
    integer :: n
    real :: x(n)
 
    !  x = ((P.xt.Hs).x.iC(d))  
    x = Pc.x.(iC(d).x.Hs)
-  end function K
+  end function KG
 
 
   function locenscovx(Pc,H,Rc,y) result(Cy)
@@ -314,15 +326,144 @@ contains
 
  end subroutine run_test
 
+
+
+ subroutine run_test_large(sz)
+  use matoper2
+
+  integer, intent(in) :: sz(:)
+  integer :: n
+  real :: len = 3
+  integer :: Nens = 20
+
+  class(ConsCovar), allocatable :: Pc
+  class(DiagCovar), allocatable :: Rc
+  real, pointer :: x(:,:)
+  integer :: i,j,k,l,m
+  real, pointer :: S(:,:), Hc(:,:)
+  real, allocatable :: xf(:), xa(:), yo(:)
+  real, allocatable :: Sa(:,:), diagR(:)
+  type(SparseMatrix) :: Hs
+
+
+  write(6,*) 'Running test with a domain ',sz
+  n = product(sz)
+
+  allocate(x(n,size(sz)))
+  allocate(S(n,Nens))
+
+  S = 1
+  S = randn(n,Nens)
+
+  allocate(Pc)
+  allocate(Hc(n,1))
+  Hc = 1
+  Hc = Hc/sqrt(sum(Hc**2))
+
+  ! apply constaint on S
+  do i = 1,Nens
+    do j = 1,size(Hc,2)
+      S(:,i) = S(:,i) - Hc(:,j) * sum(Hc(:,j) * S(:,i))
+    end do
+  end do
+
+  do i = 1,size(Hc,2)
+    call assert(maxval(abs(matmul(transpose(Hc),S))), &
+         0.,6e-5,'verifying constraint (Sf)')
+  end do
+
+  l = 0
+
+  if (size(sz) == 2) then
+    do j = 1,sz(2)
+      do i = 1,sz(1)
+        l = l+1
+        x(l,1) = i
+        x(l,2) = j
+      end do
+    end do
+  else
+    do k = 1,sz(3)
+      do j = 1,sz(2)
+        do i = 1,sz(1)
+          l = l+1
+          x(l,1) = i
+          x(l,2) = j
+          x(l,3) = k
+        end do
+      end do
+    end do
+  end if
+
+
+  m = n/2
+
+  allocate(Rc)
+  allocate(diagR(m))
+  diagR = 1
+  call Rc%init(diagR)
+
+  allocate(Hs%i(m),Hs%j(m),Hs%s(m))
+  Hs%m = m
+  Hs%n = n
+  Hs%i = (/ (i,i=1,m) /)
+  Hs%j = (/ (i,i=1,m) /)
+  Hs%s = 1
+  Hs%nz = m
+
+  allocate(xf(n),xa(n),yo(m))
+  xf = 0
+  yo = 1
+
+  xf = (/ (2*i,i=1,n) /)
+
+  call assert(Hs .x. xf, (/ (2.*i,i=1,m) /) ,6e-5,'verifying obsoperator')
+
+  allocate(Sa(n,Nens)) 
+  call locensanalysis(xf,S,Hs,yo,Rc,lpoints,Hc,xa,Sa)
+
+
+  do i = 1,size(Hc,2)      
+    call assert(sum(Hc(:,i) * (xf-xa)),0.,6e-5,'verifying constraint (xa)')
+    call assert(maxval(abs(matmul(transpose(Hc),Sa))), &
+         0.,6e-5,'verifying constraint (Sa)')
+  end do
+
+
+
+  deallocate(x)
+  deallocate(S)
+  deallocate(Hc)
+  deallocate(xf,xa,yo,Sa)
+
+
+ contains
+
+
+  subroutine lpoints(i,nnz,j,w)
+   integer, intent(in) :: i
+   integer, intent(out) :: nnz,j(:)
+   real, intent(out) :: w(:)
+
+   call locpoints(i,x,len,nnz,j,w)  
+  end subroutine lpoints
+
+ end subroutine run_test_large
+
 end module test_suite
 
 
 
 program test
  use test_suite
+ use matoper2
 
- call run_test
-
+! call test_covar()
+! call test_chol()
+ 
+! call run_test([5,5])
+ call run_test([5,5,10])
+! call run_test_large([50,50,10])
 end program test
 
 

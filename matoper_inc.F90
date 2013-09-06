@@ -282,6 +282,17 @@ implicit none
 REAL_TYPE, intent(in) :: A(:,:), B(:,:)
 REAL_TYPE :: C(size(A,1),size(B,1))
 
+#ifdef DEBUG
+if (size(A,2) /= size(B,2)) then
+  write(stderr,*) 'mat_mult_matT_TYPE: size not conform: A.xt.B '
+  write(stderr,*) 'shape(A) ',shape(A)
+  write(stderr,*) 'shape(B) ',shape(B)
+  call abort()
+  stop
+end if
+#endif
+
+
 call gemm_TYPE('n','t',size(A,1),size(B,1),size(A,2),real(1.,kind(A)), &
   A, size(A,1), B, size(B,1), &
   real(0.,kind(A)), C, size(A,1))
@@ -328,7 +339,7 @@ REAL_TYPE :: C(B%m)
 integer :: k
 
 #ifdef DEBUG
-if (B%n.ne.size(A,2)) then
+if (B%n.ne.size(A)) then
   write(stderr,*) 'vec_mult_ssparsematT: size not conform: A.xt.B '
   write(stderr,*) 'shape(A) ',shape(A)
   write(stderr,*) 'shape(B) ',B%m,B%n
@@ -375,6 +386,16 @@ function matT_mult_mat_TYPE(A,B) result(C)
 implicit none
 REAL_TYPE, intent(in) :: A(:,:), B(:,:)
 REAL_TYPE :: C(size(A,2),size(B,2))
+
+#ifdef DEBUG
+if (size(A,1).ne.size(B,1)) then
+  write(stderr,*) 'matT_mult_mat_TYPE: size not conform: A.tx.B '
+  write(stderr,*) 'shape(A) ',shape(A)
+  write(stderr,*) 'shape(B) ',shape(B)
+  call abort()
+  stop
+end if
+#endif
 
 call gemm_TYPE ('t','n',size(A,2),size(B,2),size(A,1),real(1.,kind(A)), &
   A, size(A,1), B, size(B,1), &

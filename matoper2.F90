@@ -162,8 +162,8 @@ end interface
      write(6,*) msg, ': OK '
    else
      write(6,*) msg, ': FAIL ', maxdiff
-     write(6,*) 'found ',found
-     write(6,*) 'expected ',expected
+!     write(6,*) 'found ',found
+!     write(6,*) 'expected ',expected
 
      stop
    end if
@@ -718,7 +718,7 @@ contains
   real, intent(in) :: x(:)
   real :: y(size(x))
 
-  write(6,*) 'call fun_Cx'
+!  write(6,*) 'call fun_Cx'
   y = locenscovx(Pc,Hs,R,x)
  end function fun_Cx
  
@@ -770,17 +770,21 @@ contains
   contains 
    subroutine innersub(B)
     class(Covar) :: B
+    real :: C(2,2)
+
+    C = 2. *  eye(2)
+
     call B%print()
 
-    call assert(B%mulmat(2 * seye(2)), &
+    call assert(B%mulmat(C), &
        reshape([4.,0.,0.,6.],[2,2]), &
        1e-7, 'DiagCovar*Matrix (method)')
 
-    call assert(B.x.(2 * seye(2)), &
+    call assert(B.x.(C), &
        reshape([4.,0.,0.,6.],[2,2]), &
        1e-7, 'DiagCovar*Matrix (.x. operator)')
 
-    call assert(B * (2 * seye(2)), &
+    call assert(B * (C), &
        reshape([4.,0.,0.,6.],[2,2]), &
        1e-7, 'DiagCovar*Matrix (* operator)')
 
