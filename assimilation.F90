@@ -2019,6 +2019,12 @@ end subroutine fmtIndex
 
   call loadVector(trim(prefix)//'rmse',ObsML,invsqrtR)
 
+  if (any(invsqrtR <= 0)) then
+    write (0,*) 'error in ',__FILE__,__LINE__
+    write (0,*) 'zero value found in ',trim(prefix)//'rmse'
+    write (0,*) 'are your observations so good?'
+    ERROR_STOP
+  end if
 
 # ifdef LIMIT_iR  
   if (any(invsqrtR < min_rmse .and. ObsML%mask == 1)) then
