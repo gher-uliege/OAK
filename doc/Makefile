@@ -1,9 +1,12 @@
+BIBDIR=$(HOME)/Biblio
+SRC=$(wildcard *.tex)
+NAME=$(patsubst %.tex,%,$(SRC))
 WEBSITE=modb.oce.ulg.ac.be:/var/lib/mediawiki/upload/Alex/OAK/doc
 
-all: pdf html
+all: pdf html all.bib
 
-bib:
-	cat /home/abarth/Biblio/Journals/full.bib /home/abarth/Biblio/*bib > all.bib
+all.bib: $(BIBDIR)/Journals/full.bib $(wildcard $(BIBDIR)/*.bib) 
+	cat $(BIBDIR)/Journals/full.bib $(BIBDIR)/*bib > all.bib
 
 pdf: 
 	pdflatex oak.tex	

@@ -334,10 +334,12 @@ contains
 
 
 
- subroutine run_test_large(sz)
+ subroutine run_test_large(sz,computeSa)
   use matoper2
 
   integer, intent(in) :: sz(:)
+  logical :: computeSa
+
   integer :: n
   real :: len = 3
   integer :: Nens = 20
@@ -350,7 +352,6 @@ contains
   real, allocatable :: xf(:), xa(:), yo(:)
   real, allocatable :: Sa(:,:), diagR(:)
   type(SparseMatrix) :: Hs
-
 
   write(6,*) 'Running test with a domain ',sz
   n = product(sz)
@@ -426,13 +427,21 @@ contains
   call assert(Hs .x. xf, (/ (2.*i,i=1,m) /) ,6e-5,'verifying obsoperator')
 
   allocate(Sa(n,Nens)) 
-  call locensanalysis(xf,S,Hs,yo,Rc,lpoints,Hc,xa,Sa)
+
+  if (computeSa) then
+    call locensanalysis(xf,S,Hs,yo,Rc,lpoints,Hc,xa,Sa)
+  else
+    call locensanalysis(xf,S,Hs,yo,Rc,lpoints,Hc,xa)
+  end if
 
 
   do i = 1,size(Hc,2)      
     call assert(sum(Hc(:,i) * (xf-xa)),0.,6e-5,'verifying constraint (xa)')
-    call assert(maxval(abs(matmul(transpose(Hc),Sa))), &
-         0.,6e-5,'verifying constraint (Sa)')
+
+    if (computeSa) then
+      call assert(maxval(abs(matmul(transpose(Hc),Sa))), &
+           0.,6e-5,'verifying constraint (Sa)')
+    end if
   end do
 
 
@@ -470,8 +479,9 @@ program test
  call test_chol
  
 ! call run_test([5,5])
-! call run_test([5,5,10])
- call run_test_large([50,50,10])
+ call run_test([5,5,10])
+ call run_test_large([10,10,30],.false.)
+! call run_test_large([80,80,30],.false.)
 end program test
 
 

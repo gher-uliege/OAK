@@ -159,3 +159,11 @@ assimilation.o: assimilation.F90 anamorphosis.o date.o grids.o initfile.o \
 ufileformat.o: ufileformat.F90 ppdef.h
 
 match.o: match.c
+
+# test
+
+test_locassim: test/test_locassim.F90 matoper.o matoper2.o
+	$(F90C) $(F90FLAGS) -o $@ matoper.o matoper2.o test/test_locassim.F90  $(LIBS) $(EXTRA_LDFLAGS)
+
+check: test_locassim
+	./test_locassim

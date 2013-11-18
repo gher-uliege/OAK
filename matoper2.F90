@@ -273,10 +273,14 @@ end interface
 
    ! optim
    if (r <= 1.) then
-     fun = -r**5/4 + r**4/2 + 5*r**3/8 - 5./3*r**2 + 1;
+     !fun = -r**5/4 + r**4/2 + 5*r**3/8 - 5./3*r**2 + 1
+     fun = (((-r/4. + 1./2.) * r + 5./8.) * r - 5./3.) * r**2 + 1.
+
    elseif (r <= 2.) then
-     fun = r**5/12 - r**4/2 + 5*r**3/8 + 5./3*r**2 - 5*r + 4 - &
-          2./(3*r);
+     !fun = r**5/12 - r**4/2 + 5*r**3/8 + 5./3*r**2 - 5*r + 4 - &
+     ! 2    ./(3*r)
+     fun = ((((r/12. - 1./2.) * r + 5./8.) * r + 5./3.) * r - 5.) * r + 4 - &
+          2./(3*r)
    else
      fun = 0
    end if
@@ -527,6 +531,7 @@ end interface
    r_old = r
    
    do k=1,maxit_    
+!     write(6,*) ' k',k
      ! compute A*p
      Ap = fun(p)
      !maxdiff(A*p,Ap)
