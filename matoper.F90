@@ -155,6 +155,12 @@ interface chol
     dchol
 end interface
 
+interface sqrtm
+  module procedure &
+    ssqrtm, &
+    dsqrtm
+end interface
+
 
 interface eye
   module procedure &
@@ -644,6 +650,7 @@ end function ssparsemat_mult_ssparsemat
 #define gesvd_f90_TYPE gesvd_sf90 
 #define symeig_TYPE symeig_sf90
 #define chol_TYPE schol
+#define sqrtm_TYPE ssqrtm
 
 #include "matoper_inc.F90"
 
@@ -706,6 +713,7 @@ end function ssparsemat_mult_ssparsemat
 #undef gesvd_f90_TYPE
 #undef symeig_TYPE
 #undef chol_TYPE
+#undef sqrtm_TYPE
 
 
 
@@ -791,6 +799,7 @@ end function ssparsemat_mult_ssparsemat
 #define gesvd_f90_TYPE gesvd_df90 
 #define symeig_TYPE symeig_df90
 #define chol_TYPE dchol
+#define sqrtm_TYPE dsqrtm
 
 
 #include "matoper_inc.F90"

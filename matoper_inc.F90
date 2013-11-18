@@ -850,6 +850,22 @@ end subroutine
  end function chol_TYPE
 
 
+!_______________________________________________________
+!
+
+ ! computes the principal square root of the matrix A
+ ! It is assumed that A is a real symmetric 
+ ! positive definite matrix.
+
+ function sqrtm_TYPE(A) result(S)
+  REAL_TYPE, intent(in) :: A(:,:)
+  REAL_TYPE :: S(size(A,1),size(A,1)), E(size(A,1))
+
+  call symeig_TYPE(A,E,S)
+  S = (S.xd.sqrt(E)).xt.S
+ end function sqrtm_TYPE
+
+
 
 !_______________________________________________________
 !

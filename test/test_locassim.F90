@@ -32,9 +32,9 @@ contains
   integer :: i,j,k,l,m,nnz
   real, pointer :: v(:), v2(:), S(:,:),w(:),Hc(:,:),P(:,:),Pr(:,:)
   real, allocatable :: H(:,:), R(:,:), xf(:), xa(:), yo(:), xa2(:), tmp(:), d(:)
-  real, allocatable :: Sp(:,:), U(:,:),Sigma(:), KU(:,:), PaU(:,:), A(:,:), Sa2(:,:)
-  real, allocatable :: Sa(:,:), diagR(:), Pa(:,:)
-  real, allocatable :: sqrtPaU(:,:)
+  real, allocatable :: Sp(:,:), Sigma(:), KSp(:,:), PaS(:,:), A(:,:), Sa2(:,:)
+  real, allocatable :: Sa(:,:), diagR(:), Pa(:,:), S2(:,:)
+  real, allocatable :: sqrtPaS(:,:)
   integer, pointer :: jj(:)
   type(SparseMatrix) :: Hs
   write(6,*) 'Running test with a domain ',sz
@@ -206,44 +206,34 @@ contains
   xa2 = xf + KG(d,n)
   call assert(xa,xa2,2e-5,'analysis using KG')
 
-  allocate(Sp(n,Nens),U(n,Nens),Sigma(Nens)) 
-  allocate(PaU(Nens,Nens))
+  allocate(Sp(n,Nens),S2(Nens,Nens),Sigma(Nens)) 
+  allocate(PaS(Nens,Nens))
   allocate(A(n,Nens))
-  allocate(KU(m,Nens))
-  allocate(sqrtPaU(Nens,Nens))
+  allocate(KSp(m,Nens))
+  allocate(sqrtPaS(Nens,Nens))
 
   do i = 1,Nens
     Sp(:,i) = S(:,i) - KG(Hs.x.S(:,i),n);
   end do
 
-  Sigma = svd(Sp,U=U)
-
   do i = 1,Nens
-    KU(:,i) = iC(Hs.x.(Pc.x.U(:,i)));
+    KSp(:,i) = iC(Hs.x.(Pc.x.Sp(:,i)));
   end do
 
-  ! A = U - H' K' U
-  A = U - (Hs.tx.KU)
+  S2 = matmul(transpose(Sp),Sp)
 
-  ! PaU = A' * (Pc * A) + KU' * (R * KU)
-  PaU = (A.tx.(Pc.x.A)) + (KU.tx.(R.x.KU))
-
-
-
-  !write(6,*) 'mv ',maxval(abs(PaU - transpose(PaU)))
-
-  PaU = (PaU + transpose(PaU)) / 2
-
-  !write(6,*) 'mv ',svd(PaU)
-
-  sqrtPaU = chol(PaU);
-
+  PaS = matmul(S2,S2) + (KSp.tx.(R.x.KSp))
+    
+  PaS = (PaS + transpose(PaS)) / 2
+    
+  sqrtPaS = sqrtm(PaS)
+    
   allocate(Sa(n,Nens)) 
-  Sa = U .x. sqrtPaU;
+  Sa = Sp.x.(inv(S2).x.sqrtPaS)
 
-  call assert(matmul(transpose(sqrtPaU),sqrtPaU), &
-       PaU, &
-       1e-5,'Cholesky factorization')
+  call assert(matmul(sqrtPaS,sqrtPaS), &
+       PaS, &
+       1e-5,'sqrtm factorization')
 
   allocate(Sa2(n,Nens)) 
 
@@ -274,11 +264,11 @@ contains
 
 
   deallocate(Sp)
-  deallocate(U,Sigma) 
-  deallocate(PaU)
+  deallocate(S2,Sigma) 
+  deallocate(PaS)
   deallocate(A)
-  deallocate(KU)
-  deallocate(sqrtPaU)
+  deallocate(KSp)
+  deallocate(sqrtPaS)
 
  contains
 
@@ -477,6 +467,7 @@ program test
  call test_pcg
  call test_covar
  call test_chol
+ call test_sqrtm
  
 ! call run_test([5,5])
  call run_test([5,5,10])

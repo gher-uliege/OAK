@@ -615,6 +615,20 @@ end interface
  end subroutine test_chol
 
 
+ subroutine test_sqrtm()
+  real :: A(3,3)
+  real :: S(size(A,1),size(A,1))
+
+  A = reshape([2.,1.,1., 1.,2.,1., 1.,1.,2.],[3,3])
+  S = sqrtm(A)
+
+  call assert(matmul(S,S), &
+      A, &
+      1e-6,'sqrtm factorization')
+ end subroutine test_sqrtm
+
+
+
  subroutine locensanalysis(xf,S,Hs,yo,R,lpoints,Hc,xa,Sa)
   use matoper
   real, intent(in) :: xf(:), yo(:)
@@ -629,8 +643,8 @@ end interface
   type(ConsCovar) :: Pc
   integer :: i,m,n,Nens
   real, allocatable :: tmp(:), d(:)
-  real, allocatable :: U(:,:), Sigma(:), KU(:,:), PaU(:,:), A(:,:), Sp(:,:)
-  real, allocatable :: sqrtPaU(:,:)
+  real, allocatable :: Sp(:,:), Sigma(:), KSp(:,:), PaS(:,:)
+  real, allocatable :: sqrtPaS(:,:),S2(:,:)
 
   n = size(xf)
   m = size(yo)
@@ -670,43 +684,37 @@ end interface
   if (present(Sa)) then
 
     allocate(Sigma(Nens)) 
-    allocate(U(n,Nens))
-    allocate(PaU(Nens,Nens))
-    allocate(A(n,Nens))
     allocate(Sp(n,Nens))
-    allocate(KU(m,Nens))
-    allocate(sqrtPaU(Nens,Nens))
+    allocate(PaS(Nens,Nens))
+    allocate(S2(Nens,Nens))
+    allocate(KSp(m,Nens))
+    allocate(sqrtPaS(Nens,Nens))
 
     do i = 1,Nens
       Sp(:,i) = S(:,i) - K(Hs.x.S(:,i),n)
     end do
     
-    Sigma = svd(Sp,U=U)
-    
     do i = 1,Nens
-      KU(:,i) = iC(Hs.x.(Pc.x.U(:,i)))
+      KSp(:,i) = iC(Hs.x.(Pc.x.Sp(:,i)))
     end do
+
+    S2 = matmul(transpose(Sp),Sp)
+
+    PaS = matmul(S2,S2) + (KSp.tx.(R.x.KSp))
     
-    ! A = U - H' K' U
-    A = U - (Hs.tx.KU)
+    PaS = (PaS + transpose(PaS)) / 2
     
-    ! PaU = A' * (Pc * A) + KU' * (R * KU)
-    PaU = (A.tx.(Pc.x.A)) + (KU.tx.(R.x.KU))
+    sqrtPaS = sqrtm(PaS)
     
-    PaU = (PaU + transpose(PaU)) / 2
-    
-    sqrtPaU = chol(PaU);
-    
-    Sa = U.x.sqrtPaU
+    Sa = Sp.x.(inv(S2).x.sqrtPaS)
 
 
     deallocate(Sigma) 
-    deallocate(U)
-    deallocate(PaU)
-    deallocate(A)
     deallocate(Sp)
-    deallocate(KU)
-    deallocate(sqrtPaU)
+    deallocate(PaS)
+    deallocate(S2)
+    deallocate(KSp)
+    deallocate(sqrtPaS)
   
   end if
 
