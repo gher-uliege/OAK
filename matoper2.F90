@@ -481,7 +481,7 @@ end interface
 
    n = size(b)
    ! default parameters
-   maxit_ = min(n,20)
+   maxit_ = min(n,100)
    tol_ = 1e-6
    
    if (present(tol)) tol_ = tol
@@ -531,7 +531,7 @@ end interface
    r_old = r
    
    do k=1,maxit_    
-!     write(6,*) ' k',k
+!     write(6,*) ' k',k,sum(r*r),maxit_,tol2
      ! compute A*p
      Ap = fun(p)
      !maxdiff(A*p,Ap)
