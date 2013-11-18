@@ -23,7 +23,7 @@ contains
 
   integer :: n
   real :: len = 3
-  integer :: Nens = 20
+  integer :: Nens
 
   type(LocCovar) :: LC
   type(ConsCovar) :: Pc
@@ -41,6 +41,8 @@ contains
 
 
   n = product(sz)
+  Nens = min(n-1,20)
+
   allocate(x(n,size(sz)))
   allocate(v(n))
   allocate(v2(n))
@@ -66,6 +68,7 @@ contains
     end do
   end do
 
+  write(6,*) 'S',S(5,:)
   do i = 1,size(Hc,2)
     call assert(maxval(abs(matmul(transpose(Hc),S))), &
          0.,6e-5,'verifying constraint (Sf)')
@@ -231,13 +234,17 @@ contains
   allocate(Sa(n,Nens)) 
   Sa = Sp.x.(inv(S2).x.sqrtPaS)
 
+!  write(6,*) 'here ',maxval(matmul(sqrtPaS,sqrtPaS) - PaS),maxval(PaS)
   call assert(matmul(sqrtPaS,sqrtPaS), &
        PaS, &
-       1e-5,'sqrtm factorization')
+       1e-5 * maxval(abs(PaS)),'sqrtm factorization')
 
   allocate(Sa2(n,Nens)) 
 
   call locensanalysis(xf,S,Hs,yo,Rc,lpoints,Hc,xa2,Sa2)
+
+  write(6,*) 'xa',xa2
+  write(6,*) 'Sa',Sa2
 
   call assert(xa,xa2,2e-5,'analysis using locensanalysis (xa)')
   call assert(Sa.xt.Sa,Sa2.xt.Sa2,1e-4,'analysis using locensanalysis (Sa)')
@@ -350,7 +357,8 @@ contains
   allocate(S(n,Nens))
 
   S = 1
-  S = randn(n,Nens)
+!  S = randn(n,Nens)
+  S = testens(n,Nens)
 
   allocate(Pc)
   allocate(Hc(n,1))
@@ -469,9 +477,10 @@ program test
  call test_chol
  call test_sqrtm
  
+call run_test([3,2])
 ! call run_test([5,5])
- call run_test([5,5,10])
- call run_test_large([10,5,10],.false.)
+! call run_test([5,5,10])
+! call run_test_large([10,5,10],.false.)
 ! call run_test_large([80,80,30],.false.)
 end program test
 
