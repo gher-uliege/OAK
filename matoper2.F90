@@ -200,6 +200,7 @@ end interface
     class(Covar), intent(in) :: this
     real, intent(in) :: x(:)
     real :: C(size(x,1))
+
     C = matmul(this%CM,x)
    end function Covar_mulvec
 
@@ -207,7 +208,7 @@ end interface
   function Covar_mult_mat(this,x) result (Px)
    class(Covar), intent(in) :: this
    real, intent(in) :: x(:,:)
-   real ::  Px(this%n,size(x,2))
+   real ::  Px(size(x,1),size(x,2))
 
    Px = this%mulmat(x)
   end function 
@@ -215,7 +216,7 @@ end interface
   function Covar_mult_vec(this,x) result (Px)
    class(Covar), intent(in) :: this
    real, intent(in) :: x(:)
-   real ::  Px(this%n)
+   real ::  Px(size(x,1))
 
    Px = this%mulvec(x)
   end function 
@@ -370,7 +371,7 @@ end interface
   function loccovar_smult_vec(this,x) result (Px)
    class(LocCovar), intent(in) :: this
    real, intent(in) :: x(:)
-   real ::  Px(this%n)
+   real :: Px(size(x,1))
 
    integer :: j(this%n), i, nnz
    real :: rho(this%n), p(this%n), tmp(this%n)
@@ -388,7 +389,7 @@ end interface
   function loccovar_smult_mat(this,x) result (Px)
    class(LocCovar), intent(in) :: this
    real, intent(in) :: x(:,:)
-   real ::  Px(this%n,size(x,2))
+   real ::  Px(size(x,1),size(x,2))
 
    integer :: j(this%n), i, k, nnz
    real :: rho(this%n), p(this%n), tmp(this%n)
@@ -431,7 +432,7 @@ end interface
   function conscovar_smult_vec(this,x) result (Px)
    class(ConsCovar), intent(in) :: this
    real, intent(in) :: x(:)
-   real ::  Px(this%n), x2(this%n) 
+   real ::  Px(size(x,1)), x2(this%n) 
 
    x2 = x - matmul(this%h,matmul(transpose(this%h),x))
    Px = this%C .x. x2
@@ -441,7 +442,7 @@ end interface
   function conscovar_smult_mat(this,x) result (Px)
    class(ConsCovar), intent(in) :: this
    real, intent(in) :: x(:,:)
-   real ::  Px(this%n,size(x,2)), x2(this%n,size(x,2)) 
+   real ::  Px(size(x,1),size(x,2)), x2(this%n,size(x,2)) 
 
    x2 = x - matmul(this%h,matmul(transpose(this%h),x))
    Px = this%C .x. x2
