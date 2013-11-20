@@ -24,6 +24,7 @@ contains
   integer :: n
   real :: len = 3
   integer :: Nens
+  integer :: method
 
   type(LocCovar) :: LC
   type(ConsCovar) :: Pc
@@ -68,7 +69,7 @@ contains
     end do
   end do
 
-  write(6,*) 'S',S(5,:)
+  !write(6,*) 'S',S(5,:)
   do i = 1,size(Hc,2)
     call assert(maxval(abs(matmul(transpose(Hc),S))), &
          0.,6e-5,'verifying constraint (Sf)')
@@ -241,20 +242,34 @@ contains
 
   allocate(Sa2(n,Nens)) 
 
-  call locensanalysis(xf,S,Hs,yo,Rc,lpoints,Hc,xa2,Sa2)
-
-  write(6,*) 'xa',xa2
-  write(6,*) 'Sa',Sa2
+  write(6,*) 'method ',locensanalysis_SSt
+  call locensanalysis(xf,S,Hs,yo,Rc,lpoints,Hc,xa2,Sa2,method=locensanalysis_SSt)
+    
+!  write(6,*) 'xa',xa2
+!  write(6,*) 'Sa',Sa2
 
   call assert(xa,xa2,2e-5,'analysis using locensanalysis (xa)')
   call assert(Sa.xt.Sa,Sa2.xt.Sa2,1e-4,'analysis using locensanalysis (Sa)')
-
+    
   do i = 1,size(Hc,2)      
     call assert(sum(Hc(:,i) * (xf-xa)),0.,6e-5,'verifying constraint (xa)')
     call assert(maxval(abs(matmul(transpose(Hc),Sa))), &
          0.,6e-5,'verifying constraint (Sa)')
   end do
 
+  write(6,*) 'method ',locensanalysis_Pc
+  call locensanalysis(xf,S,Hs,yo,Rc,lpoints,Hc,xa2,Sa2,method=locensanalysis_Pc)
+    
+!  write(6,*) 'xa',xa2
+!  write(6,*) 'Sa',Sa2
+
+  call assert(xa,xa2,2e-5,'analysis using locensanalysis (xa)')
+
+  do i = 1,size(Hc,2)      
+    call assert(sum(Hc(:,i) * (xf-xa)),0.,6e-5,'verifying constraint (xa)')
+    call assert(maxval(abs(matmul(transpose(Hc),Sa))), &
+         0.,6e-5,'verifying constraint (Sa)')
+  end do
 
 
   deallocate(x)
@@ -476,11 +491,13 @@ program test
  call test_covar
  call test_chol
  call test_sqrtm
- 
-call run_test([3,2])
+
+! same results as matlab code test_locassim_fortran
+! call run_test([3,2])
+
 ! call run_test([5,5])
 ! call run_test([5,5,10])
-! call run_test_large([10,5,10],.false.)
+ call run_test_large([10,5,10],.false.)
 ! call run_test_large([80,80,30],.false.)
 end program test
 

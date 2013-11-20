@@ -22,6 +22,9 @@ module matoper2
 
 use matoper
 
+integer, parameter :: locensanalysis_SSt = 1
+integer, parameter :: locensanalysis_Pc = 2
+
 
 type Covar
   integer         :: n
@@ -628,8 +631,10 @@ end interface
  end subroutine test_sqrtm
 
 
+! method: 1 -> SS^T
+! method: 2 -> Pc
 
- subroutine locensanalysis(xf,S,Hs,yo,R,lpoints,Hc,xa,Sa)
+ subroutine locensanalysis(xf,S,Hs,yo,R,lpoints,Hc,xa,Sa,method)
   use matoper
   real, intent(in) :: xf(:), yo(:)
   class(Covar), intent(in) :: R
@@ -637,14 +642,19 @@ end interface
   type(SparseMatrix), intent(in) :: Hs
   real, intent(inout) :: xa(:)
   real, intent(inout), optional :: Sa(:,:)
+  integer, intent(in), optional :: method
   procedure(locpoints_) :: lpoints
 
   type(LocCovar) :: LC
   type(ConsCovar) :: Pc
   integer :: i,m,n,Nens
+  integer :: method_ = locensanalysis_SSt
+
   real, allocatable :: tmp(:), d(:)
   real, allocatable :: Sp(:,:), Sigma(:), KSp(:,:), PaS(:,:)
-  real, allocatable :: sqrtPaS(:,:),S2(:,:)
+  real, allocatable :: sqrtPaS(:,:),S2(:,:), A(:,:)
+
+  if (present(method)) method_ = method
 
   n = size(xf)
   m = size(yo)
@@ -700,8 +710,17 @@ end interface
 
     S2 = matmul(transpose(Sp),Sp)
 
-    PaS = matmul(S2,S2) + (KSp.tx.(R.x.KSp))
-    
+    if (method_ == locensanalysis_SSt) then
+      PaS = matmul(S2,S2) + (KSp.tx.(R.x.KSp))
+    elseif (method_ == locensanalysis_Pc) then
+      allocate(A(n,Nens))
+      A = Sp - (Hs.tx.KSp)
+      PaS = (A.tx.(Pc.x.A)) + (KSp.tx.(R.x.KSp))
+      deallocate(A)
+    else
+      write(0,*) 'method'
+      stop
+    end if
     PaS = (PaS + transpose(PaS)) / 2
     
     sqrtPaS = sqrtm(PaS)
