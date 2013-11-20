@@ -1933,7 +1933,7 @@ contains
 
 #endif
     if (ndim.gt.3.and..not.isdegen) then
-      write(stderr,*) 'Warning: collapse dimention 3 to ',ndim
+      write(stderr,*) 'Warning: collapse dimension 3 to ',ndim
       !    stop
     end if
 
