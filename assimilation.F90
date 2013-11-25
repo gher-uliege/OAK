@@ -3599,10 +3599,11 @@ end function
     deallocate(Sf2)
 
     contains
-     subroutine lpoints(indexi,nnz,indexj,w)
+     subroutine lpoints(indexi,nnz,indexj,w,onlyj)
       integer, intent(in) :: indexi
       integer, intent(out) :: nnz,indexj(:)
       real, intent(out) :: w(:)
+      integer, optional, intent(in) :: onlyj(:)  
       
       integer :: pi,pj,pk,pn,pv
       integer :: i,j,k,n,v

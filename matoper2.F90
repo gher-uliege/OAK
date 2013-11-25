@@ -808,13 +808,33 @@ end interface
 contains
 
 
+ ! computes (H P H' + R) * y
+ ! where P is a local covariance matrix with constrain
 
- function fun_Cx(x) result(y)
-  real, intent(in) :: x(:)
-  real :: y(size(x))
+ function fun_Cx(y) result(Cy)
+  real, intent(in) :: y(:)
+  real :: Hty(Pc%n), A(Pc%n,size(Hc,2))
+  real :: Cy(size(y))
 
 !  write(6,*) 'call fun_Cx'
-  y = locenscovx(Pc,Hs,R,x)
+
+!  if (.true.) then  
+  if (.false.) then  
+    Cy = locenscovx(Pc,Hs,R,y)
+  else
+   Hty = y.x.Hs
+!   Cy = (H .x. (Pc.x.Hty))
+
+   A = LC.x.Hc
+   Cy = loccovar_project(LC,Hs,y)
+
+   Cy = Cy - (Hs.x.(Hc.x.(A.tx.Hty)))
+   Cy = Cy - (Hs.x.(A.x.(Hc.tx.Hty)))
+   Cy = Cy + (Hs.x.(Hc.x.(Hc.tx.(A.x.(Hc.tx.Hty)))))
+
+   
+   Cy = Cy + (R.x.y)
+  end if
  end function fun_Cx
  
  function iC(x) result(y)

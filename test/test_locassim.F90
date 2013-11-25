@@ -348,24 +348,24 @@ contains
    Cy = (H .x. (Pc.x.Hty))  + (Rc.x.y)
   end function locenscovx
 
-  function locenscovx2(Pc,H,Rc,y) result(Cy)
+  function locenscovx2(Pc,Hs,Rc,y) result(Cy)
    use matoper
    class(ConsCovar), intent(in) :: Pc
-   type(SparseMatrix) :: H
+   type(SparseMatrix) :: Hs
    class(Covar) :: Rc
    real :: y(:)
    real :: Cy(size(y,1))
    real :: Hty(Pc%n), A(Pc%n,size(Hc,2))
 
-   Hty = y.x.H
+   Hty = y.x.Hs
 !   Cy = (H .x. (Pc.x.Hty))
 
    A = LC.x.Hc
-   Cy = loccovar_project(LC,H,y)
+   Cy = loccovar_project(LC,Hs,y)
 
-   Cy = Cy - (H.x.(Hc.x.(A.tx.Hty)))
-   Cy = Cy - (H.x.(A.x.(Hc.tx.Hty)))
-   Cy = Cy + (H.x.(Hc.x.(Hc.tx.(A.x.(Hc.tx.Hty)))))
+   Cy = Cy - (Hs.x.(Hc.x.(A.tx.Hty)))
+   Cy = Cy - (Hs.x.(A.x.(Hc.tx.Hty)))
+   Cy = Cy + (Hs.x.(Hc.x.(Hc.tx.(A.x.(Hc.tx.Hty)))))
 
    
    Cy = Cy + (Rc.x.y)
@@ -527,20 +527,21 @@ program test
  use test_suite
  use matoper2
 
- call test_sort
- call test_unique
- call test_locfun 
- call test_pcg
- call test_covar
- call test_chol
- call test_sqrtm
+ ! call test_sort
+ ! call test_unique
+ ! call test_locfun 
+ ! call test_pcg
+ ! call test_covar
+ ! call test_chol
+ ! call test_sqrtm
 
 ! same results as matlab code test_locassim_fortran
 ! call run_test([3,2])
 
 ! call run_test([5,5])
- call run_test([5,5,10])
+! call run_test([5,5,10])
 ! call run_test_large([10,5,10],.false.)
+ call run_test_large([30,30,20],.false.)
 ! call run_test_large([80,80,30],.false.)
 end program test
 
