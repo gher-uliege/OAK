@@ -99,9 +99,12 @@ contains
   end if
 
   call locpoints(1,x,len,nnz,jj,w)
-  ! write(6,*) 'j, w',jj
-  ! write(6,*) 'j, w',w
+!  write(6,*) 'j, w',jj
+!  write(6,*) 'j, w',w
 
+  call locpoints(1,x,len,nnz,jj,w,[2])
+  write(6,*) 'w',jj(1:nnz)
+  write(6,*) 'j',w(1:nnz)
 
   allocate(P(n,n))
   allocate(Pr(n,n))
@@ -193,7 +196,6 @@ contains
        (((Hs.x.P).xt.Hs) + R).x.(yo - (Hs.x.xf)), &
        5e-5,'Cx (optimized)')
 
-  stop
   tmp = pcg(fun_Cx,yo - (Hs.x.xf))
   ! tmp = fun_Cx(yo - (Hs.x.xf))
   call assert(tmp, &
@@ -358,8 +360,9 @@ contains
    Hty = y.x.H
 !   Cy = (H .x. (Pc.x.Hty))
 
-   A = LC.x.Hc;
-   Cy = H.x.(LC.x.(Hty)) 
+   A = LC.x.Hc
+   Cy = loccovar_project(LC,H,y)
+
    Cy = Cy - (H.x.(Hc.x.(A.tx.Hty)))
    Cy = Cy - (H.x.(A.x.(Hc.tx.Hty)))
    Cy = Cy + (H.x.(Hc.x.(Hc.tx.(A.x.(Hc.tx.Hty)))))
@@ -370,12 +373,13 @@ contains
   end function locenscovx2
 
 
-  subroutine lpoints(i,nnz,j,w)
+  subroutine lpoints(i,nnz,j,w,onlyj)
    integer, intent(in) :: i
    integer, intent(out) :: nnz,j(:)
    real, intent(out) :: w(:)
+   integer, optional, intent(in) :: onlyj(:)  
 
-   call locpoints(i,x,len,nnz,j,w)  
+   call locpoints(i,x,len,nnz,j,w,onlyj)  
   end subroutine lpoints
 
  end subroutine run_test
@@ -504,12 +508,13 @@ contains
  contains
 
 
-  subroutine lpoints(i,nnz,j,w)
+  subroutine lpoints(i,nnz,j,w,onlyj)
    integer, intent(in) :: i
    integer, intent(out) :: nnz,j(:)
    real, intent(out) :: w(:)
+   integer, optional, intent(in) :: onlyj(:)  
 
-   call locpoints(i,x,len,nnz,j,w)  
+   call locpoints(i,x,len,nnz,j,w,onlyj)  
   end subroutine lpoints
 
  end subroutine run_test_large

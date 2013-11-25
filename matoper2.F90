@@ -54,10 +54,11 @@ end interface DiagCovar
 #endif
 
 interface
-  subroutine locpoints_(i,nnz,j,w)
+  subroutine locpoints_(i,nnz,j,w,onlyj)
    integer, intent(in) :: i
    integer, intent(out) :: nnz,j(:)
    real, intent(out) :: w(:)
+   integer, optional, intent(in) :: onlyj(:)  
   end subroutine locpoints_
 end interface
 
@@ -329,30 +330,44 @@ end interface
 
   ! j,w should be large enought
 
-  subroutine locpoints(i,x,len,nnz,j,w)
+  subroutine locpoints(i,x,len,nnz,j,w,onlyj)
    integer, intent(in) :: i
    real, intent(in) :: len, x(:,:)
    integer, intent(out) :: nnz, j(:)
    real, intent(out) :: w(:)
+   integer, optional, intent(in) :: onlyj(:)  
 
    integer :: k
-   real :: dist(size(x,1)), tmp
-
-   do k = 1,size(x,1)
-     dist(k) = cdist(x(i,:),x(k,:))
-   end do
+   real :: dist, tmp
 
    nnz = 0
 
-   do k = 1,size(x,1)
-     tmp = locfun(dist(k)/len)
+   if (present(onlyj)) then
+     do k = 1,size(onlyj)
+       dist = cdist(x(i,:),x(onlyj(k),:))
 
-     if (tmp /= 0.) then
-       nnz = nnz + 1
-       j(nnz) = k
-       w(nnz) = tmp
-     end if
-   end do
+       tmp = locfun(dist/len)
+
+       if (tmp /= 0.) then
+         nnz = nnz + 1
+         j(nnz) = onlyj(k)
+         w(nnz) = tmp
+       end if
+     end do
+
+   else
+     do k = 1,size(x,1)
+       dist = cdist(x(i,:),x(k,:))
+
+       tmp = locfun(dist/len)
+
+       if (tmp /= 0.) then
+         nnz = nnz + 1
+         j(nnz) = k
+         w(nnz) = tmp
+       end if
+     end do
+   end if
   end subroutine locpoints
 
   subroutine LocCovar_init(this, S, lp)
@@ -426,33 +441,36 @@ end interface
 
   function loccovar_project(this,H,y) result (HPHy)
    class(LocCovar), intent(in) :: this
-   type(SparseMatrix) :: H
+   type(SparseMatrix), intent(in) :: H
    real, intent(in) :: y(:)
    
-   real ::  Px(size(x,1),size(x,2))
-   type(SparseMatrix) :: H
-
-   integer :: j(this%n), i, k, nnz
+   real ::  PHy(this%n)
+   integer :: j(this%n), i, k, nnz, Hjind
    real :: rho(this%n), p(this%n), tmp(this%n)
-   real :: Hty(Pc%n), A(Pc%n,size(Hc,2)), HPHy(size(y))
-
+   real :: Hty(this%n), HPHy(size(y))
+   integer :: unique_Hj(H%nz), unique_Hjnz
+   
    Hty = y.x.H
 !   Cy = H.x.(LC.x.(Hty)) 
 
-   Px = 0
+   unique_Hj = H%j
+!   write(6,*) ' unique_Hj ',H%nz,unique_Hj
+   call unique(unique_Hj,unique_Hjnz)
+   PHy = 0
 
-   do i = 1,this%n
-    call this%lpoints(i,nnz,j,rho)
-    p(1:nnz) = matmul(this%S(i,:),transpose(this%S(j(1:nnz),:)))    
-    tmp(1:nnz) = rho(1:nnz) * p(1:nnz)
-    
-    do k = 1,size(x,2)
-        Px(i,k) = Px(i,k) + sum(tmp(1:nnz) * Hty(j(1:nnz),k))
-      end do    
-    end do
+!   do i = 1,this%n
+   do Hjind = 1,unique_Hjnz
+     i = unique_Hj(Hjind)
+     
+     call this%lpoints(i,nnz,j,rho,onlyj = unique_Hj)
+     p(1:nnz) = matmul(this%S(i,:),transpose(this%S(j(1:nnz),:)))    
+     tmp(1:nnz) = rho(1:nnz) * p(1:nnz)
+     
+     PHy(i) = PHy(i) + sum(tmp(1:nnz) * Hty(j(1:nnz)))
+   end do
 
-    HPHy = H.x.Px
-  end function 
+   HPHy = H.x.PHy
+  end function loccovar_project
 
 
   subroutine consInitialize(self,C,h)
@@ -583,7 +601,7 @@ end interface
    r_old = r
    
    do k=1,maxit_    
-     write(6,*) ' k',k,sum(r*r),maxit_,tol2
+!     write(6,*) ' k',k,sum(r*r),maxit_,tol2
      ! compute A*p
      Ap = fun(p)
      !maxdiff(A*p,Ap)
@@ -970,6 +988,19 @@ contains
    DATA_TYPE, intent(inout) :: A(:)
    integer, intent(out) :: n
    integer, intent(out), dimension(size(A)), optional :: ind
+   
+   integer :: unique_index(size(A)), i
+   
+   unique_index = [(i, i=1,size(A))]
+   
+   call unique_(A,n,unique_index)
+   if (present(ind)) ind = unique_index
+
+  contains
+   subroutine unique_(A,n,ind)
+   DATA_TYPE, intent(inout) :: A(:)
+   integer, intent(out) :: n
+   integer, intent(out), dimension(size(A)), optional :: ind
 
    integer :: i
    
@@ -987,8 +1018,8 @@ contains
    A(n) = A(size(A))
    ind(n) = ind(size(A))
 
-  end subroutine unique
-
+  end subroutine unique_
+ end subroutine unique
   subroutine test_unique
    implicit none
    integer, parameter :: n = 10
