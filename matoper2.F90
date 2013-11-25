@@ -424,26 +424,35 @@ end interface
   ! compute H * P * H' : matmul(matul(this, transpose(H),H)
   ! where H is sparse
 
-  ! function loccovar_project(this,H,y) result (HPH)
-  !  class(LocCovar), intent(in) :: this
-  !  real, intent(in) :: x(:,:)
-  !  real ::  Px(size(x,1),size(x,2))
-  !  type(SparseMatrix) :: H
+  function loccovar_project(this,H,y) result (HPHy)
+   class(LocCovar), intent(in) :: this
+   type(SparseMatrix) :: H
+   real, intent(in) :: y(:)
+   
+   real ::  Px(size(x,1),size(x,2))
+   type(SparseMatrix) :: H
 
-  !  integer :: j(this%n), i, k, nnz
-  !  real :: rho(this%n), p(this%n), tmp(this%n)
-  !  Px = 0
+   integer :: j(this%n), i, k, nnz
+   real :: rho(this%n), p(this%n), tmp(this%n)
+   real :: Hty(Pc%n), A(Pc%n,size(Hc,2)), HPHy(size(y))
 
-  !  do i = 1,this%n
-  !   call this%lpoints(i,nnz,j,rho)
-  !   p(1:nnz) = matmul(this%S(i,:),transpose(this%S(j(1:nnz),:)))    
-  !   tmp(1:nnz) = rho(1:nnz) * p(1:nnz)
+   Hty = y.x.H
+!   Cy = H.x.(LC.x.(Hty)) 
+
+   Px = 0
+
+   do i = 1,this%n
+    call this%lpoints(i,nnz,j,rho)
+    p(1:nnz) = matmul(this%S(i,:),transpose(this%S(j(1:nnz),:)))    
+    tmp(1:nnz) = rho(1:nnz) * p(1:nnz)
     
-  !   do k = 1,size(x,2)
-  !       Px(i,k) = Px(i,k) + sum(tmp(1:nnz) * x(j(1:nnz),k))
-  !     end do    
-  !   end do
-  ! end function 
+    do k = 1,size(x,2)
+        Px(i,k) = Px(i,k) + sum(tmp(1:nnz) * Hty(j(1:nnz),k))
+      end do    
+    end do
+
+    HPHy = H.x.Px
+  end function 
 
 
   subroutine consInitialize(self,C,h)
