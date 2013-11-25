@@ -358,7 +358,7 @@ contains
 
 ! variables for local assimilation
 
-  if (schemetype.eq.LocalScheme) then
+  if (schemetype == LocalScheme .or. schemetype == 2) then
     allocate(tmp(ModML%effsize),partition(ModML%effsize), &
          hCorrLengthToObs(ModML%effsize),hMaxCorrLengthToObs(ModML%effsize))
     call loadVector('Zones.partition',ModML,tmp)
@@ -401,7 +401,11 @@ contains
 #   endif     
   end if
 
-  ModMLParallel%permute = schemetype.eq.LocalScheme
+  ModMLParallel%permute = schemetype == LocalScheme .or. schemetype == 2
+
+  if (schemetype == 2) then
+!     ModML%permute = schemetype == 2
+  end if
 
 ! Maximum correction
 
@@ -1765,9 +1769,10 @@ end subroutine fmtIndex
   integer :: linindex
 
 
-  if (ML%permute) then
-    write(stderr,*) 'ind2sub: not implemented '
-  end if
+!  if (ML%permute) then
+!    write(stderr,*) 'ind2sub: not implemented '
+!  end if
+! currently: should be "unpermuted" at calling level
 
   linindex = ML%invindex(index)
 
@@ -3569,7 +3574,7 @@ end function
     call getInitValue(initfname,'CLoc.leni',leni)
     call getInitValue(initfname,'CLoc.lenj',lenj)
 
-    write(6,*) 'len, leni, lenj ',len, leni, lenj
+    write(6,*) 'len, leni, lenj ',len, leni, lenj,ModML%permute
     allocate(Hc(ModML%effsize,1))
     !!! 'fix me'
     Hc = 1
@@ -3581,8 +3586,18 @@ end function
     allocate(Sf2(ModML%effsize,size(Sf,2)))
     Sf2 = Sf
     
+!    write(6,*) 'test ',modgrid(1:50,1)
+!    write(6,*) 'test ',modgrid(1:50,2)
+!    write(6,*) 'test ',modgrid(1:50,3)
 
-    call lpoints(1,nnz,indexj,w)
+    ! should give the same
+!    do i = 1,100
+!    call lpoints(i,nnz,indexj,w)
+!    write(6,*) 'sum(indexj) ',sum(indexj(1:nnz)),sum(w(1:nnz)),nnz
+!    call locpoints2(i,modgrid,len,nnz,indexj,w)
+!    write(6,*) 'sum(indexj) ',sum(indexj(1:nnz)),sum(w(1:nnz)),nnz
+! end do
+!      stop
 
 !    call locensanalysis(xf,Sf2,H,yo,Rc,lpoints,Hc,xa,Sa)
 ! test
@@ -3605,7 +3620,7 @@ end function
       real, intent(out) :: w(:)
       integer, optional, intent(in) :: onlyj(:)  
       
-      integer :: pi,pj,pk,pn,pv
+      integer :: pi,pj,pk,pn,pv,pindexi
       integer :: i,j,k,n,v
       integer :: tj
       logical :: valid
@@ -3613,15 +3628,23 @@ end function
 
 !      call locpoints(indexi,modGrid,len,nnz,indexj,w)  
 
-      call ind2sub(ModML,indexi,pv,pi,pj,pk,pn)
+      !pindexi = indexi
+      pindexi = zoneIndex(indexi)
+      call ind2sub(ModML,pindexi,pv,pi,pj,pk,pn)
       nnz = 0
+      !write(6,*) 'indexi ',indexi,pindexi,pv,pi,pj,pk,pn
+
+      ! state vector is normally permuted for efficiency
+      ! in this case the z-dimension vary the fastest
+      ! therefore it is the most inner-loop
 
       do v = 1,ModML%nvar
         do n = 1,1
-          do k = 1,ModML%varshape(3,v)
-            do j = max(pj-lenj, 1), min(pj+lenj, ModML%varshape(2,v))
-              do i = max(pi-leni, 1), min(pi+leni, ModML%varshape(1,v))
+          do j = max(pj-lenj, 1), min(pj+lenj, ModML%varshape(2,v))
+            do i = max(pi-leni, 1), min(pi+leni, ModML%varshape(1,v))
+              do k = 1,ModML%varshape(3,v)
                 tj = sub2ind(ModML,v,i,j,k,n,valid)
+                tj = invZoneIndex(tj)
 
                 !write(6,*) 'v,i,j,k,n ',v,i,j,k,n
 
@@ -3643,6 +3666,34 @@ end function
       
 !      write(6,*) 'indexi ',indexi,nnz, maxval(w),minval(w),count(w > 0.5)
      end subroutine lpoints
+
+
+  subroutine locpoints2(i,x,len,nnz,j,w)
+   integer, intent(in) :: i
+   real, intent(in) :: len, x(:,:)
+   integer, intent(out) :: nnz, j(:)
+   real, intent(out) :: w(:)
+
+   integer :: k
+   real :: dist(size(x,1)), tmp
+
+   do k = 1,size(x,1)
+     dist(k) = distance(x(i,:),x(k,:))
+   end do
+
+   nnz = 0
+
+   do k = 1,size(x,1)
+     tmp = locfun(dist(k)/len)
+
+     if (tmp /= 0.) then
+       nnz = nnz + 1
+       j(nnz) = k
+       w(nnz) = tmp
+     end if
+   end do
+  end subroutine locpoints2
+
 
    end subroutine locanalysis2
 
