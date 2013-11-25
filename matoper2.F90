@@ -106,6 +106,7 @@ end interface
 
 
 interface assert
+  module procedure assert_bool
   module procedure assert_scal
   module procedure assert_vec
   module procedure assert_mat
@@ -114,6 +115,19 @@ end interface
 
 
  contains
+  subroutine assert_bool(cond,msg)
+   logical, intent(in) :: cond
+   character(len=*) :: msg
+   
+   if (cond) then
+     write(6,*) msg, ': OK '
+   else
+     write(6,*) msg, ': FAIL '
+     stop
+   end if
+  end subroutine assert_bool
+
+
   subroutine assert_scal(found,expected,tol,msg)
    real, intent(in) :: found, expected, tol
    character(len=*) :: msg
@@ -405,6 +419,31 @@ end interface
       end do    
     end do
   end function 
+
+
+  ! compute H * P * H' : matmul(matul(this, transpose(H),H)
+  ! where H is sparse
+
+  ! function loccovar_project(this,H,y) result (HPH)
+  !  class(LocCovar), intent(in) :: this
+  !  real, intent(in) :: x(:,:)
+  !  real ::  Px(size(x,1),size(x,2))
+  !  type(SparseMatrix) :: H
+
+  !  integer :: j(this%n), i, k, nnz
+  !  real :: rho(this%n), p(this%n), tmp(this%n)
+  !  Px = 0
+
+  !  do i = 1,this%n
+  !   call this%lpoints(i,nnz,j,rho)
+  !   p(1:nnz) = matmul(this%S(i,:),transpose(this%S(j(1:nnz),:)))    
+  !   tmp(1:nnz) = rho(1:nnz) * p(1:nnz)
+    
+  !   do k = 1,size(x,2)
+  !       Px(i,k) = Px(i,k) + sum(tmp(1:nnz) * x(j(1:nnz),k))
+  !     end do    
+  !   end do
+  ! end function 
 
 
   subroutine consInitialize(self,C,h)
@@ -819,6 +858,153 @@ contains
 
 
    end subroutine innersub
- end subroutine test_covar
+  end subroutine test_covar
+
+
+  ! sort vector A in-place
+  ! optional argument ind is the sort index
+  ! such that
+  ! sortedA = A
+  ! call sort(sortedA,ind)
+  ! all(sortedA,A(ind)) is true
+
+#define DATA_TYPE integer 
+
+  subroutine sort(A,ind)
+   DATA_TYPE, intent(inout), dimension(:) :: A
+   integer, intent(out), dimension(size(A)), optional :: ind
+   
+   integer :: sort_index(size(A)), i
+   
+   sort_index = [(i, i=1,size(A))]
+   
+   call sort_(A,sort_index)
+   if (present(ind)) ind = sort_index
+
+  contains
+   recursive subroutine sort_(A,ind)
+    DATA_TYPE, intent(inout), dimension(:) :: A
+    integer, intent(inout), dimension(:) :: ind
+    integer :: iq
+
+    if (size(A) > 1) then
+      call sort_partition(A, ind, iq)
+      call sort_(A(:iq-1),ind(:iq-1))
+      call sort_(A(iq:),ind(iq:))
+    end if
+   end subroutine sort_
+
+   subroutine sort_partition(A, ind, marker)
+    DATA_TYPE, intent(inout), dimension(:) :: A
+    integer, intent(inout), dimension(:) :: ind
+    integer, intent(out) :: marker
+    integer :: i, j, tempind
+    DATA_TYPE :: temp
+    DATA_TYPE :: x      ! pivot point
+
+    x = A(1)
+    i = 0
+    j = size(A) + 1
+    
+    do
+      j = j-1
+      do
+        if (A(j) <= x) exit
+        j = j-1
+      end do
+      
+      i = i+1
+      do
+        if (A(i) >= x) exit
+        i = i+1
+      end do
+      
+
+      if (i < j) then
+        ! exchange A(i) and A(j)
+        temp = A(i)
+        A(i) = A(j)
+        A(j) = temp
+
+        tempind = ind(i)
+        ind(i) = ind(j)
+        ind(j) = tempind        
+      else if (i == j) then
+        marker = i+1
+        return
+      else
+        marker = i
+        return
+      end if
+    end do
+    
+   end subroutine sort_partition
+
+  end subroutine sort
+
+
+  subroutine test_sort
+   implicit none
+   integer, parameter :: n = 10
+   integer :: ind(n)
+   integer, dimension(1:n) :: A = &  
+        (/0, 50, 20, 25, 90, 10, 5, 20, 99, 75/), sortedA
+   
+   sortedA = A
+   call sort(sortedA,ind)
+   call assert(all(sortedA(1:n-1) <= sortedA(2:n)),'quick sort (1)')
+   call assert(all(sortedA == A(ind)),'quick sort (2)')
+  end subroutine test_sort
+
+
+  subroutine unique(A,n,ind)
+   DATA_TYPE, intent(inout) :: A(:)
+   integer, intent(out) :: n
+   integer, intent(out), dimension(size(A)), optional :: ind
+
+   integer :: i
+   
+   call sort(A,ind)
+   n = 1
+   do i = 1,size(A)-1
+     A(n) = A(i)
+     ind(n) = ind(i)
+
+     if (A(i) /= A(i+1)) then
+       n = n+1
+     end if
+   end do
+
+   A(n) = A(size(A))
+   ind(n) = ind(size(A))
+
+  end subroutine unique
+
+  subroutine test_unique
+   implicit none
+   integer, parameter :: n = 10
+   integer :: ind(n), i, nu
+   integer, dimension(1:n) :: A = &  
+        (/0, 20, 20, 25, 90, 10, 5, 20, 90, 75/), sortedA, uA, c
+   
+   uA = A
+   call unique(uA,nu,ind)
+
+   ! all elements in A must be one time in uA
+   do i = 1,n
+     if (count(A(i) == uA(1:nu)) /= 1) then
+       write(6,*) 'unique (1): FAILED'
+       stop
+     end if
+   end do
+
+   write(6,*) 'unique (1): OK'
+
+   call assert(all(uA(1:nu) == A(ind(1:nu))),'unique (2)')
+
+  end subroutine test_unique
+
   
+
+
  end module matoper2

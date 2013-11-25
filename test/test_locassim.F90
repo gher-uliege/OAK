@@ -184,12 +184,16 @@ contains
        1e-6,'vector*sparse mat')
 
   tmp = fun_Cx(d)
-
   call assert(tmp, &
        (((Hs.x.P).xt.Hs) + R).x.(yo - (Hs.x.xf)), &
        5e-5,'Cx')
 
-  !stop
+  tmp = fun_Cx2(d)
+  call assert(tmp, &
+       (((Hs.x.P).xt.Hs) + R).x.(yo - (Hs.x.xf)), &
+       5e-5,'Cx (optimized)')
+
+  stop
   tmp = pcg(fun_Cx,yo - (Hs.x.xf))
   ! tmp = fun_Cx(yo - (Hs.x.xf))
   call assert(tmp, &
@@ -302,6 +306,15 @@ contains
    y = locenscovx(Pc,Hs,Rc,x)
   end function fun_Cx
 
+  ! optimized version
+  function fun_Cx2(x) result(y)
+   real, intent(in) :: x(:)
+   real :: y(size(x))
+
+   y = locenscovx2(Pc,Hs,Rc,x)
+  end function fun_Cx2
+
+
   function iC(x) result(y)
    real, intent(in) :: x(:)
    real :: y(size(x))
@@ -332,6 +345,29 @@ contains
    Hty = y.x.H
    Cy = (H .x. (Pc.x.Hty))  + (Rc.x.y)
   end function locenscovx
+
+  function locenscovx2(Pc,H,Rc,y) result(Cy)
+   use matoper
+   class(ConsCovar), intent(in) :: Pc
+   type(SparseMatrix) :: H
+   class(Covar) :: Rc
+   real :: y(:)
+   real :: Cy(size(y,1))
+   real :: Hty(Pc%n), A(Pc%n,size(Hc,2))
+
+   Hty = y.x.H
+!   Cy = (H .x. (Pc.x.Hty))
+
+   A = LC.x.Hc;
+   Cy = H.x.(LC.x.(Hty)) 
+   Cy = Cy - (H.x.(Hc.x.(A.tx.Hty)))
+   Cy = Cy - (H.x.(A.x.(Hc.tx.Hty)))
+   Cy = Cy + (H.x.(Hc.x.(Hc.tx.(A.x.(Hc.tx.Hty)))))
+
+   
+   Cy = Cy + (Rc.x.y)
+
+  end function locenscovx2
 
 
   subroutine lpoints(i,nnz,j,w)
@@ -486,6 +522,8 @@ program test
  use test_suite
  use matoper2
 
+ call test_sort
+ call test_unique
  call test_locfun 
  call test_pcg
  call test_covar
@@ -496,8 +534,8 @@ program test
 ! call run_test([3,2])
 
 ! call run_test([5,5])
-! call run_test([5,5,10])
- call run_test_large([10,5,10],.false.)
+ call run_test([5,5,10])
+! call run_test_large([10,5,10],.false.)
 ! call run_test_large([80,80,30],.false.)
 end program test
 
