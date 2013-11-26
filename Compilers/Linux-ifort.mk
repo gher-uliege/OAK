@@ -12,8 +12,14 @@ LDFLAGS ?=
 # http://software.intel.com/en-us/articles/intel-fortran-compiler-increased-stack-usage-of-80-or-higher-compilers-causes-segmentation-fault/
 
 F90FLAGS += -heap-arrays 
+
 PROFILING_F90FLAGS ?= -p
 PROFILING_LDFLAGS ?= -p
+
+#PROFILING_F90FLAGS ?= -prof-gen
+#PROFILING_LDFLAGS ?= -prof-gen
+
+
 
 PIC_F90FLAGS=-fPIC
 PIC_CFLAGS=-fPIC
@@ -26,8 +32,8 @@ endif
 ifdef DEBUG
   F90FLAGS += -g -check all -traceback
 else
-#  F90FLAGS += -vec-report0 -O3 
-  F90FLAGS += -vec-report0
+  F90FLAGS += -vec-report0 -O3 
+#  F90FLAGS += -vec-report0
 endif
 
 ifeq ($(PRECISION),double)
