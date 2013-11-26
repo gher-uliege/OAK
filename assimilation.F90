@@ -56,7 +56,8 @@ module assimilation
  end interface
 
  logical, parameter :: removeLandPoints = .true.
- integer, parameter :: maxLen = 256;
+! logical, parameter :: removeLandPoints = .false.
+ integer, parameter :: maxLen = 256
  
  character(len=maxLen) :: initfname, localInitfname, globalInitfname
 
@@ -110,7 +111,8 @@ module assimilation
  integer :: metrictype
  integer, parameter :: &
       CartesianMetric  = 0, &           
-      SphericalMetric  = 1               ! (default)
+      SphericalMetric  = 1, &                  ! (default)
+      SphericalMetricApprox  = 2 
 
 
  ! value for the _FillValue attribute
@@ -404,7 +406,7 @@ contains
   ModMLParallel%permute = schemetype == LocalScheme .or. schemetype == 2
 
   if (schemetype == 2) then
-!     ModML%permute = schemetype == 2
+     ModML%permute = .true.
   end if
 
 ! Maximum correction
@@ -1579,7 +1581,7 @@ end subroutine fmtIndex
   if (present(packed)) then
     la%removeLandPoints = packed
   else
-    la%removeLandPoints = .true.
+    la%removeLandPoints = removeLandPoints
   end if
 
   mmax = size(filenames)
@@ -1638,7 +1640,13 @@ end subroutine fmtIndex
   end do
 
   la%totsizeSea = count(la%Mask.eq.1)
-  allocate(la%invindex(la%totsizesea))
+  if (la%removeLandPoints) then
+    la%effsize = la%totsizeSea
+  else
+    la%effsize = la%totsize
+  end if
+
+  allocate(la%invindex(la%effsize))
 
   la%SeaIndex = -1
   j=1
@@ -1649,12 +1657,6 @@ end subroutine fmtIndex
       j=j+1
     end if
   end do
-
-  if (la%removeLandPoints) then
-    la%effsize = la%totsizeSea
-  else
-    la%effsize = la%totsize
-  end if
 
   la%distributed = .false.
   la%permute = .false.
@@ -3451,15 +3453,13 @@ end function
   if (metrictype == CartesianMetric) then
     distance = sqrt(sum((p1 - p0)**2))
     
-  elseif (metrictype == SphericalMetric) then
-!#define DISTANCE_SIMPLE
-#ifdef DISTANCE_SIMPLE
+  elseif (metrictype == SphericalMetricApprox) then
+
      coeff = pi*EarthRadius/(180.)     
      distance = sqrt((coeff * cos((p0(2)+p1(2))* (pi/360.))*(p1(1)-p0(1)))**2 &
           +(coeff * (p1(2)-p0(2)))**2)
-     
-#else
 
+  elseif (metrictype == SphericalMetric) then
      a = p0(2) * d2r
      b = p1(2) * d2r
      C = (p1(1) - p0(1)) * d2r
@@ -3471,8 +3471,6 @@ end function
 
      ! distance in km
      distance = EarthRadius * distance
-#endif
-
 
   else
     write(stderr,*) 'Unsupported metric: ',metrictype
@@ -3626,7 +3624,7 @@ end function
       logical :: valid
       real :: tw
 
-!      call locpoints(indexi,modGrid,len,nnz,indexj,w)  
+!      call locpoints(indexi,modGrid,len,nnz,indexj,w,onlyj)  
 
       !pindexi = indexi
       pindexi = zoneIndex(indexi)
@@ -3644,11 +3642,11 @@ end function
             do i = max(pi-leni, 1), min(pi+leni, ModML%varshape(1,v))
               do k = 1,ModML%varshape(3,v)
                 tj = sub2ind(ModML,v,i,j,k,n,valid)
-                tj = invZoneIndex(tj)
-
-                !write(6,*) 'v,i,j,k,n ',v,i,j,k,n
+                !write(6,*) 'v,i,j,k,n ',v,i,j,k,n,tj
 
                 if (valid) then
+                  tj = invZoneIndex(tj)
+
                   tw = locfun(distance(modGrid(indexi,:), &
                        modGrid(tj,:))/len)
                   

@@ -14,7 +14,8 @@
 !
 !  You should have received a copy of the GNU General Public License
 !  along with this program; if not, write to the Free Software
-!  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+!  Foundation, Inc., 51 Franklin Street, Fifth Floor, 
+!  Boston, MA  02110-1301, USA.
 !
 
 
@@ -412,12 +413,12 @@ end interface
     p(1:nnz) = matmul(this%S(i,:),transpose(this%S(j(1:nnz),:)))    
     tmp(1:nnz) = rho(1:nnz) * p(1:nnz)
     Px(i) = Px(i) + sum(tmp(1:nnz) * x(j(1:nnz)))
-      if (mod(i,5000) == 0) write(6,*) 'i,n,',i,this%n,nnz, Px(i)
-!      if (mod(i,5000) == 0) stop
+      if (mod(i,1) == 0) write(6,*) 'i,n,',i,this%n,nnz, Px(i)
+      if (mod(i,5000) == 0) stop
   end do
  end function loccovar_smult_vec
 
-  function loccovar_smult_mat(this,x) result (Px)
+ function loccovar_smult_mat(this,x) result (Px)
    class(LocCovar), intent(in) :: this
    real, intent(in) :: x(:,:)
    real ::  Px(size(x,1),size(x,2))
@@ -427,15 +428,19 @@ end interface
    Px = 0
 
    do i = 1,this%n
-    call this%lpoints(i,nnz,j,rho)
-    p(1:nnz) = matmul(this%S(i,:),transpose(this%S(j(1:nnz),:)))    
-    tmp(1:nnz) = rho(1:nnz) * p(1:nnz)
-    
-    do k = 1,size(x,2)
-        Px(i,k) = Px(i,k) + sum(tmp(1:nnz) * x(j(1:nnz),k))
-      end do    
-    end do
-  end function 
+     call this%lpoints(i,nnz,j,rho)
+     p(1:nnz) = matmul(this%S(i,:),transpose(this%S(j(1:nnz),:)))    
+     tmp(1:nnz) = rho(1:nnz) * p(1:nnz)
+     
+     do k = 1,size(x,2)
+       Px(i,k) = Px(i,k) + sum(tmp(1:nnz) * x(j(1:nnz),k))
+       if (mod(i,100) == 0) write(6,*) 'i,n,',i,this%n,nnz, Px(i,k)
+     end do
+      if (mod(i,1000) == 0) stop
+   end do
+
+
+  end function loccovar_smult_mat
 
 
   ! compute H * P * H' : matmul(matul(this, transpose(H),H)
@@ -752,6 +757,7 @@ end interface
   ! with conservation 
   Pc = newConsCovar(LC,Hc)
 
+  write(6,*)'locensanalysis:',__LINE__
   allocate(tmp(m),d(m))
 
   d = yo - (Hs.x.xf)
@@ -787,7 +793,7 @@ end interface
       PaS = (A.tx.(Pc.x.A)) + (KSp.tx.(R.x.KSp))
       deallocate(A)
     else
-      write(0,*) 'method'
+      write(0,*) 'unknown method ',method_
       stop
     end if
     PaS = (PaS + transpose(PaS)) / 2
@@ -818,7 +824,7 @@ contains
   real :: Hty(Pc%n), A(Pc%n,size(Hc,2))
   real :: Cy(size(y))
 
-!  write(6,*) 'call fun_Cx'
+  write(6,*) 'call fun_Cx'
 
 !  if (.true.) then  
   if (.false.) then  
@@ -827,7 +833,10 @@ contains
    Hty = y.x.Hs
 !   Cy = (H .x. (Pc.x.Hty))
 
+   write(6,*) 'call fun_Cx',__LINE__
    A = LC.x.Hc
+   write(6,*) 'call fun_Cx',__LINE__,sum(A)
+
    Cy = loccovar_project(LC,Hs,y)
 
    Cy = Cy - (Hs.x.(Hc.x.(A.tx.Hty)))
