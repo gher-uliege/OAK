@@ -127,6 +127,7 @@ contains
    integer :: l,nc
    !     real, allocatable :: dist(:)
 
+   !   write(6,*) 'gridindex', gridind
    ! check if gridind is valid
    do l = 1,cg%n
      if (gridind(l) < 1 .or. gridind(l) > cg%Ni(l)) return
@@ -147,6 +148,7 @@ contains
 
    do l = 1,nc
      dist(n+l) = distfun(x,modGrid(cg%grid(gridind(1),gridind(2))%ind(l),:))
+     !     write(6,*) 'gridindex', gridind,cg%Ni,dist(n+l)
    end do
 
    ! check if any grid point is near x
@@ -170,7 +172,7 @@ contains
  end subroutine near
 
 
-  ! check results with exhaustive search
+ ! check results with exhaustive search
  subroutine checknear(cg,x,modGrid,distfun,maxdist,ind,dist)
   type(cellgrid), intent(in) :: cg
   real, intent(in) :: x(:),modGrid(:,:)
@@ -180,16 +182,19 @@ contains
   integer, intent(in) :: ind(:)
 
   integer :: found,l
+  real :: distl
 
   found = 0
   do l = 1,size(modGrid,1)
-    if (mod(l,1000) == 0) write(6,*) 'l ',l,size(modGrid,1)
+    !if (mod(l,1000) == 0) write(6,*) 'l ',l,size(modGrid,1)
 
-    if (distfun(x,modGrid(l,:)) < maxdist) then
+    distl = distfun(x,modGrid(l,:))
+
+    if (distl < maxdist) then
       if (any(ind == l)) then
         found = found+1
       else
-        write(6,*) 'not found ',l
+        write(6,*) 'not found ',l,distl,x
         stop
       end if
     end if
@@ -283,13 +288,13 @@ contains
  end subroutine test_near
 
  subroutine test_large()
- use matoper
- use rrsqrt
- use ufileformat
- use initfile
- use assimilation
+  use matoper
+  use rrsqrt
+  use ufileformat
+  use initfile
+  use assimilation
 
-  real :: maxdist = 1.
+  real :: maxdist = 2e3
 
   real, pointer :: modGrid(:,:)
   type(cellgrid) :: cg
@@ -300,23 +305,36 @@ contains
 
   integer, allocatable :: ind(:)
   real, allocatable :: dist(:)
- character(len=MaxFNameLength) :: str
+  character(len=MaxFNameLength) :: str
+  real :: start, finish
 
- call getarg(1,str); call init(str)
+
+  call getarg(1,str); call init(str)
   Nsz = ModML%effsize
   allocate(modGrid(Nsz,2),ind(Nsz),dist(Nsz))
 
   call loadVector('Model.gridX',ModML,modGrid(:,1))
   call loadVector('Model.gridY',ModML,modGrid(:,2))
 
-  cg = setupgrid(modGrid,[0.2,0.2])
+  cg = setupgrid(modGrid,[0.1,0.1])
 
   x = [9.,43.]
 
+  call cpu_time(start)
+  do i = 1,100
+    x(1) = 9 + i / 100.
   call near(cg,x,modGrid,distance,maxdist,ind,dist,nind)
+  ! put code to test here
+end do
+call cpu_time(finish)
+  print '("Time = ",f9.6," seconds.")',(finish-start)/100
   write(6,*) 'nind ',nind
 
-  call checknear(cg,x,modGrid,distfun,maxdist,ind(1:nind),dist(1:nind))
+  call cpu_time(start)
+  call checknear(cg,x,modGrid,distance,maxdist,ind(1:nind),dist(1:nind))
+call cpu_time(finish)
+  print '("Time = ",f9.6," seconds.")',(finish-start)
+
  end subroutine test_large
 end module setgrid
 
@@ -325,9 +343,9 @@ program test_cellgrid
  use setgrid
  integer :: sz(2)
 
-! call test_near([20,20],5.)
-! call test_near([1000,1000],20.)
+ ! call test_near([20,20],5.)
+ ! call test_near([1000,1000],20.)
  call test_large()
 
- 
+
 end program test_cellgrid
