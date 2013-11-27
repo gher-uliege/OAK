@@ -323,16 +323,16 @@ contains
   call cpu_time(start)
   do i = 1,100
     x(1) = 9 + i / 100.
-  call near(cg,x,modGrid,distance,maxdist,ind,dist,nind)
-  ! put code to test here
-end do
-call cpu_time(finish)
+    call near(cg,x,modGrid,distance,maxdist,ind,dist,nind)
+    ! put code to test here
+  end do
+  call cpu_time(finish)
   print '("Time = ",f9.6," seconds.")',(finish-start)/100
   write(6,*) 'nind ',nind
 
   call cpu_time(start)
   call checknear(cg,x,modGrid,distance,maxdist,ind(1:nind),dist(1:nind))
-call cpu_time(finish)
+  call cpu_time(finish)
   print '("Time = ",f9.6," seconds.")',(finish-start)
 
  end subroutine test_large
