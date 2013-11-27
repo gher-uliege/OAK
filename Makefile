@@ -165,5 +165,8 @@ match.o: match.c
 test_locassim: test/test_locassim.F90 matoper.o matoper2.o
 	$(F90C) $(F90FLAGS) -o $@ matoper.o matoper2.o test/test_locassim.F90  $(LIBS) $(EXTRA_LDFLAGS)
 
+test_cellgrid: test_cellgrid.F90 assimilation.o anamorphosis.o date.o grids.o initfile.o matoper.o ndgrid.o parall.o rrsqrt.o ufileformat.o matoper2.o
+	$(F90C) $(F90FLAGS) -o $@ assimilation.o  anamorphosis.o date.o grids.o initfile.o matoper.o ndgrid.o parall.o rrsqrt.o ufileformat.o matoper2.o match.o test_cellgrid.F90  $(LIBS) $(EXTRA_LDFLAGS)
+
 check: test_locassim
 	./test_locassim

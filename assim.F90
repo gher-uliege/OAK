@@ -28,7 +28,6 @@ program assimtest
  use initfile
  use assimilation
  use parall
- use setgrid
 
  implicit none
 
@@ -49,9 +48,6 @@ program assimtest
 #ifdef ASSIM_PARALLEL
    call parallInit()
 #endif
-
- call getarg(1,str); call init(str)
-
 
  call getarg(2,str); read(str,*) ntime  
 

@@ -170,6 +170,33 @@ contains
  end subroutine near
 
 
+  ! check results with exhaustive search
+ subroutine checknear(cg,x,modGrid,distfun,maxdist,ind,dist)
+  type(cellgrid), intent(in) :: cg
+  real, intent(in) :: x(:),modGrid(:,:)
+  procedure(distind) :: distfun
+  real, intent(in) :: maxdist
+  real, intent(in) :: dist(:)
+  integer, intent(in) :: ind(:)
+
+  integer :: found,l
+
+  found = 0
+  do l = 1,size(modGrid,1)
+    if (distfun(x,modGrid(l,:)) < maxdist) then
+      if (any(ind == l)) then
+        found = found+1
+      else
+        write(6,*) 'not found ',l
+        stop
+      end if
+    end if
+  end do
+
+  write(6,*) 'found all ',found,size(ind)
+
+ end subroutine checknear
+
  subroutine get(cg,x,ind,n)
   type(cellgrid), intent(in) :: cg
   real, intent(in) :: x(:)
@@ -202,7 +229,6 @@ contains
   type(cellgrid) :: cg
 
   integer :: i,j,k,l, nind, Nsz
-  integer :: found
   real :: x(2)
 
   integer, allocatable :: ind(:)
@@ -219,7 +245,7 @@ contains
     do j = 1,sz(2)
       do i = 1,sz(1)
         l = l+1
-        modGrid(l,1) = i
+        modGrid(l,1) = 2*(i-10)
         modGrid(l,2) = j
       end do
     end do
@@ -250,24 +276,46 @@ contains
   !  write(6,*) 'nind ',nind
   !  write(6,*) 'ind ',ind(:nind)
 
-  ! check results with exhaustive search
-  found = 0
-  do l = 1,size(modGrid,1)
-    if (distfun(x,modGrid(l,:)) < maxdist) then
-      if (any(ind(1:nind) == l)) then
-        found = found+1
-      else
-        write(6,*) 'not found ',l
-        stop
-      end if
-    end if
-  end do
-
-  write(6,*) 'found all ',found,nind
-
+  call checknear(cg,x,modGrid,distfun,maxdist,ind,dist)
 
  end subroutine test_near
 
+ subroutine test_large()
+ use matoper
+ use rrsqrt
+ use ufileformat
+ use initfile
+ use assimilation
+
+  real :: maxdist = 1.
+
+  real, pointer :: modGrid(:,:)
+  type(cellgrid) :: cg
+
+  integer :: i,j,k,l, nind, Nsz
+  integer :: found
+  real :: x(2)
+
+  integer, allocatable :: ind(:)
+  real, allocatable :: dist(:)
+ character(len=MaxFNameLength) :: str
+
+ call getarg(1,str); call init(str)
+  Nsz = ModML%effsize
+  allocate(modGrid(Nsz,2),ind(Nsz),dist(Nsz))
+
+  call loadVector('Model.gridX',ModML,modGrid(:,1))
+  call loadVector('Model.gridY',ModML,modGrid(:,2))
+
+  cg = setupgrid(modGrid,[0.2,0.2])
+
+  x = [9.,43.]
+
+  call near(cg,x,modGrid,distance,maxdist,ind,dist,nind)
+  write(6,*) 'nind ',nind
+
+  call checknear(cg,x,modGrid,distfun,maxdist,ind(1:nind),dist(1:nind))
+ end subroutine test_large
 end module setgrid
 
 
@@ -275,6 +323,9 @@ program test_cellgrid
  use setgrid
  integer :: sz(2)
 
- call test_near([20,20],5.)
- call test_near([1000,1000],20.)
+! call test_near([20,20],5.)
+! call test_near([1000,1000],20.)
+ call test_large()
+
+ 
 end program test_cellgrid
