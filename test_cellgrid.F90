@@ -183,6 +183,8 @@ contains
 
   found = 0
   do l = 1,size(modGrid,1)
+    if (mod(l,1000) == 0) write(6,*) 'l ',l,size(modGrid,1)
+
     if (distfun(x,modGrid(l,:)) < maxdist) then
       if (any(ind == l)) then
         found = found+1
