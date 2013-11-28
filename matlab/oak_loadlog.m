@@ -30,7 +30,7 @@ while 1
       
        break,
     else
-       [S, E, TE, M, T, NM] = regexp(tline,'(?<index>\d{3,3})\.(?<var>\w*)\.(?<step>\w*)\.(?<stat>[^. ]*) +(?<val>.*)');
+       [S, E, TE, M, T, NM] = regexp(tline,'(?<index>\d+)\.(?<var>\w*)\.(?<step>\w*)\.(?<stat>[^. ]*) +(?<val>.*)');
 
        if S
          if strcmp(var,NM.var) && strcmp(step,NM.step) && strcmp(stat,NM.stat) 

@@ -52,7 +52,7 @@ program genobsoper
  end if
 
  do ntime=startntime,endntime
-   write(prefix,'(A,I3.3,A)') 'Obs',ntime,'.'
+   call fmtIndex('Obs',ntime,'.',prefix)
    call MemoryLayout(prefix,ObsML)
 
    call genObservationOper(ntime,ObsML,Hindex,Hcoeff)
@@ -61,7 +61,7 @@ program genobsoper
    Hop(1:8,:) = Hindex
    Hop(9,:) = Hcoeff
 
-   write(prefix,'(A,I3.3,A)') 'Diag',ntime,'.'
+   call fmtIndex('Diag',ntime,'.',prefix)
    call getInitValue(initfname,trim(prefix)//'path',path,default='')
    call getInitValue(initfname,trim(prefix)//'H',str)
 

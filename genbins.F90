@@ -55,8 +55,8 @@ program generatebins
  end if
 
  do ntime=startntime,endntime
-   write(Oprefix,'(A,I3.3,A)') 'Obs',ntime,'.'
-   write(Dprefix,'(A,I3.3,A)') 'Diag',ntime,'.'
+   call fmtIndex('Diag',ntime,'.',Dprefix)
+   call fmtIndex('Obs',ntime,'.',Oprefix)
 
    call MemoryLayout(Oprefix,ObsML)
    allocate(yo(ObsML%effsize),Hshift(ObsML%effsize),invsqrtR(ObsML%effsize))

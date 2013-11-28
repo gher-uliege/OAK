@@ -33,7 +33,7 @@ program applyobsoper
 
  real, pointer      :: xf(:), invsqrtR(:), Hshift(:)
  integer            :: iargc,ntime,startntime,endntime
- character(len=4)   :: ntimeindex
+ character(len=124)   :: ntimeindex
  character(len=124) :: str,path
  character(len=256) :: prefix, Oprefix, Dprefix
  integer            :: m,n,k
@@ -56,13 +56,18 @@ program applyobsoper
 
  do ntime=startntime,endntime
 
-   write(ntimeindex,'(I3.3,A)') ntime,'.'
-   write(Oprefix,'(A,I3.3,A)') 'Obs',ntime,'.'
-   write(Dprefix,'(A,I3.3,A)') 'Diag',ntime,'.'
+!   write(ntimeindex,'(I3.3,A)') ntime,'.'
+!   write(Oprefix,'(A,I3.3,A)') 'Obs',ntime,'.'
+!   write(Dprefix,'(A,I3.3,A)') 'Diag',ntime,'.'
+
+   call fmtIndex('',ntime,'.',ntimeindex)
+   Oprefix = 'Obs'//trim(ntimeindex)
+   Dprefix = 'Diag'//trim(ntimeindex)
+
 
    allocate(xf(ModMLParallel%effsize))
 
-   call loadVector('Forecast'//ntimeindex//'value',ModMLParallel,xf)
+   call loadVector('Forecast'//trim(ntimeindex)//'value',ModMLParallel,xf)
    call MemoryLayout(Oprefix,ObsML)
 
    allocate(invsqrtR(ObsML%effsize),Hshift(ObsML%effsize))
