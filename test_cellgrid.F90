@@ -119,7 +119,8 @@ contains
   n = 0
 
   gridind = floor((x - cg%xmin)/ cg%dx) + 1
-  call append(gridind)
+!  call append(gridind)
+  call append([9,1])
 
  contains
   recursive subroutine append(gridind)
@@ -163,6 +164,7 @@ contains
      nappended = nappended+1
      appended(:,nappended) = gridind
 
+     stop
      ! recursively check neighbors
      call append([gridind(1)+1,gridind(2)])
      call append([gridind(1)-1,gridind(2)])
