@@ -320,6 +320,8 @@ contains
 
   x = [9.,43.]
 
+  write(6,*) 'Optimized search (mean over 100 seaches)'
+
   call cpu_time(start)
   do i = 1,100
     x(1) = 9 + i / 100.
@@ -328,7 +330,9 @@ contains
   end do
   call cpu_time(finish)
   print '("Time = ",f9.6," seconds.")',(finish-start)/100
-  write(6,*) 'nind ',nind,distance([9.,43.],[10.,44.])
+!  write(6,*) 'nind ',nind
+
+  write(6,*) 'Non-optimized search'
 
   call cpu_time(start)
   call checknear(cg,x,modGrid,distance,maxdist,ind(1:nind),dist(1:nind))
