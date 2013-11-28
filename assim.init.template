@@ -47,6 +47,15 @@ Zones.corrLength.const = [           30e3,             30e3]
 Zones.maxLength.const  = [         2000e3,           2000e3]
 Zones.path = 'Common/'
 
+# loctype = integer: type of localization when using local assimilation (i.e. schemetype = 1)
+#   possible values of "loctype" are:
+#   1 = (default) "Classical" horizontal localization where corrLength and maxLength are spatial distances (localization in .gridX and .gridY)
+#   Units of corrLength and maxLength are (m) as distances are deduced form x/y coordinates
+#   2 = Depth localization scheme where corrLength and maxLength are depth ranges (localization in .gridZ)
+#   Units of corrLength and maxLength should be equal to those of .gridZ
+#   3 = Time localization scheme where corrLength and maxLength are time ranges (localization in .gridT)
+#   Units of corrLength and maxLength should be equal to those of .gridT
+
  
 # logfile contains simple diagnostics such as RMSE with observations
 

@@ -195,12 +195,16 @@ module assimilation
 
 ! local or global assimilation ?
 
-  integer schemetype
+  integer :: schemetype
   integer, parameter :: &
       GlobalScheme  = 0, &           ! (default)
       LocalScheme   = 1    
 
-  integer loctype
+ ! type of localization
+ ! 1: horizontal distance (default)
+ ! 2: only gridZ distance
+ ! 3: only gridT distance
+  integer :: loctype
 
 ! partition for local assimilation
 
@@ -3026,10 +3030,13 @@ end function
   ! initialisation for local assimilation
 
   if (schemetype.eq.LocalScheme) then
-    ! load obsGridX and obsGridY used by callback 
+    ! load obsGrid{X,Y,Z,T} used by callback 
     ! subroutine selectObservations
 
-    allocate(obsGridX(ObsML%effsize),obsGridY(ObsML%effsize),locAmplitudes(size(Sf,2),size(zoneSize)))
+    allocate(obsGridX(ObsML%effsize),obsGridY(ObsML%effsize))
+    allocate(obsGridZ(ObsML%effsize),obsGridT(ObsML%effsize))
+    allocate(locAmplitudes(size(Sf,2),size(zoneSize)))
+
     call loadVector('Obs'//trim(infix)//'gridX',ObsML,obsGridX)
     call loadVector('Obs'//trim(infix)//'gridY',ObsML,obsGridY)
     call loadVector('Obs'//trim(infix)//'gridZ',ObsML,obsGridZ)
@@ -3363,7 +3370,10 @@ end function
 
   deallocate(yo,invsqrtR,Hxf,Hxa,HSf,HSa,yo_Hxf,yo_Hxa,innov_projection,H%i,H%j,H%s,Hshift)
   if (biastype.eq.ErrorFractionBias) deallocate(Hbf)
-  if (schemetype.eq.LocalScheme) deallocate(obsGridX,obsGridY,locAmplitudes)
+  if (schemetype.eq.LocalScheme) then
+    deallocate(obsGridX,obsGridY,locAmplitudes)
+    deallocate(obsGridZ,obsGridT)
+  end if
 
   call MemoryLayoutDone(ObsML)
 
