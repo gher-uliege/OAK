@@ -154,6 +154,7 @@ contains
    ! check if any grid point is near x
    if (any(dist(n+1:n+nc) < maxdist)) then
      ! ok add indices to the list
+     write(6,*) 'check dist ',any(dist(n+1:n+nc) < maxdist),gridind
 
      ind(n+1:n+nc) = cg%grid(gridind(1),gridind(2))%ind(1:nc)
      n = n+nc
