@@ -328,7 +328,7 @@ contains
   end do
   call cpu_time(finish)
   print '("Time = ",f9.6," seconds.")',(finish-start)/100
-  write(6,*) 'nind ',nind
+  write(6,*) 'nind ',nind,distance([9.,43.],[10.,44.])
 
   call cpu_time(start)
   call checknear(cg,x,modGrid,distance,maxdist,ind(1:nind),dist(1:nind))
