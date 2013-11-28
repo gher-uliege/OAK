@@ -413,8 +413,8 @@ end interface
     p(1:nnz) = matmul(this%S(i,:),transpose(this%S(j(1:nnz),:)))    
     tmp(1:nnz) = rho(1:nnz) * p(1:nnz)
     Px(i) = Px(i) + sum(tmp(1:nnz) * x(j(1:nnz)))
-      if (mod(i,1) == 0) write(6,*) 'i,n,',i,this%n,nnz, Px(i)
-      if (mod(i,5000) == 0) stop
+!      if (mod(i,1) == 0) write(6,*) 'i,n,',i,this%n,nnz, Px(i)
+!      if (mod(i,5000) == 0) stop
   end do
  end function loccovar_smult_vec
 
@@ -434,9 +434,9 @@ end interface
      
      do k = 1,size(x,2)
        Px(i,k) = Px(i,k) + sum(tmp(1:nnz) * x(j(1:nnz),k))
-       if (mod(i,100) == 0) write(6,*) 'i,n,',i,this%n,nnz, Px(i,k)
+       if (mod(i,1000) == 0) write(6,*) 'i,n,',i,this%n,nnz, Px(i,k)
      end do
-      if (mod(i,1000) == 0) stop
+!      if (mod(i,1000) == 0) stop
    end do
 
 

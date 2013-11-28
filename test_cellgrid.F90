@@ -1,5 +1,7 @@
+#define NDIM
 module setgrid
 
+ ! cell containing a series of points maked by their index
  type cell
    ! arrary of indices pointing to the first dimension of modGrid
    integer, allocatable :: ind(:)
@@ -7,13 +9,19 @@ module setgrid
    integer :: n
  end type cell
 
+ ! a regular grid of cells
  type cellgrid
+#ifdef NDIM
+   type(cell), allocatable :: gridn(:)
+#else
    type(cell), allocatable :: grid(:,:)
+#endif
    real, allocatable :: xmin(:), dx(:)
-   integer, allocatable :: Ni(:)
+   integer, allocatable :: Ni(:), offset(:)
    integer :: n
  end type cellgrid
 
+ ! interface for the distance between two points of coordinate x and coordinates y
  interface
    real function distind(x,y)
     real, intent(in) :: x(:),y(:)
@@ -23,19 +31,20 @@ module setgrid
 
 contains
 
+ ! create a grid of cells
  function setupgrid(modGrid,dx) result(cg)
   real, intent(in) :: modGrid(:,:), dx(:)
   real, allocatable :: xmax(:)
   integer, allocatable :: gridind(:)
-  integer :: n, i, j, l
+  integer :: n, i, j, l, Nt
   type(cellgrid) :: cg
 
-  integer :: startsize = 100
+  integer :: startsize = 100, ci
 
   n = size(modGrid,2)
   cg%n = n
 
-  allocate(cg%xmin(n),xmax(n),cg%dx(n),cg%Ni(n),gridind(n))
+  allocate(cg%xmin(n),xmax(n),cg%dx(n),cg%Ni(n),cg%offset(n),gridind(n))
 
   cg%dx = dx
 
@@ -47,11 +56,27 @@ contains
   ! number of intervales in each dimensions
   cg%Ni = ceiling((xmax - cg%xmin) / cg%dx)
 
+  cg%offset(1) = 1
+  do i = 1,n-1
+    cg%offset(i+1) = cg%offset(i) * cg%Ni(i)
+  end do
+
+  ! total number of cells
+  Nt = product(cg%Ni)
+
   ! the j(1),j(2),...j(n) box is surrounded by the grid points
   ! lower: xmin(i) + dx(i) * (j(i)-1) for i=1,...,n
   ! upper: xmin(i) + dx(i) * j(i) for i=1,...,n
 
+#ifdef NDIM
+  allocate(cg%gridn(Nt))
+  do i = 1,Nt
+    allocate(cg%gridn(i)%ind(startsize))
+    cg%gridn(i)%n = 0
+  end do
 
+
+#else
   ! allocate grid of cells and say that nothing is in there
   allocate(cg%grid(cg%Ni(1),cg%Ni(2)))
   do j = 1,cg%Ni(2)
@@ -60,12 +85,20 @@ contains
       cg%grid(i,j)%n = 0
     end do
   end do
+#endif
 
   ! loop throught every coordinate and put index into a cell
   do l = 1,size(modGrid,1)
     ! compute grid index
     gridind = floor((modGrid(l,:) - cg%xmin)/ dx) + 1
+
+#ifdef NDIM
+    ci = sum((gridind-1) * cg%offset) + 1
+    call add(cg%gridn(ci),l)
+#else
     call add(cg%grid(gridind(1),gridind(2)),l)
+#endif
+
     !if (mod(l,100) == 0) write(6,*) 'l ',l,gridind         
     !grid(gridind(1),gridind(2))
   end do
@@ -103,6 +136,8 @@ contains
  end function setupgrid
 
 
+ ! get all points (one more!) near the location x
+ 
  subroutine near(cg,x,modGrid,distfun,maxdist,ind,dist,n)
   type(cellgrid), intent(in) :: cg
   real, intent(in) :: x(:),modGrid(:,:)
@@ -124,7 +159,9 @@ contains
  contains
   recursive subroutine append(gridind)
    integer, intent(in) :: gridind(:)
-   integer :: l,nc
+   integer :: l,nc,ci
+   integer :: gi(cg%n)
+
    !     real, allocatable :: dist(:)
 
    !   write(6,*) 'gridindex', gridind
@@ -139,7 +176,14 @@ contains
    end do
 
    ! it's a fresh one
+
+#ifdef NDIM
+   ! cell index
+   ci = sum((gridind-1) * cg%offset) + 1
+   nc = cg%gridn(ci)%n
+#else
    nc = cg%grid(gridind(1),gridind(2))%n
+#endif
 
    if (n+nc > size(dist)) then
      write(0,*) __FILE__,':',__LINE__,'buffer too small'
@@ -147,7 +191,11 @@ contains
    end if
 
    do l = 1,nc
+#ifdef NDIM
+     dist(n+l) = distfun(x,modGrid(cg%gridn(ci)%ind(l),:))
+#else
      dist(n+l) = distfun(x,modGrid(cg%grid(gridind(1),gridind(2))%ind(l),:))
+#endif
      !     write(6,*) 'gridindex', gridind,cg%Ni,dist(n+l)
    end do
 
@@ -155,7 +203,11 @@ contains
    if (any(dist(n+1:n+nc) < maxdist)) then
      ! ok add indices to the list
 
+#ifdef NDIM
+     ind(n+1:n+nc) = cg%gridn(ci)%ind(1:nc)
+#else
      ind(n+1:n+nc) = cg%grid(gridind(1),gridind(2))%ind(1:nc)
+#endif
      n = n+nc
 
      ! all cell index to the list of already visited cells
@@ -163,10 +215,16 @@ contains
      appended(:,nappended) = gridind
 
      ! recursively check neighbors
-     call append([gridind(1)+1,gridind(2)])
-     call append([gridind(1)-1,gridind(2)])
-     call append([gridind(1),gridind(2)+1])
-     call append([gridind(1),gridind(2)-1])
+
+     do l = 1,cg%n
+       gi = gridind
+       gi(l) = gridind(l) + 1
+       call append(gi)
+
+       gi = gridind
+       gi(l) = gridind(l) - 1
+       call append(gi)
+     end do
    end if
   end subroutine append
  end subroutine near
@@ -208,10 +266,18 @@ contains
   type(cellgrid), intent(in) :: cg
   real, intent(in) :: x(:)
   integer, intent(out) :: ind(:), n
-  integer :: gridind(cg%n)
+
+  integer :: gridind(cg%n),ci
 
   gridind = floor((x - cg%xmin)/ cg%dx) + 1
+
+#ifdef NDIM
+  ! cell index
+  ci = sum((gridind-1) * cg%offset) + 1
+  n = cg%gridn(ci)%n
+#else
   n = cg%grid(gridind(1),gridind(2))%n
+#endif
 
   if (n > size(ind)) then
     ! buffer too small
@@ -219,7 +285,12 @@ contains
     return
   end if
 
+#ifdef NDIM
+  ind(:n) = cg%gridn(ci)%ind(1:n)
+#else
   ind(:n) = cg%grid(gridind(1),gridind(2))%ind(1:n)
+#endif
+
  end subroutine get
 
 

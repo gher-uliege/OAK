@@ -49,6 +49,7 @@ program assimtest
    call parallInit()
 #endif
 
+ call getarg(1,str); call init(str)
  call getarg(2,str); read(str,*) ntime  
 
  allocate(xf(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel), &
