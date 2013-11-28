@@ -119,8 +119,7 @@ contains
   n = 0
 
   gridind = floor((x - cg%xmin)/ cg%dx) + 1
-!  call append(gridind)
-  call append([9,1])
+  call append(gridind)
 
  contains
   recursive subroutine append(gridind)
@@ -155,7 +154,6 @@ contains
    ! check if any grid point is near x
    if (any(dist(n+1:n+nc) < maxdist)) then
      ! ok add indices to the list
-     write(6,*) 'check dist ',any(dist(n+1:n+nc) < maxdist),gridind
 
      ind(n+1:n+nc) = cg%grid(gridind(1),gridind(2))%ind(1:nc)
      n = n+nc
@@ -164,7 +162,6 @@ contains
      nappended = nappended+1
      appended(:,nappended) = gridind
 
-     stop
      ! recursively check neighbors
      call append([gridind(1)+1,gridind(2)])
      call append([gridind(1)-1,gridind(2)])
@@ -226,10 +223,10 @@ contains
  end subroutine get
 
 
- pure real function distfun(x,y)
+ pure real function cdist(x,y)
   real, intent(in) :: x(:),y(:)
-  distfun = sqrt(sum((x-y)**2))
- end function distfun
+  cdist = sqrt(sum((x-y)**2))
+ end function cdist
 
  subroutine test_near(sz,maxdist)
   integer, intent(in) :: sz(:)
@@ -282,11 +279,11 @@ contains
 
   x = [2.,2.]
 
-  call near(cg,x,modGrid,distfun,maxdist,ind,dist,nind)
+  call near(cg,x,modGrid,cdist,maxdist,ind,dist,nind)
   !  write(6,*) 'nind ',nind
   !  write(6,*) 'ind ',ind(:nind)
 
-  call checknear(cg,x,modGrid,distfun,maxdist,ind,dist)
+  call checknear(cg,x,modGrid,cdist,maxdist,ind,dist)
 
  end subroutine test_near
 
