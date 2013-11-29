@@ -52,7 +52,7 @@ module ndgrid
  end type databoxND
 #endif
 
-! definition of a n-dimentinal aribtrary grid
+! definition of a n-dimensional aribtrary grid
 
  type grid
    ! dimension of the grid
@@ -1182,6 +1182,8 @@ if (present(outgrid)) outgrid = .true.
 
 
 end subroutine 
+
+
 
 
 end module ndgrid

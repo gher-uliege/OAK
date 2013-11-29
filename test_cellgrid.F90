@@ -3,7 +3,7 @@ module setgrid
 
  ! cell containing a series of points maked by their index
  type cell
-   ! arrary of indices pointing to the first dimension of modGrid
+   ! arrary of indices pointing to the first dimension of xpos
    integer, allocatable :: ind(:)
    ! number of elements in ind with a valid value
    integer :: n
@@ -32,8 +32,8 @@ module setgrid
 contains
 
  ! create a grid of cells
- function setupgrid(modGrid,dx) result(cg)
-  real, intent(in) :: modGrid(:,:), dx(:)
+ function setupgrid(xpos,dx) result(cg)
+  real, intent(in) :: xpos(:,:), dx(:)
   real, allocatable :: xmax(:)
   integer, allocatable :: gridind(:)
   integer :: n, i, j, l, Nt
@@ -41,7 +41,7 @@ contains
 
   integer :: startsize = 100, ci
 
-  n = size(modGrid,2)
+  n = size(xpos,2)
   cg%n = n
 
   allocate(cg%xmin(n),xmax(n),cg%dx(n),cg%Ni(n),cg%offset(n),gridind(n))
@@ -49,8 +49,8 @@ contains
   cg%dx = dx
 
   do i = 1,n
-    cg%xmin(i) = minval(modGrid(:,i))
-    xmax(i) = maxval(modGrid(:,i))
+    cg%xmin(i) = minval(xpos(:,i))
+    xmax(i) = maxval(xpos(:,i))
   end do
 
   ! number of intervales in each dimensions
@@ -88,9 +88,9 @@ contains
 #endif
 
   ! loop throught every coordinate and put index into a cell
-  do l = 1,size(modGrid,1)
+  do l = 1,size(xpos,1)
     ! compute grid index
-    gridind = floor((modGrid(l,:) - cg%xmin)/ dx) + 1
+    gridind = floor((xpos(l,:) - cg%xmin)/ dx) + 1
 
 #ifdef NDIM
     ci = sum((gridind-1) * cg%offset) + 1
@@ -138,9 +138,9 @@ contains
 
  ! get all points (one more!) near the location x
  
- subroutine near(cg,x,modGrid,distfun,maxdist,ind,dist,n)
+ subroutine near(cg,x,xpos,distfun,maxdist,ind,dist,n)
   type(cellgrid), intent(in) :: cg
-  real, intent(in) :: x(:),modGrid(:,:)
+  real, intent(in) :: x(:),xpos(:,:)
   procedure(distind) :: distfun
   real, intent(in) :: maxdist
   real, intent(out) :: dist(:)
@@ -192,9 +192,9 @@ contains
 
    do l = 1,nc
 #ifdef NDIM
-     dist(n+l) = distfun(x,modGrid(cg%gridn(ci)%ind(l),:))
+     dist(n+l) = distfun(x,xpos(cg%gridn(ci)%ind(l),:))
 #else
-     dist(n+l) = distfun(x,modGrid(cg%grid(gridind(1),gridind(2))%ind(l),:))
+     dist(n+l) = distfun(x,xpos(cg%grid(gridind(1),gridind(2))%ind(l),:))
 #endif
      !     write(6,*) 'gridindex', gridind,cg%Ni,dist(n+l)
    end do
@@ -231,9 +231,9 @@ contains
 
 
  ! check results with exhaustive search
- subroutine checknear(cg,x,modGrid,distfun,maxdist,ind,dist)
+ subroutine checknear(cg,x,xpos,distfun,maxdist,ind,dist)
   type(cellgrid), intent(in) :: cg
-  real, intent(in) :: x(:),modGrid(:,:)
+  real, intent(in) :: x(:),xpos(:,:)
   procedure(distind) :: distfun
   real, intent(in) :: maxdist
   real, intent(in) :: dist(:)
@@ -243,10 +243,10 @@ contains
   real :: distl
 
   found = 0
-  do l = 1,size(modGrid,1)
-    !if (mod(l,1000) == 0) write(6,*) 'l ',l,size(modGrid,1)
+  do l = 1,size(xpos,1)
+    !if (mod(l,1000) == 0) write(6,*) 'l ',l,size(xpos,1)
 
-    distl = distfun(x,modGrid(l,:))
+    distl = distfun(x,xpos(l,:))
 
     if (distl < maxdist) then
       if (any(ind == l)) then
@@ -303,7 +303,7 @@ contains
   integer, intent(in) :: sz(:)
   real, intent(in) :: maxdist
 
-  real, pointer :: modGrid(:,:)
+  real, pointer :: xpos(:,:)
   type(cellgrid) :: cg
 
   integer :: i,j,k,l, nind, Nsz
@@ -313,18 +313,18 @@ contains
   real, allocatable :: dist(:)
 
   Nsz = product(sz)
-  allocate(modGrid(Nsz,2),ind(Nsz),dist(Nsz))
+  allocate(xpos(Nsz,2),ind(Nsz),dist(Nsz))
 
-  !   call loadVector('Model.gridX',ModML,modGrid(:,1))
-  !   call loadVector('Model.gridY',ModML,modGrid(:,2))
+  !   call loadVector('Model.gridX',ModML,xpos(:,1))
+  !   call loadVector('Model.gridY',ModML,xpos(:,2))
   l = 0
 
   if (size(sz) == 2) then
     do j = 1,sz(2)
       do i = 1,sz(1)
         l = l+1
-        modGrid(l,1) = 2*(i-10)
-        modGrid(l,2) = j
+        xpos(l,1) = 2*(i-10)
+        xpos(l,2) = j
       end do
     end do
   else
@@ -332,16 +332,16 @@ contains
       do j = 1,sz(2)
         do i = 1,sz(1)
           l = l+1
-          modGrid(l,1) = i
-          modGrid(l,2) = j
-          modGrid(l,3) = k
+          xpos(l,1) = i
+          xpos(l,2) = j
+          xpos(l,3) = k
         end do
       end do
     end do
   end if
 
 
-  cg = setupgrid(modGrid,[4.,4.])
+  cg = setupgrid(xpos,[4.,4.])
 
   call get(cg,[11.,11.],ind,nind)
   !  write(6,*) 'nind ',nind
@@ -350,11 +350,11 @@ contains
 
   x = [2.,2.]
 
-  call near(cg,x,modGrid,cdist,maxdist,ind,dist,nind)
+  call near(cg,x,xpos,cdist,maxdist,ind,dist,nind)
   !  write(6,*) 'nind ',nind
   !  write(6,*) 'ind ',ind(:nind)
 
-  call checknear(cg,x,modGrid,cdist,maxdist,ind,dist)
+  call checknear(cg,x,xpos,cdist,maxdist,ind,dist)
 
  end subroutine test_near
 
@@ -367,7 +367,7 @@ contains
 
   real :: maxdist = 2e3
 
-  real, pointer :: modGrid(:,:)
+  real, pointer :: xpos(:,:)
   type(cellgrid) :: cg
 
   integer :: i,j,k,l, nind, Nsz
@@ -382,12 +382,12 @@ contains
 
   call getarg(1,str); call init(str)
   Nsz = ModML%effsize
-  allocate(modGrid(Nsz,2),ind(Nsz),dist(Nsz))
+  allocate(xpos(Nsz,2),ind(Nsz),dist(Nsz))
 
-  call loadVector('Model.gridX',ModML,modGrid(:,1))
-  call loadVector('Model.gridY',ModML,modGrid(:,2))
+  call loadVector('Model.gridX',ModML,xpos(:,1))
+  call loadVector('Model.gridY',ModML,xpos(:,2))
 
-  cg = setupgrid(modGrid,[0.1,0.1])
+  cg = setupgrid(xpos,[0.1,0.1])
 
   x = [9.,43.]
 
@@ -396,7 +396,7 @@ contains
   call cpu_time(start)
   do i = 1,100
     x(1) = 9 + i / 100.
-    call near(cg,x,modGrid,distance,maxdist,ind,dist,nind)
+    call near(cg,x,xpos,distance,maxdist,ind,dist,nind)
     ! put code to test here
   end do
   call cpu_time(finish)
@@ -406,7 +406,7 @@ contains
   write(6,*) 'Non-optimized search'
 
   call cpu_time(start)
-  call checknear(cg,x,modGrid,distance,maxdist,ind(1:nind),dist(1:nind))
+  call checknear(cg,x,xpos,distance,maxdist,ind(1:nind),dist(1:nind))
   call cpu_time(finish)
   print '("Time = ",f9.6," seconds.")',(finish-start)
 
