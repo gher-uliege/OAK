@@ -364,6 +364,7 @@ contains
   use ufileformat
   use initfile
   use assimilation
+  use ndgrid
 
   real :: maxdist = 2e3
 
@@ -378,7 +379,8 @@ contains
   real, allocatable :: dist(:)
   character(len=MaxFNameLength) :: str
   real :: start, finish
-
+  integer :: ntot  = 0
+  integer :: nsearch = 10000
 
   call getarg(1,str); call init(str)
   Nsz = ModML%effsize
@@ -391,17 +393,21 @@ contains
 
   x = [9.,43.]
 
-  write(6,*) 'Optimized search (mean over 100 seaches)'
+  write(6,*) 'Optimized search (mean over ',nsearch,' seaches)'
 
   call cpu_time(start)
-  do i = 1,100
-    x(1) = 9 + i / 100.
+  do i = 1,nsearch
+    x(1) = 9 + i / real(nsearch)
     call near(cg,x,xpos,distance,maxdist,ind,dist,nind)
-    ! put code to test here
+
+    ntot = ntot + nind
   end do
   call cpu_time(finish)
-  print '("Time = ",f9.6," seconds.")',(finish-start)/100
+  print '("Time = ",f9.6," seconds.")',(finish-start)/nsearch
 !  write(6,*) 'nind ',nind
+
+  write(6,*) 'ntot ',ntot
+
 
   write(6,*) 'Non-optimized search'
 
