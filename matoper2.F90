@@ -824,8 +824,6 @@ contains
   real :: Hty(Pc%n), A(Pc%n,size(Hc,2))
   real :: Cy(size(y))
 
-  write(6,*) 'call fun_Cx'
-
 !  if (.true.) then  
   if (.false.) then  
     Cy = locenscovx(Pc,Hs,R,y)
@@ -833,9 +831,9 @@ contains
    Hty = y.x.Hs
 !   Cy = (H .x. (Pc.x.Hty))
 
-   write(6,*) 'call fun_Cx',__LINE__
+!   write(6,*) 'call fun_Cx',__LINE__
    A = LC.x.Hc
-   write(6,*) 'call fun_Cx',__LINE__,sum(A)
+!   write(6,*) 'call fun_Cx',__LINE__,sum(A)
 
    Cy = loccovar_project(LC,Hs,y)
 

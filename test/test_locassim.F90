@@ -204,11 +204,11 @@ contains
   ! tmp = fun_Cx(yo - (Hs.x.xf))
   call assert(tmp, &
        inv(((Hs.x.P).xt.Hs) + R).x.d, &
-       1e-6,'solving system using pcg')
+       2e-6,'solving system using pcg')
 
   call assert(iC(d), &
        inv(((Hs.x.P).xt.Hs) + R).x.d, &
-       1e-6,'solving system using pcg (2)')
+       2e-6,'solving system using pcg (2)')
 
 
   xa2 = xf + ((P.xt.Hs).x.tmp) 
@@ -536,7 +536,7 @@ program test
  call run_test([3,2])
 
 ! call run_test([5,5])
-! call run_test([5,5,10])
+ call run_test([5,5,10])
 ! call run_test_large([10,5,10],.false.)
 ! call run_test_large([30,30,20],.false.) ! -> fail
 ! call run_test_large([80,80,30],.false.)
