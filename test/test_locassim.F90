@@ -42,7 +42,11 @@ contains
 
 
   n = product(sz)
-  Nens = min(n-1,20)
+  ! substract 1 because of the constrain and one more 
+  ! because the last column of testens would be all zero otherwise
+  ! sin(pi * (i-1)) = 0
+
+  Nens = min(n-2,20)
 
   allocate(x(n,size(sz)))
   allocate(v(n))
@@ -231,13 +235,12 @@ contains
   end do
 
   S2 = matmul(transpose(Sp),Sp)
-
   PaS = matmul(S2,S2) + (KSp.tx.(R.x.KSp))
     
   PaS = (PaS + transpose(PaS)) / 2
     
   sqrtPaS = sqrtm(PaS)
-    
+ 
   allocate(Sa(n,Nens)) 
   Sa = Sp.x.(inv(S2).x.sqrtPaS)
 
@@ -251,9 +254,6 @@ contains
   write(6,*) 'method ',locensanalysis_SSt
   call locensanalysis(xf,S,Hs,yo,Rc,lpoints,Hc,xa2,Sa2,method=locensanalysis_SSt)
     
-!  write(6,*) 'xa',xa2
-!  write(6,*) 'Sa',Sa2
-
   call assert(xa,xa2,2e-5,'analysis using locensanalysis (xa)')
   call assert(Sa.xt.Sa,Sa2.xt.Sa2,1e-4,'analysis using locensanalysis (Sa)')
     
@@ -266,9 +266,6 @@ contains
   write(6,*) 'method ',locensanalysis_Pc
   call locensanalysis(xf,S,Hs,yo,Rc,lpoints,Hc,xa2,Sa2,method=locensanalysis_Pc)
     
-!  write(6,*) 'xa',xa2
-!  write(6,*) 'Sa',Sa2
-
   call assert(xa,xa2,2e-5,'analysis using locensanalysis (xa)')
 
   do i = 1,size(Hc,2)      
