@@ -533,10 +533,10 @@ program test
  call test_sqrtm
 
 ! same results as matlab code test_locassim_fortran
- call run_test([3,2])
+ call run_test([3,2]) ! ok
 
 ! call run_test([5,5])
- call run_test([5,5,10])
+ call run_test([5,5,10]) ! ok
 ! call run_test_large([10,5,10],.false.)
 ! call run_test_large([30,30,20],.false.) ! -> fail
 ! call run_test_large([80,80,30],.false.)
