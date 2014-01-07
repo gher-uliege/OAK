@@ -726,7 +726,7 @@ end interface
 
   real, allocatable :: tmp(:), d(:)
   real, allocatable :: Sp(:,:), Sigma(:), KSp(:,:), PaS(:,:)
-  real, allocatable :: sqrtPaS(:,:),S2(:,:), A(:,:)
+  real, allocatable :: sqrtPaS(:,:),S2(:,:), A(:,:), LCHc(:,:)
 
   if (present(method)) method_ = method
 
@@ -758,9 +758,13 @@ end interface
   Pc = newConsCovar(LC,Hc)
 
   write(6,*)'locensanalysis:',__LINE__
-  allocate(tmp(m),d(m))
+  allocate(tmp(m),d(m),LCHc(Pc%n,size(Hc,2)))
 
   d = yo - (Hs.x.xf)
+
+  ! covariance between conserved quantify and every other grid point
+  ! using localized covariance LC
+  LCHc = LC.x.Hc
 
   tmp = pcg(fun_Cx,yo - (Hs.x.xf))
 
@@ -821,7 +825,7 @@ contains
 
  function fun_Cx(y) result(Cy)
   real, intent(in) :: y(:)
-  real :: Hty(Pc%n), A(Pc%n,size(Hc,2))
+  real :: Hty(Pc%n)
   real :: Cy(size(y))
 
 !  if (.true.) then  
@@ -831,16 +835,10 @@ contains
    Hty = y.x.Hs
 !   Cy = (H .x. (Pc.x.Hty))
 
-!   write(6,*) 'call fun_Cx',__LINE__
-   A = LC.x.Hc
-!   write(6,*) 'call fun_Cx',__LINE__,sum(A)
-
    Cy = loccovar_project(LC,Hs,y)
-
-   Cy = Cy - (Hs.x.(Hc.x.(A.tx.Hty)))
-   Cy = Cy - (Hs.x.(A.x.(Hc.tx.Hty)))
-   Cy = Cy + (Hs.x.(Hc.x.(Hc.tx.(A.x.(Hc.tx.Hty)))))
-
+   Cy = Cy - (Hs.x.(Hc.x.(LCHc.tx.Hty)))
+   Cy = Cy - (Hs.x.(LCHc.x.(Hc.tx.Hty)))
+   Cy = Cy + (Hs.x.(Hc.x.(Hc.tx.(LCHc.x.(Hc.tx.Hty)))))
    
    Cy = Cy + (R.x.y)
   end if
