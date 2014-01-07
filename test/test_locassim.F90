@@ -524,6 +524,11 @@ program test
  use test_suite
  use matoper2
 
+ if (kind(real(1.)) <= 4) then
+   write(0,*) 'Error: tests require at least double precision'
+   stop
+ end if
+
  call test_sort
  call test_unique
  call test_locfun 
@@ -533,12 +538,12 @@ program test
  call test_sqrtm
 
 ! same results as matlab code test_locassim_fortran
- call run_test([3,2]) ! ok
+! call run_test([3,2]) ! ok
 
 ! call run_test([5,5])
  call run_test([5,5,10]) ! ok
-! call run_test_large([10,5,10],.false.)
-! call run_test_large([30,30,20],.false.) ! -> fail
+ call run_test_large([5,5,10],.false.) ! ok in double precision
+ call run_test_large([30,30,20],.false.) ! ok
 ! call run_test_large([80,80,30],.false.)
 end program test
 
