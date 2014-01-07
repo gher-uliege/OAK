@@ -107,8 +107,8 @@ contains
 !  write(6,*) 'j, w',w
 
   call locpoints(1,x,len,nnz,jj,w,[2])
-  write(6,*) 'w',jj(1:nnz)
-  write(6,*) 'j',w(1:nnz)
+!  write(6,*) 'w',jj(1:nnz)
+!  write(6,*) 'j',w(1:nnz)
 
   allocate(P(n,n))
   allocate(Pr(n,n))

@@ -757,7 +757,7 @@ end interface
   ! with conservation 
   Pc = newConsCovar(LC,Hc)
 
-  write(6,*)'locensanalysis:',__LINE__
+  !write(6,*)'locensanalysis:',__LINE__
   allocate(tmp(m),d(m),LCHc(Pc%n,size(Hc,2)))
 
   d = yo - (Hs.x.xf)
