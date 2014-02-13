@@ -259,6 +259,7 @@ contains
   use parall
 # endif
   use matoper
+  use matoper2
   implicit none
   character(len=*), intent(in) :: fname
   integer                      :: v,vmax,n
@@ -267,6 +268,9 @@ contains
   character(len=MaxFNameLength)            :: path
   real, pointer                :: maxCorr(:),tmp(:)
   integer                      :: NZones, zi, istat
+
+! for paritioning
+  integer, allocatable :: tmpi(:)
 
   initfname = fname
 
@@ -374,6 +378,12 @@ contains
     ! convertion real -> integer
     partition = tmp+.5
     deallocate(tmp)
+
+    ! deal with gaps in partition
+    allocate(tmpi(ModML%effsize))
+    tmpi = partition
+    call unique(tmpi,n,ind2 = partition)
+    deallocate(tmpi)
 
     call loadVector('Zones.corrLength',ModML,hCorrLengthToObs)
     call loadVector('Zones.maxLength',ModML,hMaxCorrLengthToObs)
@@ -3608,6 +3618,12 @@ end function
 
     integer :: indexj(ModML%effsize), nnz, i
     real :: w(ModML%effsize)
+!#define CELLGRID_SEARCH
+#ifdef CELLGRID_SEARCH
+    ! distance for internal function lpoints_cellgrid
+    real :: dist(ModML%effsize)
+    type(cellgrid) :: cg
+#endif
 
     allocate(Rc)
     call Rc%init(1./(invsqrtR**2))
@@ -3618,7 +3634,7 @@ end function
 
     write(6,*) 'len, leni, lenj ',len, leni, lenj,ModML%permute
     allocate(Hc(ModML%effsize,1))
-    !!! 'fix me'
+!!! 'fix me'
     Hc = 1
     ! normalize
     do i = 1,size(Hc,2)      
@@ -3627,26 +3643,32 @@ end function
 
     allocate(Sf2(ModML%effsize,size(Sf,2)))
     Sf2 = Sf
-    
-!    write(6,*) 'test ',modgrid(1:50,1)
-!    write(6,*) 'test ',modgrid(1:50,2)
-!    write(6,*) 'test ',modgrid(1:50,3)
+
+    !    write(6,*) 'test ',modgrid(1:50,1)
+    !    write(6,*) 'test ',modgrid(1:50,2)
+    !    write(6,*) 'test ',modgrid(1:50,3)
 
     ! should give the same
-!    do i = 1,100
-!    call lpoints(i,nnz,indexj,w)
-!    write(6,*) 'sum(indexj) ',sum(indexj(1:nnz)),sum(w(1:nnz)),nnz
-!    call locpoints2(i,modgrid,len,nnz,indexj,w)
-!    write(6,*) 'sum(indexj) ',sum(indexj(1:nnz)),sum(w(1:nnz)),nnz
-! end do
-!      stop
+    !    do i = 1,100
+    !    call lpoints(i,nnz,indexj,w)
+    !    write(6,*) 'sum(indexj) ',sum(indexj(1:nnz)),sum(w(1:nnz)),nnz
+    !    call locpoints2(i,modgrid,len,nnz,indexj,w)
+    !    write(6,*) 'sum(indexj) ',sum(indexj(1:nnz)),sum(w(1:nnz)),nnz
+    ! end do
+    !      stop
 
-!    call locensanalysis(xf,Sf2,H,yo,Rc,lpoints,Hc,xa,Sa)
-! test
+    !    call locensanalysis(xf,Sf2,H,yo,Rc,lpoints,Hc,xa,Sa)
+    ! test
+
+#ifdef CELLGRID_SEARCH
+    cg = setupgrid(modGrid,[leni/10.,lenj/10.])
+    call locensanalysis(xf,Sf2,H,yo,Rc,lpoints_cellgrid,Hc,xa)
+#else
     call locensanalysis(xf,Sf2,H,yo,Rc,lpoints,Hc,xa)
+#endif
     Sa = Sf
 
-    
+
     do i = 1,size(Hc,2)      
       write(6,*) 'Hc*(xf-xa) ',i, sum(Hc(:,i) * (xf-xa))
     end do
@@ -3655,87 +3677,103 @@ end function
     deallocate(Hc)
     deallocate(Sf2)
 
-    contains
-     subroutine lpoints(indexi,nnz,indexj,w,onlyj)
-      integer, intent(in) :: indexi
-      integer, intent(out) :: nnz,indexj(:)
-      real, intent(out) :: w(:)
-      integer, optional, intent(in) :: onlyj(:)  
-      
-      integer :: pi,pj,pk,pn,pv,pindexi
-      integer :: i,j,k,n,v
-      integer :: tj
-      logical :: valid
-      real :: tw
+   contains
+    subroutine lpoints(indexi,nnz,indexj,w,onlyj)
+     integer, intent(in) :: indexi
+     integer, intent(out) :: nnz,indexj(:)
+     real, intent(out) :: w(:)
+     integer, optional, intent(in) :: onlyj(:)  
 
-!      call locpoints(indexi,modGrid,len,nnz,indexj,w,onlyj)  
+     integer :: pi,pj,pk,pn,pv,pindexi
+     integer :: i,j,k,n,v
+     integer :: tj
+     logical :: valid
+     real :: tw
 
-      !pindexi = indexi
-      pindexi = zoneIndex(indexi)
-      call ind2sub(ModML,pindexi,pv,pi,pj,pk,pn)
-      nnz = 0
-      !write(6,*) 'indexi ',indexi,pindexi,pv,pi,pj,pk,pn
+     !      call locpoints(indexi,modGrid,len,nnz,indexj,w,onlyj)  
 
-      ! state vector is normally permuted for efficiency
-      ! in this case the z-dimension vary the fastest
-      ! therefore it is the most inner-loop
+     !pindexi = indexi
+     pindexi = zoneIndex(indexi)
+     call ind2sub(ModML,pindexi,pv,pi,pj,pk,pn)
+     nnz = 0
+     !write(6,*) 'indexi ',indexi,pindexi,pv,pi,pj,pk,pn
 
-      do v = 1,ModML%nvar
-        do n = 1,1
-          do j = max(pj-lenj, 1), min(pj+lenj, ModML%varshape(2,v))
-            do i = max(pi-leni, 1), min(pi+leni, ModML%varshape(1,v))
-              do k = 1,ModML%varshape(3,v)
-                tj = sub2ind(ModML,v,i,j,k,n,valid)
-                !write(6,*) 'v,i,j,k,n ',v,i,j,k,n,tj
+     ! state vector is normally permuted for efficiency
+     ! in this case the z-dimension vary the fastest
+     ! therefore it is the most inner-loop
 
-                if (valid) then
-                  tj = invZoneIndex(tj)
+     do v = 1,ModML%nvar
+       do n = 1,1
+         do j = max(pj-lenj, 1), min(pj+lenj, ModML%varshape(2,v))
+           do i = max(pi-leni, 1), min(pi+leni, ModML%varshape(1,v))
+             do k = 1,ModML%varshape(3,v)
+               tj = sub2ind(ModML,v,i,j,k,n,valid)
+               !write(6,*) 'v,i,j,k,n ',v,i,j,k,n,tj
 
-                  tw = locfun(distance(modGrid(indexi,:), &
-                       modGrid(tj,:))/len)
-                  
-                  if (tw /= 0.) then                
-                    nnz = nnz + 1
-                    indexj(nnz) = tj
-                    w(nnz) = tw
-                  end if
-                end if
-              end do
-            end do
-          end do
-        end do
-      end do
-      
-!      write(6,*) 'indexi ',indexi,nnz, maxval(w),minval(w),count(w > 0.5)
-     end subroutine lpoints
+               if (valid) then
+                 tj = invZoneIndex(tj)
+
+                 tw = locfun(distance(modGrid(indexi,:), &
+                      modGrid(tj,:))/len)
+
+                 if (tw /= 0.) then                
+                   nnz = nnz + 1
+                   indexj(nnz) = tj
+                   w(nnz) = tw
+                 end if
+               end if
+             end do
+           end do
+         end do
+       end do
+     end do
+
+     !      write(6,*) 'indexi ',indexi,nnz, maxval(w),minval(w),count(w > 0.5)
+    end subroutine lpoints
 
 
-  subroutine locpoints2(i,x,len,nnz,j,w)
-   integer, intent(in) :: i
-   real, intent(in) :: len, x(:,:)
-   integer, intent(out) :: nnz, j(:)
-   real, intent(out) :: w(:)
+    subroutine locpoints2(i,x,len,nnz,j,w)
+     integer, intent(in) :: i
+     real, intent(in) :: len, x(:,:)
+     integer, intent(out) :: nnz, j(:)
+     real, intent(out) :: w(:)
 
-   integer :: k
-   real :: dist(size(x,1)), tmp
+     integer :: k
+     real :: dist(size(x,1)), tmp
 
-   do k = 1,size(x,1)
-     dist(k) = distance(x(i,:),x(k,:))
-   end do
+     do k = 1,size(x,1)
+       dist(k) = distance(x(i,:),x(k,:))
+     end do
 
-   nnz = 0
+     nnz = 0
 
-   do k = 1,size(x,1)
-     tmp = locfun(dist(k)/len)
+     do k = 1,size(x,1)
+       tmp = locfun(dist(k)/len)
 
-     if (tmp /= 0.) then
-       nnz = nnz + 1
-       j(nnz) = k
-       w(nnz) = tmp
-     end if
-   end do
-  end subroutine locpoints2
+       if (tmp /= 0.) then
+         nnz = nnz + 1
+         j(nnz) = k
+         w(nnz) = tmp
+       end if
+     end do
+    end subroutine locpoints2
 
+#ifdef CELLGRID_SEARCH
+
+    subroutine lpoints_cellgrid(indexi,nnz,indexj,w,onlyj)
+     integer, intent(in) :: indexi
+     integer, intent(out) :: nnz,indexj(:)
+     real, intent(out) :: w(:)
+     integer, optional, intent(in) :: onlyj(:)  
+
+     integer :: k
+
+     call near(cg,modGrid(indexi,:),modGrid,distance,2*len,indexj,dist,nnz)
+     do k = 1,nnz
+       w(k) = locfun(dist(k)/len)
+     end do
+    end subroutine lpoints_cellgrid
+#endif
 
    end subroutine locanalysis2
 

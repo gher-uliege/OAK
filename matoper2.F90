@@ -1010,32 +1010,45 @@ contains
    call assert(all(sortedA == A(ind)),'quick sort (2)')
   end subroutine test_sort
 
+  ! returns all unique elements of A (inplace)
+  ! n is the number of unique elements
+  !
+  ! ind is a vector of indices for all unique elements in A
+  ! Anew(1:n) = Aold(ind)
+  ! Aold = Anew(ind2)
 
-  subroutine unique(A,n,ind)
+  subroutine unique(A,n,ind,ind2)
    DATA_TYPE, intent(inout) :: A(:)
    integer, intent(out) :: n
-   integer, intent(out), dimension(size(A)), optional :: ind
+   integer, intent(out), dimension(size(A)), optional :: ind, ind2
    
-   integer :: unique_index(size(A)), i
+   integer :: unique_index(size(A)), unique_index2(size(A)), i
    
    unique_index = [(i, i=1,size(A))]
    
-   call unique_(A,n,unique_index)
+   call unique_(A,n,unique_index,unique_index2)
    if (present(ind)) ind = unique_index
+   if (present(ind2)) ind2 = unique_index2
 
   contains
-   subroutine unique_(A,n,ind)
+   subroutine unique_(A,n,ind,ind2)
    DATA_TYPE, intent(inout) :: A(:)
    integer, intent(out) :: n
-   integer, intent(out), dimension(size(A)), optional :: ind
+   integer, intent(out), dimension(size(A)) :: ind
+   integer, intent(out), dimension(size(A)) :: ind2
 
    integer :: i
+   integer, dimension(size(A)) :: sort_ind
    
-   call sort(A,ind)
+   ind2 = 1
+   call sort(A,sort_ind)
+
    n = 1
    do i = 1,size(A)-1
+     ind2(sort_ind(i)) = n
+
      A(n) = A(i)
-     ind(n) = ind(i)
+     ind(n) = sort_ind(i)
 
      if (A(i) /= A(i+1)) then
        n = n+1
@@ -1043,19 +1056,22 @@ contains
    end do
 
    A(n) = A(size(A))
-   ind(n) = ind(size(A))
+   ind(n) = sort_ind(size(A))
+   ind2(sort_ind(size(A))) = n
 
   end subroutine unique_
  end subroutine unique
+
   subroutine test_unique
    implicit none
    integer, parameter :: n = 10
-   integer :: ind(n), i, nu
+   integer :: ind(n), ind2(n), i, nu
    integer, dimension(1:n) :: A = &  
         (/0, 20, 20, 25, 90, 10, 5, 20, 90, 75/), sortedA, uA, c
+!        (/0, 20, 20, 25, 30, 40, 50, 50, 90, 175/), sortedA, uA, c
    
    uA = A
-   call unique(uA,nu,ind)
+   call unique(uA,nu,ind,ind2)
 
    ! all elements in A must be one time in uA
    do i = 1,n
@@ -1068,6 +1084,7 @@ contains
    write(6,*) 'unique (1): OK'
 
    call assert(all(uA(1:nu) == A(ind(1:nu))),'unique (2)')
+   call assert(all(A == uA(ind2)),'unique (3)')
 
   end subroutine test_unique
 

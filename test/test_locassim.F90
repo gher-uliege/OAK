@@ -543,7 +543,7 @@ program test
 ! call run_test([5,5])
  call run_test([5,5,10]) ! ok
  call run_test_large([5,5,10],.false.) ! ok in double precision
- call run_test_large([30,30,20],.false.) ! ok
+! call run_test_large([30,30,20],.false.) ! ok
 ! call run_test_large([80,80,30],.false.)
 end program test
 
