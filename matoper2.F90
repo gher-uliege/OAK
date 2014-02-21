@@ -724,7 +724,7 @@ end interface
   integer :: i,m,n,Nens
   integer :: method_ = locensanalysis_SSt
 
-  real, allocatable :: tmp(:), d(:)
+  real, allocatable :: d(:)
   real, allocatable :: Sp(:,:), Sigma(:), KSp(:,:), PaS(:,:)
   real, allocatable :: sqrtPaS(:,:),S2(:,:), A(:,:), LCHc(:,:)
 
@@ -758,7 +758,7 @@ end interface
   Pc = newConsCovar(LC,Hc)
 
   !write(6,*)'locensanalysis:',__LINE__
-  allocate(tmp(m),d(m),LCHc(Pc%n,size(Hc,2)))
+  allocate(d(m),LCHc(Pc%n,size(Hc,2)))
 
   d = yo - (Hs.x.xf)
 
@@ -766,8 +766,8 @@ end interface
   ! using localized covariance LC
   LCHc = LC.x.Hc
 
-  tmp = pcg(fun_Cx,yo - (Hs.x.xf))
-
+  ! the function K is the Kalman gain
+  ! it uses LCHc and Pc
   xa = xf + K(d,n)
 
   if (present(Sa)) then
@@ -816,7 +816,7 @@ end interface
   
   end if
 
-  deallocate(tmp,d)
+  deallocate(d)
 contains
 
 
@@ -832,6 +832,7 @@ contains
   if (.false.) then  
     Cy = locenscovx(Pc,Hs,R,y)
   else
+    ! optimized version
    Hty = y.x.Hs
 !   Cy = (H .x. (Pc.x.Hty))
 
