@@ -780,7 +780,7 @@ with the tool "\code{genobsoper}".
 All diagnostics are optional and the corresponding files are output.
 
 \begin{keytabular}
-\code{DiagXXX.xf} & vector of strings & the model forecast
+\code{DiagXXX.xf} & vector of strings & the model forecast (ensemble mean)
 \\
 \code{DiagXXX.Hxf} & vector of strings & the observed part of the model forecast
 \\
@@ -788,6 +788,11 @@ All diagnostics are optional and the corresponding files are output.
 format. For the conversion into file names see the key
 \code{ErrorSpace.init}. The files represent
 the error modes of the model forecast.
+\\
+\code{DiagXXX.Ef} & vector of strings & Each string is a Fortran
+format. For the conversion into file names see the key
+\code{ErrorSpace.init}. The files represent
+the forecast ensemble.
 \\
 \code{DiagXXX.diagPf} & vector of strings & The diagonal elements of error
 covariance of the model forecast.
@@ -805,7 +810,7 @@ the error of the observed part of the model forecast.
 specified in \code{DiagXXX.*}. The current path is used by default.
 \\
 \hline
-\code{DiagXXX.xa} & vector of strings & the analysis
+\code{DiagXXX.xa} & vector of strings & the analysis (ensemble mean)
 \\
 \code{DiagXXX.Hxa} & vector of strings & the observed part of the analysis
 \\
@@ -813,6 +818,11 @@ specified in \code{DiagXXX.*}. The current path is used by default.
 format. For the conversion into filenames see the key
 \code{ErrorSpace.init}. The files represent
 the error modes of the analysis.
+\\
+\code{DiagXXX.Ea} & vector of strings & Each string is a Fortran
+format. For the conversion into file names see the key
+\code{ErrorSpace.init}. The files represent
+the analysis ensemble.
 \\
 \code{DiagXXX.diagPa} & vector string & The diagonal elements of error
 covariance of the analysis.
