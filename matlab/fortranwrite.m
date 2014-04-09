@@ -36,4 +36,5 @@ else
   error(['does not look like a fortran format:' fmt]);
 end
 
-str = strjoin('',p);
+%  strjoin from octave/matlab
+str = strjoin(p,'');
