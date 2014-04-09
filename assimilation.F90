@@ -2824,13 +2824,13 @@ end function
  !
  ! ntime: time index of the observation to assimilate as defined 
  !   by the initilisation file
- ! xf: forecasted statevector
+ ! xfp: forecasted statevector
  ! Sf: forecasted error space (error modes or ensemble)
- ! xa: analysed statevector
+ ! xap: analysed statevector
  ! Sa: analysed error space (error modes or ensemble)
  !
- ! if xf and xf are not present, then Sf is assumed to be an ensemble
- ! xf is then computed by calculating the mean of all culumns of Sf.
+ ! if xfp and xfp are not present, then Sf is assumed to be an ensemble
+ ! xfp is then computed by calculating the mean of all culumns of Sf.
  ! Sa will also be an ensemble in this case 
  !
  ! infix: "XXX." where XXX three digit time index
@@ -2965,6 +2965,7 @@ end function
 
 
   if (present(xfp)) then
+    ! Sf represent error modes
     xf => xfp
     xa => xap
 
@@ -3001,6 +3002,8 @@ end function
 
     write(stddebug,*) 'Sf ',shape(Sf),shape(xf),lbound(xf),ubound(xf)
     write(stddebug,*) 'HSf ',shape(HSf),shape(Hxf),lbound(Hxf),ubound(Hxf)
+
+    ! compute errors modes Sf and HSf
     do k=1,size(Sf,2)      
        Sf(:,k) = (Sf(:,k)-xf)/scaling
        HSf(:,k) = (HSf(:,k)-Hxf)/scaling
@@ -3188,6 +3191,7 @@ end function
 
       do k=1,size(Sa,2)
         Sa(:,k) = (Sa(:,k)-xa)/scaling
+        HSa(:,k) = (HSa(:,k)-Hxa)/scaling
       end do
     else
       Hxa = obsoper(H,xa) + Hshift
