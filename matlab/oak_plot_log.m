@@ -1,5 +1,11 @@
-function oak_plot_log(assimlog,freelog,var)
+% accum: 'monthly' for monthly accumulation or function hander
+% return index based on time 
 
+function oak_plot_log(assimlog,freelog,var,accum)
+
+if nargin == 3
+    accum = 'none';
+end
 
 rmsfree = oak_loadlog(freelog,var,'free','rms_yo-Hx');
 rmsf = oak_loadlog(assimlog,var,'forecast','rms_yo-Hx');
@@ -23,9 +29,27 @@ rmsf = rmsf(~isnan(t));
 rmsa = rmsa(~isnan(t));
 t = t(~isnan(t));
 
+% agregation
+if ~strcmp(accum,'none')
+    
+    if strcmp(accum,'monthly')
+        dv = datevec(t);
+        index = dv(:,2);
+    else
+        index = accum(t);
+    end
+    
+    rmsfree = accumarray_nanmean(index,rmsfree)';
+    rmsf = accumarray_nanmean(index,rmsf)';
+    rmsa = accumarray_nanmean(index,rmsa)';
+    t = 1:length(rmsf);
+end
 
 rmsfa = [rmsf; rmsa];
 tfa = [t; t];
+
+
+
 
 %whos rmsf rmsfa
 %rg(t)
@@ -35,7 +59,9 @@ plot(t,rmsfree,'k-',...
      'ro',tfa(2,:),rmsfa(2,:),'gx',...
      tfa(:),rmsfa(:),'-');
 
-datetick('x');
+if strcmp(accum,'none')
+  datetick('x');
+end
 
 legend('Free','Forecast','Analysis');
 
@@ -45,3 +71,5 @@ mf = sqrt(nanmean(rmsf.^2));
 ma = sqrt(nanmean(rmsa.^2));
 
 fprintf('%s: mean RMS free %10g forecast %10g analysis %10g \n',var,mfree,mf,ma)
+
+
