@@ -2883,7 +2883,7 @@ end function
   real, optional, intent(out)    :: Efanam(:,:),Eaanam(:,:)
 
   ! local variables
-  character(len=256)             :: prefix,path, str
+  character(len=256)             :: prefix,path, str, str2
   character(len=256)             :: infix
   character(len=256), pointer    :: obsnames(:)
   real, pointer :: xf(:),xa(:)
@@ -3285,8 +3285,19 @@ end function
       if (presentInitValue(initfname,'Diag'//trim(infix)//'amplitudes')) then
         call getInitValue(initfname,'Diag'//trim(infix)//'path',path)
         call getInitValue(initfname,'Diag'//trim(infix)//'amplitudes',str)
+        
         if (schemetype.eq.LocalScheme) then
-          call usave(trim(path)//str,LocAmplitudes,9999.)
+
+#         ifdef ASSIM_PARALLEL
+          do k=1,size(LocAmplitudes,1)
+            call parallGather(LocAmplitudes(k,startZIndex(procnum):endZIndex(procnum)),LocAmplitudes(k,:),      & 
+                 startIndexZones,endIndexZones,1)
+          end do
+#         endif
+
+          if (procnum == 1) then
+            call usave(trim(path)//str,LocAmplitudes,9999.)
+          end if
         else 
           call usave(trim(path)//str,amplitudes,9999.)
         end if

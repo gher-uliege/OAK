@@ -491,30 +491,49 @@ end subroutine
  !  xf: subset of state vector
  !  startIndexZones,endIndexZones: start and end indeces of each zone
  !    vector of Nzones integers where Nzones if the number of zones
+ !  vectype: 0 for state vector (default) and 1 for vector of a size equal to the 
+ !     number of zones
  ! Output:
  !  xt: gathered total vector
 
- subroutine parallGather(xf,xt,startIndexZones,endIndexZones)
+ subroutine parallGather(xf,xt,startIndexZones,endIndexZones, vectype)
   implicit none
   real, intent(in) :: xf(:)
   real, intent(out):: xt(:)
   integer, intent(in) :: startIndexZones(:),endIndexZones(:)
+  integer, intent(in), optional :: vectype
   integer, allocatable :: rcount(:),rdispls(:)
   integer          :: ierr,k,j1,j2,baseIndex
-
+  
+  integer :: type = 0
   real :: dummy(1)
 
+  if (present(vectype)) type = vectype
+
 #ifdef ASSIM_PARALLEL
-  j1 = startIndexZones(startZIndex(procnum))
-  j2 =   endIndexZones(  endZIndex(procnum))
+
+  if (type == 0) then
+    j1 = startIndexZones(startZIndex(procnum))
+    j2 =   endIndexZones(  endZIndex(procnum))
+  else
+    j1 = startZIndex(procnum)
+    j2 =   endZIndex(procnum)
+  end if
+
 
   baseIndex = -j1+1
 
   allocate(rcount(nbprocs),rdispls(nbprocs))
 
-  ! revieve count and displacements
-  rcount = endIndexZones(endZIndex) - startIndexZones(startZIndex) + 1
-  rdispls = startIndexZones(startZIndex) -1
+  if (type == 0) then
+    ! revieve count and displacements
+    rcount = endIndexZones(endZIndex) - startIndexZones(startZIndex) + 1
+    rdispls = startIndexZones(startZIndex) -1
+  else
+    ! revieve count and displacements
+    rcount = endZIndex - startZIndex + 1
+    rdispls = startZIndex -1
+  end if
 
 # ifdef DEBUG
 !  write(stdout,*) 'rdispls ',rdispls
