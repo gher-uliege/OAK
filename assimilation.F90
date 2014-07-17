@@ -3210,10 +3210,6 @@ end function
   !
 
 
-! for all
-! fix me
-!  if (procnum.eq.1) then
-  if (.true.) then
   !
   ! write some information in the log file
   ! rms take only into accound points inside the grid
@@ -3359,7 +3355,6 @@ end function
 #   endif
 
     deallocate(obsnames)
-  end if
 
   !
   ! end diagonistics
