@@ -12,10 +12,12 @@ randn('state',0)
 
 init = InitFile(initfile);
 
+cd(testdir)
 
 partname = get(init,'Zones.partition');
 path = get(init,'Zones.path');
 
+modml = oak_memlayout(init,'Model');
 maskv = ones(modml.VarShape(:,1));
 
 part = gen_part(maskv);
@@ -26,7 +28,6 @@ end
 
 
 scheduler = SchedulerShell();
-cd(testdir)
 
 n = 1;
 Ef = oak_assim(Eic,n,data,scheduler);
