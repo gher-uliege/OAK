@@ -33,19 +33,39 @@ n = 1;
 Ef = oak_assim(Eic,n,data,scheduler);
 
 inc = full(load(init,mask(Eic),'Diag001.xa-xf'));
-
+xf = full(load(init,mask(Eic),'Diag001.xf'));
+xa = full(load(init,mask(Eic),'Diag001.xa'));
 a = gread(fullfile(get(init,'Diag001.path'),get(init,'Diag001.amplitudes')));
+
+assert( rms(inc,xa-xf) < 1e-5)
+disp('increment: OK');
 
 data.filename = fullfile(currentdir,'test_assim_local_mpi.init');
 
 Ef2 = oak_assim(Eic,n,data,scheduler);
+
+inc2 = full(load(init,mask(Eic),'Diag001.xa-xf'));
+xf2 = full(load(init,mask(Eic),'Diag001.xf'));
+xa2 = full(load(init,mask(Eic),'Diag001.xa'));
 a2 = gread(fullfile(get(init,'Diag001.path'),get(init,'Diag001.amplitudes')));
 
 cd(currentdir)
 
+
+assert( rms(xf2,xf) < 1e-5)
+disp('forecast: OK');
+
+assert( rms(xa2,xa) < 1e-5)
+disp('analysis: OK');
+
+assert( rms(inc2,inc) < 1e-5)
+disp('inc: OK');
 
 assert( rms(a2,a) < 1e-5)
 disp('amplitudes: OK');
 
 assert( rms(full(Ef2),full(Ef)) < 1e-5)
 disp('ensemble: OK');
+
+
+

@@ -505,9 +505,10 @@ end subroutine
   integer, allocatable :: rcount(:),rdispls(:)
   integer          :: ierr,k,j1,j2,baseIndex
   
-  integer :: type = 0
+  integer :: type
   real :: dummy(1)
 
+  type = 0
   if (present(vectype)) type = vectype
 
 #ifdef ASSIM_PARALLEL
@@ -536,9 +537,10 @@ end subroutine
   end if
 
 # ifdef DEBUG
-!  write(stdout,*) 'rdispls ',rdispls
+!  write(stdout,*) 'rdispls ',rdispls,type
 !  write(stdout,*) 'rcount ',rcount
 # endif
+
 
   ! only master get the complete x
 
