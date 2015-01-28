@@ -198,7 +198,8 @@ module assimilation
   integer :: schemetype
   integer, parameter :: &
       GlobalScheme  = 0, &           ! (default)
-      LocalScheme   = 1    
+      LocalScheme   = 1, &    
+      EWPFScheme   = 2
 
  ! type of localization
  ! 1: horizontal distance (default)
@@ -2898,6 +2899,7 @@ end function
        yo_Hxf, yo_Hxa, innov_projection, Hshift, Hbf
   real, allocatable, dimension(:,:) :: HSf, HSa, locAmplitudes
 
+
 !!$  real, pointer, dimension(:) :: yo, Hxf, Hxa, invsqrtR, &
 !!$       yo_Hxf, yo_Hxa, innov_projection, Hshift, Hbf
 !!$  real, pointer, dimension(:,:) :: HSf, HSa
@@ -2911,7 +2913,8 @@ end function
   integer :: bindex=1
 # endif
 
-
+  real, pointer :: weight(:),weighta(:)
+  real :: valex
 
 
 # ifdef _OPENMP
@@ -3117,6 +3120,24 @@ end function
            call locanalysis(zoneSize,selectObservations, &
                 xf,Hxf,yo,Sf,HSf,invsqrtR, xa,Sa,locAmplitudes)
         end if
+     elseif (schemetype.eq.EWPFScheme) then
+       write(6,*) 'here'
+       
+       call getInitValue(initfname,'ErrorSpace.path',path)
+       call getInitValue(initfname,'ErrorSpace.weight',str)
+       call uload(trim(path)//str,weight,valex)
+       
+       allocate(weighta(size(weight,1)))
+       call ewpf_analysis(xf,Sf,weight,H,invsqrtR,yo,xa,Sa,weighta)
+       write(6,*) 'here',weight
+       weighta = 2
+
+       call getInitValue(initfname,'Diag'//trim(infix)//'path',path)
+       call getInitValue(initfname,'Diag'//trim(infix)//'weighta',str)
+       call usave(trim(path)//str,weighta,9999.)
+       deallocate(weight,weighta)
+
+
      else
 !$omp master
         if (biastype.eq.ErrorFractionBias) then
@@ -4209,6 +4230,127 @@ subroutine ensAnalysisAnamorph2(yo,Ef,HEf,invsqrtR,  &
   end if
 end subroutine anamtransform
 
+!------------------------------------------------------------------
+
+subroutine ewpf_analysis(xf,Sf,weight,H,invsqrtR, &
+     !sqrtQ, &
+     yo,xa,Sa,weighta)
+ use matoper
+ use sangoma_ewpf
+ implicit none
+ real, intent(in) :: xf(:),Sf(:,:),weight(:),invsqrtR(:),yo(:)
+ real, intent(out) :: xa(:),Sa(:,:),weighta(:)
+ type(SparseMatrix), intent(in)  :: H
+! type(SparseMatrix), intent(in)  :: sqrtQ
+
+ real :: keep = 90.
+ real :: nstd = 0.01,ufac = 0.01,efac = 0.01
+! integer :: nstd = 0,ufac = 0,efac = 0
+
+ real :: Qscale = 0.1
+
+ real, allocatable :: X(:,:)
+ integer :: i
+
+ allocate(X(size(xf,1),size(Sf,2)))
+
+ do i=1,size(Sf,2)
+   X(:,i) = xf + Sf(:,i)
+ end do
+
+ weighta = weight
+ call equal_weight_step(size(xf),size(yo),size(Sf,2), &
+      weighta,X,yo,keep,nstd,ufac,efac, &
+      cb_H, cb_HT, cb_solve_hqht_plus_r, cb_solve_r, cb_Qhalf)
+
+
+ xa = sum(X,2) / size(X,2)
+ do i=1,size(Sf,2)
+   Sa(:,i) = X(:,i) - xa
+ end do
+
+ deallocate(X)
+contains
+
+ subroutine cb_H(Nx,Ny,Ne,vec_in,vec_out) bind(C)
+  use, intrinsic :: ISO_C_BINDING
+  use sangoma_base, only: REALPREC, INTPREC
+  implicit none
+  
+  integer(INTPREC), value, intent(in) :: Nx,Ny,Ne             ! state, observation and ensemble dimensions
+  real(REALPREC), intent(in), dimension(Nx,Ne) :: vec_in      ! input vector in state space to which
+  ! to apply the observation operator h, e.g. h(x)
+  real(REALPREC), intent(inout), dimension(Ny,Ne) :: vec_out  ! resulting vector in observation space
+
+  vec_out = H.x.vec_in
+
+ end subroutine cb_H
+
+ subroutine cb_HT(Nx,Ny,Ne,vec_in,vec_out) bind(C)
+  use, intrinsic :: ISO_C_BINDING
+  use sangoma_base, only: REALPREC, INTPREC
+  implicit none
+  
+  integer(INTPREC), value, intent(in) :: Nx,Ny,Ne            ! state, observation and ensemble dimensions
+  real(REALPREC), intent(in), dimension(Ny,Ne) :: vec_in     ! input vector in observation space to which
+  ! to apply the observation operator h, e.g. h^T(x)
+  real(REALPREC), intent(inout), dimension(Nx,Ne) :: vec_out ! resulting vector in state space
+  
+  vec_out = vec_in.x.H
+ end subroutine cb_HT
+
+
+ subroutine cb_solve_hqht_plus_r(Ny,Ne,vec_in,vec_out) bind(C)
+  use, intrinsic :: ISO_C_BINDING
+  use sangoma_base, only: REALPREC, INTPREC
+  implicit none
+  
+  integer(INTPREC), value, intent(in) :: Ny,Ne                ! observation and ensemble dimensions
+  real(REALPREC), intent(in), dimension(Ny,Ne) :: vec_in      ! vector in observation space to which to
+  ! apply the observation error covariances R,
+  ! e.g. (HQH^T+R)^{-1}(d)
+  real(REALPREC), intent(inout), dimension(Ny,Ne) :: vec_out  ! resulting vector in observation space
+
+  ! TODO
+
+ end subroutine cb_solve_hqht_plus_R
+
+
+ subroutine cb_solve_r(Ny,Ne,vec_in,vec_out) bind(C)
+  use, intrinsic :: ISO_C_BINDING
+  use sangoma_base, only: REALPREC, INTPREC
+  implicit none
+  
+  integer(INTPREC), value, intent(in) :: Ny,Ne               ! observation and ensemble dimensions
+  real(REALPREC), intent(in), dimension(Ny,Ne) :: vec_in     ! input vector in observation space 
+  ! which to apply the inverse observation error
+  ! covariances R, e.g. R^{-1}(d)
+  real(REALPREC), intent(inout), dimension(Ny,Ne) :: vec_out ! resulting vector in observation space
+  integer :: k
+
+  do k = 1,Ne
+    vec_out(:,k) = invsqrtR**2 * vec_in(:,k)
+  end do
+ end subroutine cb_solve_r
+
+ subroutine cb_Qhalf(Nx,Ne,vec_in,vec_out) bind(C)
+  use, intrinsic :: ISO_C_BINDING
+  use sangoma_base, only: REALPREC, INTPREC
+  implicit none
+  
+  integer(INTPREC), value, intent(in) :: Nx,Ne               ! state and ensemble dimensions
+  real(REALPREC), intent(in), dimension(Nx,Ne) :: vec_in     ! vector in state space to which to apply
+                                                                     ! the squarerooted model error covariances 
+                                                                     ! Q^{1/2}, e.g. Q^{1/2}(d)
+  real(REALPREC), intent(inout), dimension(Nx,Ne) :: vec_out ! resulting vector in state space!!!
+
+!  vec_out = sqrtQ.x.vec_in
+  vec_out = 0
+ end subroutine cb_Qhalf
+
+
+ 
+end subroutine ewpf_analysis
 
 
 
