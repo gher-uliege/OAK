@@ -4243,8 +4243,8 @@ subroutine ewpf_analysis(xf,Sf,weight,H,invsqrtR, &
  type(SparseMatrix), intent(in)  :: H
 ! type(SparseMatrix), intent(in)  :: sqrtQ
 
- real :: keep = 90.
- real :: nstd = 0.01,ufac = 0.01,efac = 0.01
+ real :: keep = 0.80
+ real :: nstd = 1.,ufac = 0.00001,efac
 ! integer :: nstd = 0,ufac = 0,efac = 0
 
  real :: Qscale = 0.1
@@ -4252,6 +4252,7 @@ subroutine ewpf_analysis(xf,Sf,weight,H,invsqrtR, &
  real, allocatable :: X(:,:)
  integer :: i
 
+ efac = 0.001/size(Sf,2)
  allocate(X(size(xf,1),size(Sf,2)))
 
  do i=1,size(Sf,2)
@@ -4259,10 +4260,13 @@ subroutine ewpf_analysis(xf,Sf,weight,H,invsqrtR, &
  end do
 
  weighta = weight
+
+ write(6,*) 'here',__LINE__
  call equal_weight_step(size(xf),size(yo),size(Sf,2), &
       weighta,X,yo,keep,nstd,ufac,efac, &
       cb_H, cb_HT, cb_solve_hqht_plus_r, cb_solve_r, cb_Qhalf)
 
+ write(6,*) 'here',__LINE__,weighta
 
  xa = sum(X,2) / size(X,2)
  do i=1,size(Sf,2)
@@ -4282,7 +4286,9 @@ contains
   ! to apply the observation operator h, e.g. h(x)
   real(REALPREC), intent(inout), dimension(Ny,Ne) :: vec_out  ! resulting vector in observation space
 
+  write(6,*) 'H'
   vec_out = H.x.vec_in
+  write(6,*) 'H end'
 
  end subroutine cb_H
 
@@ -4295,9 +4301,33 @@ contains
   real(REALPREC), intent(in), dimension(Ny,Ne) :: vec_in     ! input vector in observation space to which
   ! to apply the observation operator h, e.g. h^T(x)
   real(REALPREC), intent(inout), dimension(Nx,Ne) :: vec_out ! resulting vector in state space
-  
-  vec_out = vec_in.x.H
+
+  write(6,*) 'HT'
+  !vec_out = transpose(transpose(vec_in).x.H)
+  vec_out = H.tx.vec_in
+  write(6,*) 'HT end',sum( (vec_out - transpose(transpose(vec_in).x.H))**2)
  end subroutine cb_HT
+
+ function hqht_plus_r(vec_in) result (vec_out)
+  implicit none
+  real, intent(in) :: vec_in(:)
+  ! e.g. (HQH^T+R) vec_in
+  real :: vec_out(size(vec_in))
+  
+  ! (HQH^T+R) vec_in
+  ! H (Q (H^T * vec_in)) + R *vec_in
+
+  ! R * vec_in
+  write(6,*) 'HQHt_plus_R',__LINE__,vec_in
+  write(6,*) 'HQHt_plus_R',__LINE__,H%n,H%m,H%nz
+  vec_out = H.x.(Qscale  * (H.tx.vec_in))
+  write(6,*) 'HQHt_plus_R',__LINE__
+
+  ! R * vec_in
+  vec_out = vec_out + vec_out / (invsqrtR**2)
+  write(6,*) 'HQHt_plus_R',__LINE__, vec_out
+
+ end function hqht_plus_r
 
 
  subroutine cb_solve_hqht_plus_r(Ny,Ne,vec_in,vec_out) bind(C)
@@ -4311,10 +4341,27 @@ contains
   ! e.g. (HQH^T+R)^{-1}(d)
   real(REALPREC), intent(inout), dimension(Ny,Ne) :: vec_out  ! resulting vector in observation space
 
-  ! TODO
+  integer :: k
+  real :: residual(Ny),relres
+
+  do k = 1,Ne
+    write(6,*) 'start ',k,vec_in(:,k)
+    vec_out(:,k) = hqht_plus_r(vec_in(:,k))
+    write(6,*) 'apply ',k,vec_out(:,k)
+
+    vec_out(:,k) = pcg(hqht_plus_r,vec_in(:,k),relres=relres)
+
+
+    residual = hqht_plus_r(vec_out(:,k)) - vec_in(:,k)
+    write(6,*) 'residual ', residual
+
+    write(6,*) 'residual ', relres
+    write(6,*) 'residual ', sqrt(sum(residual**2)/sum(vec_in(:,k)**2))
+
+    !write(6,*) 'residual ', (hqht_plus_r(vec_out(:,k)) - vec_in(:,k))
+  end do
 
  end subroutine cb_solve_hqht_plus_R
-
 
  subroutine cb_solve_r(Ny,Ne,vec_in,vec_out) bind(C)
   use, intrinsic :: ISO_C_BINDING
@@ -4345,7 +4392,7 @@ contains
   real(REALPREC), intent(inout), dimension(Nx,Ne) :: vec_out ! resulting vector in state space!!!
 
 !  vec_out = sqrtQ.x.vec_in
-  vec_out = 0
+  vec_out = sqrt(Qscale) * vec_in
  end subroutine cb_Qhalf
 
 

@@ -358,6 +358,62 @@ end function
 !_______________________________________________________
 !
 
+function ssparsematT_mult_vec_TYPE(A,B) result(C)
+implicit none
+type(SparseMatrix), intent(in) :: A
+REAL_TYPE, intent(in) :: B(:)
+REAL_TYPE :: C(A%n)
+integer :: k
+
+#ifdef DEBUG
+if (A%m.ne.size(B)) then
+  write(stderr,*) 'ssparsematT_mult_svec: size not conform: A.tx.B '
+  write(stderr,*) 'shape(A) ',A%m,A%n
+  write(stderr,*) 'shape(B) ',shape(B)
+  stop
+end if
+#endif
+
+C = 0
+
+do k=1,A%nz
+  C(A%j(k)) = C(A%j(k)) + A%s(k) * B(A%i(k))
+end do
+
+end function
+
+!_______________________________________________________
+!
+
+function ssparsematT_mult_mat_TYPE(A,B) result(C)
+implicit none
+type(SparseMatrix), intent(in) :: A
+REAL_TYPE, intent(in) :: B(:,:)
+REAL_TYPE :: C(A%n,size(B,2))
+integer :: k,l
+
+#ifdef DEBUG
+if (A%m.ne.size(B,1)) then
+  write(stderr,*) 'ssparsematT_mult_smat: size not conform: A.tx.B '
+  write(stderr,*) 'shape(A) ',A%m,A%n
+  write(stderr,*) 'shape(B) ',shape(B)
+  stop
+end if
+#endif
+
+C = 0
+
+do l=1,size(B,2)
+  do k=1,A%nz
+    C(A%j(k),l) = C(A%j(k),l) + A%s(k) * B(A%i(k),l)
+  end do
+end do
+
+end function
+
+!_______________________________________________________
+!
+
 function matT_mult_vec_TYPE(A,B) result(C)
 implicit none
 REAL_TYPE, intent(in) :: A(:,:), B(:)
