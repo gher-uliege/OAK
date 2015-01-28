@@ -4266,6 +4266,18 @@ subroutine ewpf_analysis(xf,Sf,weight,H,invsqrtR, &
       weighta,X,yo,keep,nstd,ufac,efac, &
       cb_H, cb_HT, cb_solve_hqht_plus_r, cb_solve_r, cb_Qhalf)
 
+
+ !proposal_step(Nx,Ny,Ne,weight,x_n,x_n1,y,timestep,obsstep,steps_btw_obs, &
+ !          cb_H, cb_HT, cb_Qhalf, cb_solve_r)
+
+ write(6,*) 'here',__LINE__,weighta
+
+ call proposal_step(size(xf),size(yo),size(Sf,2), &
+      weighta,X, &
+      X, & ! previous time step
+      yo,1,20,20, &
+      cb_H, cb_HT, cb_Qhalf, cb_solve_r)
+ 
  write(6,*) 'here',__LINE__,weighta
 
  xa = sum(X,2) / size(X,2)
@@ -4286,9 +4298,9 @@ contains
   ! to apply the observation operator h, e.g. h(x)
   real(REALPREC), intent(inout), dimension(Ny,Ne) :: vec_out  ! resulting vector in observation space
 
-  write(6,*) 'H'
+  !write(6,*) 'H'
   vec_out = H.x.vec_in
-  write(6,*) 'H end'
+  !write(6,*) 'H end'
 
  end subroutine cb_H
 
@@ -4302,10 +4314,10 @@ contains
   ! to apply the observation operator h, e.g. h^T(x)
   real(REALPREC), intent(inout), dimension(Nx,Ne) :: vec_out ! resulting vector in state space
 
-  write(6,*) 'HT'
+  !write(6,*) 'HT'
   !vec_out = transpose(transpose(vec_in).x.H)
   vec_out = H.tx.vec_in
-  write(6,*) 'HT end',sum( (vec_out - transpose(transpose(vec_in).x.H))**2)
+  !write(6,*) 'HT end',sum( (vec_out - transpose(transpose(vec_in).x.H))**2)
  end subroutine cb_HT
 
  function hqht_plus_r(vec_in) result (vec_out)
@@ -4318,15 +4330,10 @@ contains
   ! H (Q (H^T * vec_in)) + R *vec_in
 
   ! R * vec_in
-  write(6,*) 'HQHt_plus_R',__LINE__,vec_in
-  write(6,*) 'HQHt_plus_R',__LINE__,H%n,H%m,H%nz
   vec_out = H.x.(Qscale  * (H.tx.vec_in))
-  write(6,*) 'HQHt_plus_R',__LINE__
 
   ! R * vec_in
   vec_out = vec_out + vec_out / (invsqrtR**2)
-  write(6,*) 'HQHt_plus_R',__LINE__, vec_out
-
  end function hqht_plus_r
 
 
@@ -4345,18 +4352,17 @@ contains
   real :: residual(Ny),relres
 
   do k = 1,Ne
-    write(6,*) 'start ',k,vec_in(:,k)
-    vec_out(:,k) = hqht_plus_r(vec_in(:,k))
-    write(6,*) 'apply ',k,vec_out(:,k)
+!    write(6,*) 'start ',k,vec_in(:,k)
+!    vec_out(:,k) = hqht_plus_r(vec_in(:,k))
+!    write(6,*) 'apply ',k,vec_out(:,k)
 
     vec_out(:,k) = pcg(hqht_plus_r,vec_in(:,k),relres=relres)
 
+!    residual = hqht_plus_r(vec_out(:,k)) - vec_in(:,k)
+!    write(6,*) 'residual ', residual
 
-    residual = hqht_plus_r(vec_out(:,k)) - vec_in(:,k)
-    write(6,*) 'residual ', residual
-
-    write(6,*) 'residual ', relres
-    write(6,*) 'residual ', sqrt(sum(residual**2)/sum(vec_in(:,k)**2))
+!    write(6,*) 'residual ', relres
+!    write(6,*) 'residual ', sqrt(sum(residual**2)/sum(vec_in(:,k)**2))
 
     !write(6,*) 'residual ', (hqht_plus_r(vec_out(:,k)) - vec_in(:,k))
   end do
