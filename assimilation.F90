@@ -2841,13 +2841,13 @@ end function
  !
  ! ntime: time index of the observation to assimilate as defined 
  !   by the initilisation file
- ! xf: forecasted statevector
+ ! xfp: forecasted statevector
  ! Sf: forecasted error space (error modes or ensemble)
- ! xa: analysed statevector
+ ! xap: analysed statevector
  ! Sa: analysed error space (error modes or ensemble)
  !
- ! if xf and xf are not present, then Sf is assumed to be an ensemble
- ! xf is then computed by calculating the mean of all culumns of Sf.
+ ! if xfp and xfp are not present, then Sf is assumed to be an ensemble
+ ! xfp is then computed by calculating the mean of all culumns of Sf.
  ! Sa will also be an ensemble in this case 
  !
  ! infix: "XXX." where XXX three digit time index
@@ -2900,7 +2900,7 @@ end function
   real, optional, intent(out)    :: Efanam(:,:),Eaanam(:,:)
 
   ! local variables
-  character(len=256)             :: prefix,path, str
+  character(len=256)             :: prefix,path, str, str2
   character(len=256)             :: infix
   character(len=256), pointer    :: obsnames(:)
   real, pointer :: xf(:),xa(:)
@@ -2983,6 +2983,7 @@ end function
 
 
   if (present(xfp)) then
+    ! Sf represent error modes
     xf => xfp
     xa => xap
 
@@ -3019,6 +3020,8 @@ end function
 
     write(stddebug,*) 'Sf ',shape(Sf),shape(xf),lbound(xf),ubound(xf)
     write(stddebug,*) 'HSf ',shape(HSf),shape(Hxf),lbound(Hxf),ubound(Hxf)
+
+    ! compute errors modes Sf and HSf
     do k=1,size(Sf,2)      
        Sf(:,k) = (Sf(:,k)-xf)/scaling
        HSf(:,k) = (HSf(:,k)-Hxf)/scaling
@@ -3214,6 +3217,7 @@ end function
 
       do k=1,size(Sa,2)
         Sa(:,k) = (Sa(:,k)-xa)/scaling
+        HSa(:,k) = (HSa(:,k)-Hxa)/scaling
       end do
     else
       Hxa = obsoper(H,xa) + Hshift
@@ -3232,10 +3236,6 @@ end function
   !
 
 
-! for all
-! fix me
-!  if (procnum.eq.1) then
-  if (.true.) then
   !
   ! write some information in the log file
   ! rms take only into accound points inside the grid
@@ -3307,8 +3307,19 @@ end function
       if (presentInitValue(initfname,'Diag'//trim(infix)//'amplitudes')) then
         call getInitValue(initfname,'Diag'//trim(infix)//'path',path)
         call getInitValue(initfname,'Diag'//trim(infix)//'amplitudes',str)
+        
         if (schemetype.eq.LocalScheme) then
-          call usave(trim(path)//str,LocAmplitudes,9999.)
+
+#         ifdef ASSIM_PARALLEL
+          do k=1,size(LocAmplitudes,1)
+            call parallGather(LocAmplitudes(k,startZIndex(procnum):endZIndex(procnum)),LocAmplitudes(k,:),      & 
+                 startIndexZones,endIndexZones,1)
+          end do
+#         endif
+
+          if (procnum == 1) then
+            call usave(trim(path)//str,LocAmplitudes,9999.)
+          end if
         else 
           call usave(trim(path)//str,amplitudes,9999.)
         end if
@@ -3370,7 +3381,6 @@ end function
 #   endif
 
     deallocate(obsnames)
-  end if
 
   !
   ! end diagonistics

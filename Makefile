@@ -135,7 +135,7 @@ $(ASSIM_PROG): $(ASSIM_OBJS)
 assim.o: assim.F90 assimilation.o initfile.o matoper.o rrsqrt.o ufileformat.o \
 	ppdef.h 
 
-ndgrid.o: ndgrid.F90 matoper.o ufileformat.o ppdef.h
+ndgrid.o: ndgrid.F90 ndgrid_inc.F90 matoper.o ufileformat.o ppdef.h 
 
 parall.o: parall.F90 ppdef.h
 

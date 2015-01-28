@@ -193,6 +193,9 @@ contains
     w = 1./sqrt(1.*r)
     v = UT.tx.(sum(UT,2)/sqrt_lambda)
     v = normate(v)
+
+! RotateVector(w,v) is generally the identity matrix
+
     Sa = Sf.x.(UT.tx.(sqrt_lambda.dx.(UT.x.RotateVector(w,v))))
 #   endif
   end if

@@ -5,7 +5,7 @@
 # See comments at the end of this file.
 
 
-Config.exec = '~/Assim/OAK/assim-gfortran-single'
+Config.exec = 'mpirun -np 4 ~/Assim/OAK/assim-gfortran-single-mpi'
 #Config.calendar = 'standard'
 #Config.time_origin  = '0001-01-01T00:00:00'
 
@@ -39,11 +39,16 @@ runtype = 2
 #   0 = global assimilation (default)
 #   1 = local assimilation
 
-schemetype = 0
+schemetype = 1
+
+# 0 cartesian
+# 1 spherical (default): gridX and gridY represent longitude and latitude in degrees
+
+metrictype = 0
 
 Zones.partition        = ['domain.nc#part','domain.nc#part']
-Zones.corrLength.const = [           30e3,             30e3]
-Zones.maxLength.const  = [         2000e3,           2000e3]
+Zones.corrLength.const = [           3,             3]
+Zones.maxLength.const  = [         25,          25]
 Zones.path = 'Common/'
 
  
@@ -87,7 +92,9 @@ Obs002.rmse       = [      'obs1.nc#rmse']
 Diag*.stddevxf  =  ['stddevxf.nc#var1','stddevxf.nc#var2']
 Diag*.stddevxa  =  ['stddevxa.nc#var1','stddevxa.nc#var2']
 Diag*.xf        =  ['forecast.nc#var1','forecast.nc#var2']
+Diag*.xa        =  [      'xa.nc#var1',      'xa.nc#var2']
 Diag*.xa-xf     =  [     'inc.nc#var1',     'inc.nc#var2']
+Diag*.amplitudes     =  'amplitudes.u'
 Diag*.Ea      = ['("../Ens",I3.3,"/model_an.nc#var1")','("../Ens",I3.3,"/model_an.nc#var2")']
 
 

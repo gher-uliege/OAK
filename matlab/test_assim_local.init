@@ -92,7 +92,9 @@ Obs002.rmse       = [      'obs1.nc#rmse']
 Diag*.stddevxf  =  ['stddevxf.nc#var1','stddevxf.nc#var2']
 Diag*.stddevxa  =  ['stddevxa.nc#var1','stddevxa.nc#var2']
 Diag*.xf        =  ['forecast.nc#var1','forecast.nc#var2']
+Diag*.xa        =  [      'xa.nc#var1',      'xa.nc#var2']
 Diag*.xa-xf     =  [     'inc.nc#var1',     'inc.nc#var2']
+Diag*.amplitudes     =  'amplitudes.u'
 Diag*.Ea      = ['("../Ens",I3.3,"/model_an.nc#var1")','("../Ens",I3.3,"/model_an.nc#var2")']
 
 
