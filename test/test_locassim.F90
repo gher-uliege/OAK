@@ -17,6 +17,7 @@ contains
  end function testens
 
  subroutine run_test(sz)
+  use matoper
   use matoper2
 
   integer, intent(in) :: sz(:)

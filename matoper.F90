@@ -805,6 +805,144 @@ end function ssparsemat_mult_ssparsemat
 #include "matoper_inc.F90"
 
 
+
+ function pcg(fun,b,x0,tol,maxit,pc,nit) result(x)
+
+  interface 
+    function fun(x) result(y)
+     real, intent(in) :: x(:)
+     real :: y(size(x))
+    end function fun
+  end interface
+
+  interface 
+    function pc(x) result(y)
+     real, intent(in) :: x(:)
+     real :: y(size(x))
+    end function pc
+  end interface
+
+  optional pc
+  !   class(Covar), intent(in) :: A
+  real, intent(in) :: b(:)
+  real :: x(size(b))
+  real, intent(in), optional :: x0(:)
+  real, intent(in), optional :: tol
+  integer, intent(in), optional :: maxit
+  integer, intent(out), optional :: nit
+
+  !   class(Covar) :: pc
+  real :: tol_, zr_old, zr_new
+  real, pointer :: alpha(:), beta(:)
+  integer :: maxit_
+  integer :: n, k
+  real :: tol2
+  real, dimension(size(x)) :: Ap, p, r, r_old, z
+
+  n = size(b)
+  ! default parameters
+  maxit_ = min(n,100)
+  tol_ = 1e-6
+
+  if (present(tol)) tol_ = tol
+  if (present(maxit)) maxit_ = maxit
+
+
+  allocate(alpha(maxit_+1),beta(maxit_+1))
+
+  ! initial guess
+  if (present(x0)) then
+    x = x0
+  else
+    ! random initial vector
+    x = reshape(randn(n,1),(/ n /))
+  end if
+
+  tol2 = tol_**2
+
+  ! gradient at initial guess
+  r = b - fun(x)
+
+  ! quick exit
+  if (sum(r**2) < tol2) then
+    if (present(nit)) nit = k
+    return
+  endif
+
+
+  ! apply preconditioner
+
+  if (present(pc)) then
+    z = pc(r)
+  else
+    z = r
+  endif
+
+
+  ! first search direction == gradient
+  p = z
+
+  ! compute: r' * inv(M) * z (we will need this product at several
+  ! occasions)
+
+  zr_old = sum(r*z)
+
+  ! r_old: residual at previous iteration
+  r_old = r
+
+  do k=1,maxit_    
+    !     write(6,*) ' k',k,sum(r*r),maxit_,tol2
+    ! compute A*p
+    Ap = fun(p)
+    !maxdiff(A*p,Ap)
+
+    ! how far do we need to go in direction p?
+    ! alpha is determined by linesearch
+
+    ! alpha z'*r / (p' * A * p)
+    alpha(k) = zr_old / ( sum(p * Ap))
+
+    ! get new estimate of x
+    x = x + alpha(k)*p
+
+    ! recompute gradient at new x. Could be done by
+    ! r = b-fun(x)
+    ! but this does require an new call to fun
+    r = r - alpha(k)*Ap
+
+    ! apply pre-conditionner
+    if (present(pc)) then
+      z = pc(r)
+    else
+      z = r
+    endif
+
+
+    zr_new = sum(r*z)
+
+    if (sum(r*r) < tol2) then
+      if (present(nit)) nit = k
+      exit
+    endif
+
+    !Fletcher-Reeves
+    beta(k+1) = zr_new / zr_old
+    !Polak-Ribiere
+    !beta(k+1) = r'*(r-r_old) / zr_old
+    !Hestenes-Stiefel
+    !beta(k+1) = r'*(r-r_old) / (p'*(r-r_old))
+    !beta(k+1) = r'*(r-r_old) / (r_old'*r_old)
+
+
+    ! norm(p)
+    p = z + beta(k+1)*p
+    zr_old = zr_new
+    r_old = r
+  enddo
+
+
+ end function pcg
+
 !!$
 !!$!_______________________________________________________
 !!$!
