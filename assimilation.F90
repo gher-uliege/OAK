@@ -265,7 +265,7 @@ contains
   character(len=MaxFNameLength)            :: path
   real, pointer                :: maxCorr(:),tmp(:)
   integer                      :: NZones, zi, istat
-
+  
   initfname = fname
 
   call getInitValue(initfname,'runtype',runtype,default=AssimRun)
@@ -334,6 +334,7 @@ contains
     if (n > 2) then
       call setCoord(ModelGrid(v),3,trim(path)//filenamesZ(v))
 
+      !write(6,*) 'getCoord ',getCoord(ModelGrid(1),(/ 1,1,1 /),out)
 
       if (n > 3) then
         !write(stderr,*) 'The dimension of variable ',trim(ModML%varnames(v)),' is ',n
