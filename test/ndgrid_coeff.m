@@ -6,6 +6,7 @@ n = length(xi);
 M = ones(n+1,n+1);
 d = ones(n+1,1);
 
+
 M(2:n+1,:) = X;
 d(2:n+1) = xi';
 
@@ -90,36 +91,37 @@ for i = 1:(n+1)^nuncon
     
     M2 = [S * V'; A];
     detM2 = det(M2);
+    
     if abs(detM2) < tol
         % still degenerated, look for other possibilities
         continue
     end
+    
     testc = M2 \ [U'* d; z];
     
-    %testc
-    %all(0 <= testc & testc <= 1)
+    if ~all(0-tol <= testc & testc <= 1+tol)
+        % no, this is a extrapolation!
+        % go to next iteration
+        continue
+    end
+        
+    err = max(abs(M*testc - d));
     
-    if all(0-tol <= testc & testc <= 1+tol)
-        % yes, this is an interpolation, no extrapolation!
-        err = max(abs(M*testc -d));
+    % but, wait check if it is still a solution to our problem
+    % this is necessary if xi is outside a degenerated X, for example
+    % xi = [0 1]';
+    % X = [0    0.5   1; ...
+    %      0      0   0];
         
-        % but, wait check if it is still a solution to our problem
-        % this is necessary if xi is outside a degenerated X, for example
-        % xi = [0 1]';
-        % X = [0    0.5   1; ...
-        %      0      0   0];
-        
-        
-        if err < tol
-            % abs(det(M2)) is an indication of the surface of the
-            % "triangle", the smaller the better
-            if abs(detM2) < best  || ~cinit
-                % we have a even better coeff
-                coeff = testc;
-                cinit = true;
-                best = abs(detM2);
-                out = false;
-            end
+    if err < tol
+        % abs(det(M2)) is an indication of the surface of the
+        % "triangle", the smaller the better
+        if abs(detM2) < best  || ~cinit
+            % we have a even better coeff
+            coeff = testc;
+            cinit = true;
+            best = abs(detM2);
+            out = false;
         end
     end
 end
