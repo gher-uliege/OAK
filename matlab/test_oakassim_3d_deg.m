@@ -6,8 +6,8 @@ initfile = fullfile(currentdir,'test_assim.init');
 testdir = tempname;
 %testdir = [getenv('HOME') '/tmp/oak-temp'];
 randn('state',0)
-
-[t0,data,model,Eic,Eforcing, obs, fun, h] = oak_create_test(testdir,initfile);
+sz = [3 1 4];
+[t0,data,model,Eic,Eforcing, obs, fun, h] = oak_create_test(testdir,initfile,sz);
 
 
 scheduler = SchedulerShell();
@@ -40,17 +40,16 @@ end
 [inc,info1] = ensemble_analysis(E,HE,obs(1).yo,iR);
 E2 = E * info1.A;
 
-%assert(rms(E2,full(Ef)) < 1e-5);
+assert(rms(E2,full(Ef)) < 1e-5);
 
-rms (mean(E2,2), mean(full (Ef),2))
-rms(E2,full(Ef))
+%rms (mean(E2,2), mean(full (Ef),2))
+%rms(E2,full(Ef))
 
 for i=1:size(E2,2)
   HEa(:,i) = h(E2(:,i));
 end
 
 % check diagnostics
-
 
 assert( rms(stddevxf,std(E,[],2)) < 1e-5)
 disp('stddevxf: OK');

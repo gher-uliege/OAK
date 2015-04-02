@@ -5,19 +5,21 @@ program test_ndgrid
  use ndgrid
  implicit none
 
- call test_ndgrid_nd((/1,2/))
-
-
+ ! 2D
+ call test_ndgrid_2d(10,20)
  call test_ndgrid_2d(1,3)
  call test_ndgrid_2d(3,1)
- call test_ndgrid_2d(10,20)
 
+ ! nD
  call test_ndgrid_nd((/10/))
  call test_ndgrid_nd((/10,20/))
  call test_ndgrid_nd((/2,2,2/))
  call test_ndgrid_nd((/2,2,2,2/))
 
  ! degenerated cases
+
+ call test_ndgrid_nd((/1,2/))
+ call test_ndgrid_nd((/2,1,2/))
  call test_ndgrid_nd((/10,1,20/))
  call test_ndgrid_nd((/10,3,1,20/))
  call test_ndgrid_nd((/10,3,1/))
