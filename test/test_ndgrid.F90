@@ -17,6 +17,14 @@ program test_ndgrid
  call test_ndgrid_nd((/2,2,2/))
  call test_ndgrid_nd((/2,2,2,2/))
 
+ ! degenerated cases
+ call test_ndgrid_nd((/10,1,20/))
+ call test_ndgrid_nd((/10,3,1,20/))
+ call test_ndgrid_nd((/10,3,1/))
+ call test_ndgrid_nd((/1,10,3,1/))
+ call test_ndgrid_nd((/1,1,1,10/))
+ call test_ndgrid_nd((/1,1,1,10,1/))
+
 
 contains 
 

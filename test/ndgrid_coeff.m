@@ -4,11 +4,15 @@ tol = 1e-10;
 
 n = length(xi);
 M = ones(n+1,n+1);
+M2 = ones(n+1,n+1);
 d = ones(n+1,1);
 
+% average all X and make vectors relative to this location
+% for better numerical precision
 
-M(2:n+1,:) = X;
-d(2:n+1) = xi';
+xc = mean(X,2);
+M(2:n+1,:) = X - repmat(xc,[1 n+1]);
+d(2:n+1) = xi' - xc';
 
 % find coeff that satisfies
 % d = M * coeff
@@ -18,7 +22,7 @@ determ = det(M);
 if abs(determ) > tol
     % non degenerated case
     coeff = M \ d;
-    out = all(0-tol <= coeff & coeff <= 1+tol);
+    out = ~all(0-tol <= coeff & coeff <= 1+tol);
     return;
 end
 
@@ -26,15 +30,11 @@ end
 
 [U,S,V] = svd(M);
 
-nz = diag(S) > tol;
-
-% remove redundant contraints
-U = U(:,nz);
-S = S(nz,nz);
-V = V(:,nz);
+S = diag(S);
+nz = find(S > tol);
 
 % number of non-redundant constraints
-nnz = sum(nz);
+nnz = length(nz);
 
 % number of coefficients uncontrained
 % nuncon + nnz = n+1
@@ -46,7 +46,6 @@ coeff = zeros(n+1,1);
 cinit = false;
 best = 0;
 
-z = zeros(nuncon,1);
 out = true;
 
 % offset used to convert linear index i to subscribt
@@ -74,22 +73,26 @@ for i = 1:(n+1)^nuncon
     % make ind 1-based
     ind = ind+1;
     
-    A = zeros(nuncon,n+1);
+    M2 = zeros(n+1,n+1);
     
     for j = 1:nuncon
-        A(j,ind(j)) = 1;
+        M2(j,ind(j)) = 1;
     end
     
-    if any(sum(A,2) == 0)
+    if any(sum(M2(1:nuncon,:),2) == 0)
         % all elements of ind must be different
         % ignore the present case
         continue
     end
     
+    % with S,V
+    % % remove redundant contraints
     %  S * V' * coeff = U' * d
     %  A*c = 0
     
-    M2 = [S * V'; A];
+    %M2(1:nuncon,:) = A;
+    M2(nuncon+1:end,:) = diag(S(nz)) * V(:,nz)';
+    
     detM2 = det(M2);
     
     if abs(detM2) < tol
@@ -97,7 +100,10 @@ for i = 1:(n+1)^nuncon
         continue
     end
     
-    testc = M2 \ [U'* d; z];
+    d2 = zeros(n+1,1);
+    d2(nuncon+1:end) = U(:,nz)'* d;
+    
+    testc = M2 \ d2;
     
     if ~all(0-tol <= testc & testc <= 1+tol)
         % no, this is a extrapolation!

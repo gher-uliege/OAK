@@ -50,6 +50,18 @@ assert(out == true)
 
 
 % 3d example
+
+% 1-④                   ③
+%   |
+%   |
+%   |         
+%   |
+%   |
+% 0-①-------------------②                
+%   |                    |
+%   0                    1
+%
+
 X = [0  1  1  0; ...
      0  0  1  1; ...
      0  0  0  0];
@@ -77,7 +89,9 @@ assert(max(abs([0; 0; 1; 0] - coeff)) < tol)
 xi = [.5 .5 0]';
 [out,coeff] = ndgrid_coeff(X,xi);
 assert(out == false)
-assert(max(abs([0; .5; 0; .5] - coeff)) < tol)
+% 2 solutions
+assert(max(abs([0; .5; 0; .5] - coeff)) < tol ||  ...
+       max(abs([.5; 0; .5; 0] - coeff)) < tol)
 
 xi = [2 0 0]';
 [out,coeff] = ndgrid_coeff(X,xi);
