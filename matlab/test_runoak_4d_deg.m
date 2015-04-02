@@ -46,8 +46,8 @@ end
 E3 = E2 * info2.A;
 
 
-%assert(rms(E3,full(Ef)) < 1e-5);
-rms(E3,full(Ef))
-rms (mean(E3,2), mean(full (Ef),2))
+assert(rms(E3,full(Ef)) < 1e-5);
+%rms(E3,full(Ef))
+%rms (mean(E3,2), mean(full (Ef),2))
 
 
