@@ -54,11 +54,11 @@ ASSIM_PROG ?= assim
 ASSIM_SRCS = sangoma_base.f90 \
 	anamorphosis.F90 assim.F90 assimilation.F90 date.F90 grids.F90 \
 	initfile.F90 matoper.F90 ndgrid.F90 parall.F90 rrsqrt.F90 \
-	ufileformat.F90 random_d.f90 sangoma_ewpf.F90
+	ufileformat.F90 random_d.f90 sangoma_ewpf.F90 user_base.f90
 
 ASSIM_OBJS = anamorphosis.o assim.o assimilation.o date.o grids.o initfile.o \
 	matoper.o ndgrid.o parall.o rrsqrt.o ufileformat.o match.o sangoma_ewpf.o \
-	random_d.o
+	random_d.o user_base.o
 
 MODULES = anamorphosis.mod  assimilation.mod  date.mod  grids.mod  initfile.mod  \
         matoper.mod  ndgrid.mod  parall.mod  rrsqrt.mod  ufileformat.mod
@@ -155,7 +155,7 @@ rrsqrt.o: rrsqrt.F90 matoper.o parall.o ufileformat.o ppdef.h
 
 sangoma_ewpf.o: random_d.o equal_weights_step.f90 quicksort.f90 gen_random.f90 subroutines_for_EWPF.f90
 
-assimilation.o: assimilation.F90 sangoma_base.o sangoma_ewpf.o anamorphosis.o date.o grids.o initfile.o \
+assimilation.o: assimilation.F90 user_base.o sangoma_base.o sangoma_ewpf.o anamorphosis.o date.o grids.o initfile.o \
 	matoper.o ndgrid.o parall.o rrsqrt.o ufileformat.o ppdef.h
 
 ufileformat.o: ufileformat.F90 ppdef.h

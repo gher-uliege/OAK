@@ -4230,29 +4230,145 @@ subroutine ensAnalysisAnamorph2(yo,Ef,HEf,invsqrtR,  &
   end if
 end subroutine anamtransform
 
+
+subroutine ewpf_proposal_step(X,Xp,weight,yo,invsqrtR,timestep,obsstep,steps_btw_obs,H)
+ use matoper
+ use sangoma_ewpf
+ use initfile
+ implicit none
+ real, intent(in) :: yo(:)
+ real, intent(inout) :: weight(:),X(:,:),Xp(:,:)
+ real, intent(in) :: invsqrtR(:)
+ type(SparseMatrix), intent(in)  :: H
+ integer, intent(in) :: timestep                  ! current model timestep
+ integer, intent(in) :: obsstep,steps_btw_obs     ! number of next observ
+
+! current model timestep
+ integer ::  t_model = 0      
+
+ ! model time step at which we have next 
+ ! observations, i.e. next analysis time 
+ integer :: obsVec = 10
+
+ ! model timesteps between last and next
+ ! observation setst
+ integer :: dt_obs = 3
+
+ real :: Qscale
+ call getInitValue(initfname,'EWPF.Qscale',Qscale,default=0.001)
+
+ !proposal_step(Nx,Ny,Ne,weight,x_n,x_n1,y,timestep,obsstep,steps_btw_obs, &
+ !          cb_H, cb_HT, cb_Qhalf, cb_solve_r)
+
+! call proposal_step(size(X,1),size(yo),size(X,2), &
+!      weight,X, &
+!      Xp, & ! previous time step
+!      yo,timestep,obsstep,steps_btw_obs, &
+!      cb_H, cb_HT, cb_Qhalf, cb_solve_r)
+
+
+ call proposal_step(size(X,1),size(yo),size(X,2), &
+      weight,X, &
+      yo, &
+      t_model,obsVec,dt_obs, &
+      cb_H, cb_HT, cb_Qhalf, cb_solve_r)
+
+
+
+contains
+
+ subroutine cb_H(Nx,Ny,Ne,vec_in,vec_out) bind(C)
+  use, intrinsic :: ISO_C_BINDING
+  use sangoma_base, only: REALPREC, INTPREC
+  implicit none
+  
+  integer(INTPREC), value, intent(in) :: Nx,Ny,Ne             ! state, observation and ensemble dimensions
+  real(REALPREC), intent(in), dimension(Nx,Ne) :: vec_in      ! input vector in state space to which
+  ! to apply the observation operator h, e.g. h(x)
+  real(REALPREC), intent(inout), dimension(Ny,Ne) :: vec_out  ! resulting vector in observation space
+
+  vec_out = H.x.vec_in
+ end subroutine cb_H
+
+ subroutine cb_HT(Nx,Ny,Ne,vec_in,vec_out) bind(C)
+  use, intrinsic :: ISO_C_BINDING
+  use sangoma_base, only: REALPREC, INTPREC
+  implicit none
+  
+  integer(INTPREC), value, intent(in) :: Nx,Ny,Ne            ! state, observation and ensemble dimensions
+  real(REALPREC), intent(in), dimension(Ny,Ne) :: vec_in     ! input vector in observation space to which
+  ! to apply the observation operator h, e.g. h^T(x)
+  real(REALPREC), intent(inout), dimension(Nx,Ne) :: vec_out ! resulting vector in state space
+
+  vec_out = H.tx.vec_in
+ end subroutine cb_HT
+
+
+ subroutine cb_solve_r(Ny,Ne,vec_in,vec_out) bind(C)
+  use, intrinsic :: ISO_C_BINDING
+  use sangoma_base, only: REALPREC, INTPREC
+  implicit none
+  
+  integer(INTPREC), value, intent(in) :: Ny,Ne               ! observation and ensemble dimensions
+  real(REALPREC), intent(in), dimension(Ny,Ne) :: vec_in     ! input vector in observation space 
+  ! which to apply the inverse observation error
+  ! covariances R, e.g. R^{-1}(d)
+  real(REALPREC), intent(inout), dimension(Ny,Ne) :: vec_out ! resulting vector in observation space
+  integer :: k
+
+  do k = 1,Ne
+    vec_out(:,k) = invsqrtR**2 * vec_in(:,k)
+  end do
+ end subroutine cb_solve_r
+
+ subroutine cb_Qhalf(Nx,Ne,vec_in,vec_out) bind(C)
+  use, intrinsic :: ISO_C_BINDING
+  use sangoma_base, only: REALPREC, INTPREC
+  implicit none
+  
+  integer(INTPREC), value, intent(in) :: Nx,Ne               ! state and ensemble dimensions
+  real(REALPREC), intent(in), dimension(Nx,Ne) :: vec_in     ! vector in state space to which to apply
+                                                                     ! the squarerooted model error covariances 
+                                                                     ! Q^{1/2}, e.g. Q^{1/2}(d)
+  real(REALPREC), intent(inout), dimension(Nx,Ne) :: vec_out ! resulting vector in state space!!!
+
+!  vec_out = sqrtQ.x.vec_in
+  vec_out = sqrt(Qscale) * vec_in
+ end subroutine cb_Qhalf
+
+ 
+end subroutine ewpf_proposal_step
+
 !------------------------------------------------------------------
 
 subroutine ewpf_analysis(xf,Sf,weight,H,invsqrtR, &
      !sqrtQ, &
      yo,xa,Sa,weighta)
  use matoper
+ use initfile
  use sangoma_ewpf
+ use user_base
  implicit none
  real, intent(in) :: xf(:),Sf(:,:),weight(:),invsqrtR(:),yo(:)
  real, intent(out) :: xa(:),Sa(:,:),weighta(:)
  type(SparseMatrix), intent(in)  :: H
 ! type(SparseMatrix), intent(in)  :: sqrtQ
 
- real :: keep = 0.80
- real :: nstd = 1.,ufac = 0.00001,efac
-! integer :: nstd = 0,ufac = 0,efac = 0
 
- real :: Qscale = 0.1
+ real :: Qscale
 
  real, allocatable :: X(:,:)
  integer :: i
 
- efac = 0.001/size(Sf,2)
+ call getInitValue(initfname,'EWPF.keep',keep,default=keep)
+ call getInitValue(initfname,'EWPF.nstd',nstd,default=nstd)
+ call getInitValue(initfname,'EWPF.nmean',nmean,default=nmean)
+ call getInitValue(initfname,'EWPF.ufac',ufac,default=ufac)
+ call getInitValue(initfname,'EWPF.efacNum',efacNum,default=efacNum)
+ call getInitValue(initfname,'EWPF.freetime',freetime,default=freetime)
+ call getInitValue(initfname,'EWPF.nudgefac',nudgefac,default=nudgefac)
+ call getInitValue(initfname,'EWPF.Qscale',Qscale,default=Qscale)
+
  allocate(X(size(xf,1),size(Sf,2)))
 
  do i=1,size(Sf,2)
@@ -4263,8 +4379,8 @@ subroutine ewpf_analysis(xf,Sf,weight,H,invsqrtR, &
 
  write(6,*) 'here',__LINE__
  call equal_weight_step(size(xf),size(yo),size(Sf,2), &
-      weighta,X,yo,keep,nstd,ufac,efac, &
-      cb_H, cb_HT, cb_solve_hqht_plus_r, cb_solve_r, cb_Qhalf)
+      weighta,X,yo, &
+      cb_H, cb_HT, cb_solve_r, cb_solve_hqht_plus_r, cb_Qhalf)
 
 
  !proposal_step(Nx,Ny,Ne,weight,x_n,x_n1,y,timestep,obsstep,steps_btw_obs, &
@@ -4272,12 +4388,9 @@ subroutine ewpf_analysis(xf,Sf,weight,H,invsqrtR, &
 
  write(6,*) 'here',__LINE__,weighta
 
- call proposal_step(size(xf),size(yo),size(Sf,2), &
-      weighta,X, &
-      X, & ! previous time step
-      yo,1,20,20, &
-      cb_H, cb_HT, cb_Qhalf, cb_solve_r)
- 
+
+ call ewpf_proposal_step(X,X,weighta,yo,invsqrtR,1,20,20,H)
+
  write(6,*) 'here',__LINE__,weighta
 
  xa = sum(X,2) / size(X,2)
