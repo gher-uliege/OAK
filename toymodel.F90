@@ -163,43 +163,53 @@ contains
    parameter(NPROCS=8)
    integer rank, new_rank, sendbuf, recvbuf, numtasks, nprocs_check
    integer ranks1(4), ranks2(4), ierr
-   integer orig_group, new_group, new_comm
+   integer :: orig_group, group_ensmember
    data ranks1 /0, 1, 2, 3/, ranks2 /4, 5, 6, 7/
+   ! number of ensemble members
+   integer :: Nens = 2
+   integer :: nprocs_ensmember, i
+   integer, allocatable :: ranks(:)
 
-   call MPI_COMM_RANK(MPI_COMM_WORLD, rank, ierr)
-   call MPI_COMM_SIZE(MPI_COMM_WORLD, nprocs_check, ierr)
+   call mpi_comm_rank(comm, rank, ierr)
+   call mpi_comm_size(comm, nprocs_check, ierr)
 
-   if (nprocs_check .ne. NPROCS) then
-     print *, 'Must specify NPROCS= ',NPROCS,' Terminating.'
-     call MPI_FINALIZE(ierr)
+   if (modulo(nprocs_check,Nens) /= 0) then
+     print *, 'number of processes (',nprocs_check,') must be divisble by number of ensemble members (',Nens,')'
+
+     call mpi_finalize(ierr)
      stop
    endif
 
-   sendbuf = rank
+   nprocs_ensmember = nprocs_check/Nens
+!   write(6,*) 'nprocs_ensmember',nprocs_ensmember
+
+   ! ranks belonging to the same ensemble member group
+   
+   allocate(ranks(nprocs_ensmember))
+   ranks = [(i,i=0,nprocs_ensmember-1)] + nprocs_ensmember*(rank/nprocs_ensmember)
+
+!   write(6,*) 'ranks ',ranks 
+!   sendbuf = rank
 
 !  Extract the original group handle
-   call MPI_COMM_GROUP(MPI_COMM_WORLD, orig_group, ierr)
+   call mpi_comm_group(comm, orig_group, ierr)
 
-!  Divide tasks into two distinct groups based upon rank
-   if (rank .lt. NPROCS/2) then
-      call MPI_GROUP_INCL(orig_group, NPROCS/2, ranks1,  &
-                   new_group, ierr)
-   else 
-      call MPI_GROUP_INCL(orig_group, NPROCS/2, ranks2,  &
-                   new_group, ierr)
-   endif
+!  Divide group into Nens distinct groups based upon rank
+   call mpi_group_incl(orig_group, nprocs_ensmember, ranks,  &
+        group_ensmember, ierr)
 
-   call MPI_COMM_CREATE(MPI_COMM_WORLD, new_group,  &
-                    comm_ensmember, ierr)
-   call MPI_ALLREDUCE(sendbuf, recvbuf, 1, MPI_INTEGER, &
-                    MPI_SUM, comm_ensmember, ierr)
+   call mpi_comm_create(comm, group_ensmember,  &
+        comm_ensmember, ierr)
 
-   call MPI_GROUP_RANK(new_group, new_rank, ierr)
-   print *, 'rank= ',rank,' newrank= ',new_rank,' recvbuf= ', &
-       recvbuf
+!   call MPI_ALLREDUCE(sendbuf, recvbuf, 1, MPI_INTEGER, &
+!                    MPI_SUM, comm_ensmember, ierr)
+
+!   call MPI_GROUP_RANK(group_ensmember, new_rank, ierr)
+!   print *, 'rank= ',rank,' newrank= ',new_rank,' recvbuf= ', &
+!       recvbuf
 
 
-   call MPI_Barrier (MPI_COMM_WORLD, ierr )
+   call MPI_Barrier (comm, ierr )
 
 
 !   stop
