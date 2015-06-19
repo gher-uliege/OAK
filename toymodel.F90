@@ -88,7 +88,6 @@ module oak
     ranks = [(i,i=0,new_group_nprocs-1)] + &
          new_group_nprocs*(rank/new_group_nprocs)
   else
-! CONTINUE HERE
     ranks = [((nprocs/new_group_nprocs) * i,i=0,new_group_nprocs-1)] + &
          modulo(rank,N)
   end if
