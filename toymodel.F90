@@ -29,8 +29,8 @@ module oak
     model_uses_mpi = .false.
   end if
 
-  call mpi_comm_size(comm, nprocs, ierr)
-  call oak_split_comm(comm,nprocs/Nens,comm_da,.false.)
+  call mpi_comm_size(comm_all, nprocs, ierr)
+  call oak_split_comm(comm_all,nprocs/Nens,comm_da,.false.)
   
  end subroutine oak_init
 

@@ -1,8 +1,13 @@
 #!/bin/bash
 
+echo 'Serial model'
 gfortran -o toymodel toymodel.F90 && ./toymodel
 
+echo 'Parallel model'
 mpif90 -g -C  -DMODEL_PARALLEL -o toymodel toymodel.F90 && mpirun -np 4 toymodel
+
+echo 'Parallel model + Assim'
 mpif90 -g -C -DOAK -DMODEL_PARALLEL -o toymodel toymodel.F90 && mpirun -np 4 toymodel
 
+echo 'Serial model + Assim'
 mpif90 -g -C -DOAK -o toymodel toymodel.F90 && mpirun -np 4 toymodel
