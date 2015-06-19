@@ -29,7 +29,7 @@ program toymodel
  call mpi_init(ierr)
 
 #ifdef OAK
- call init(mpi_comm_world,comm)
+ call oak_init(mpi_comm_world,comm)
 #else
  comm = mpi_comm_world
 #endif
@@ -47,7 +47,7 @@ program toymodel
  k1 = halo+nl
 
  tag = 1
- write(6,*) 'size rank master',nprocs,rank,comm,j0,j1,k0,k1
+! write(6,*) 'size rank master',nprocs,rank,comm,j0,j1,k0,k1
  call MPI_Barrier (comm, ierr )
 #else
  rank = 0
@@ -85,21 +85,26 @@ program toymodel
 ! write(6,*) 'xinit ',xinit, 'rank',rank
 
 # ifdef MPI
- call MPI_Reduce(sum(x(k0:k1)), sumx, 1, precision, MPI_SUM, 0, comm, ierr)
+ call mpi_reduce(sum(x(k0:k1)), sumx, 1, precision, MPI_SUM, 0, comm, ierr)
 #else
  sumx = sum(x(k0:k1))
 #endif 
 
 
  if (rank == 0) then
-   write(6,*) 'sum(x) ',sumx
+   if (abs(sumx - n*(n+1)/2) > 1e-6) then
+     write(6,*) 'sum: FAIL'
+   else
+     write(6,*) 'sum:  OK'
+   end if
+
  end if
 
 ! write(6,*) 'sum(x) ',sum(x), maxval(abs(x - xinit))
  if (maxval(abs(x - xinit)) > 1e-6) then
-   write(6,*) 'fail'
+   write(6,*) 'sub-domain check: FAIL'
  else
-   write(6,*) 'OK'
+   write(6,*) 'sub-domain check:  OK'
  end if
 
  deallocate(x,xinit)
@@ -152,67 +157,65 @@ contains
 
  end subroutine bc
 
- 
- subroutine init(comm,comm_ensmember)
+#ifdef OAK
+
+ subroutine oak_init(comm,comm_ensmember)
   implicit none
 
   integer, intent(in) :: comm
   integer, intent(out) :: comm_ensmember
+  integer :: Nens = 2
 
-     integer NPROCS
-   parameter(NPROCS=8)
-   integer rank, new_rank, sendbuf, recvbuf, numtasks, nprocs_check
-   integer ranks1(4), ranks2(4), ierr
-   integer :: orig_group, group_ensmember
-   data ranks1 /0, 1, 2, 3/, ranks2 /4, 5, 6, 7/
-   ! number of ensemble members
-   integer :: Nens = 2
-   integer :: nprocs_ensmember, i
-   integer, allocatable :: ranks(:)
+  call oak_split_comm(comm,Nens,comm_ensmember)
+ end subroutine oak_init
+ 
 
-   call mpi_comm_rank(comm, rank, ierr)
-   call mpi_comm_size(comm, nprocs_check, ierr)
+ subroutine oak_split_comm(comm,Nens,comm_ensmember)
+  implicit none
 
-   if (modulo(nprocs_check,Nens) /= 0) then
-     print *, 'number of processes (',nprocs_check,') must be divisble by number of ensemble members (',Nens,')'
+  integer, intent(in) :: comm
+  ! number of ensemble members
+  integer, intent(in) :: Nens
+  integer, intent(out) :: comm_ensmember
 
-     call mpi_finalize(ierr)
-     stop
-   endif
+  integer :: rank, nprocs
+  integer :: ierr
+  integer :: group, group_ensmember
+  integer :: nprocs_ensmember, i
+  integer, allocatable :: ranks(:)
+  
+  call mpi_comm_rank(comm, rank, ierr)
+  call mpi_comm_size(comm, nprocs, ierr)
+  
+  if (modulo(nprocs,Nens) /= 0) then
+    print *, 'Error: number of processes (',nprocs,') must be divisible by number of ensemble members (',Nens,')'
+    
+    call mpi_finalize(ierr)
+    stop
+  endif
+  
+  nprocs_ensmember = nprocs/Nens
+  !   write(6,*) 'nprocs_ensmember',nprocs_ensmember
 
-   nprocs_ensmember = nprocs_check/Nens
-!   write(6,*) 'nprocs_ensmember',nprocs_ensmember
-
-   ! ranks belonging to the same ensemble member group
-   
-   allocate(ranks(nprocs_ensmember))
-   ranks = [(i,i=0,nprocs_ensmember-1)] + nprocs_ensmember*(rank/nprocs_ensmember)
-
-!   write(6,*) 'ranks ',ranks 
-!   sendbuf = rank
-
+  ! ranks belonging to the same ensemble member group   
+  allocate(ranks(nprocs_ensmember))
+  ranks = [(i,i=0,nprocs_ensmember-1)] + &
+       nprocs_ensmember*(rank/nprocs_ensmember)
+  
 !  Extract the original group handle
-   call mpi_comm_group(comm, orig_group, ierr)
-
+  call mpi_comm_group(comm, group, ierr)
+  
 !  Divide group into Nens distinct groups based upon rank
-   call mpi_group_incl(orig_group, nprocs_ensmember, ranks,  &
-        group_ensmember, ierr)
+  call mpi_group_incl(group, nprocs_ensmember, ranks,  &
+       group_ensmember, ierr)
+  
+  call mpi_comm_create(comm, group_ensmember,  &
+       comm_ensmember, ierr)
+  
+  deallocate(ranks)
+  
+  call mpi_barrier(comm, ierr )
+ end subroutine oak_split_comm
 
-   call mpi_comm_create(comm, group_ensmember,  &
-        comm_ensmember, ierr)
-
-!   call MPI_ALLREDUCE(sendbuf, recvbuf, 1, MPI_INTEGER, &
-!                    MPI_SUM, comm_ensmember, ierr)
-
-!   call MPI_GROUP_RANK(group_ensmember, new_rank, ierr)
-!   print *, 'rank= ',rank,' newrank= ',new_rank,' recvbuf= ', &
-!       recvbuf
-
-
-   call MPI_Barrier (comm, ierr )
-
-
-!   stop
- end subroutine init
-
+#endif
 end program toymodel

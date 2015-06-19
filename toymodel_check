@@ -1,0 +1,6 @@
+#!/bin/bash
+
+gfortran -o toymodel toymodel.F90 && ./toymodel
+
+mpif90 -g -C  -DMPI -o toymodel toymodel.F90 && mpirun -np 4 toymodel
+mpif90 -g -C -DOAK -DMPI -o toymodel toymodel.F90 && mpirun -np 4 toymodel
