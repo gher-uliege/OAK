@@ -1,32 +1,66 @@
 #ifdef OAK
 
 module oak
+
+ integer :: comm_all
+ ! communicator of data assimilation
+ integer :: comm_da
+ logical :: model_uses_mpi
  contains
 
  subroutine oak_init(comm,comm_ensmember)
+  use mpi
   implicit none
+  
+  integer, intent(in), optional :: comm
+  integer, intent(out), optional :: comm_ensmember
+  integer :: Nens = 2, nprocs
+  integer :: ierr
 
-  integer, intent(in) :: comm
-  integer, intent(out) :: comm_ensmember
-  integer :: Nens = 2
+  if (present(comm)) then
+    ! model uses also MPI, split communicators
+    call oak_split_comm(comm,Nens,comm_ensmember,.true.)
+    comm_all = comm
+    model_uses_mpi = .true.
+  else
+    ! modes does not use MPI, we can use MPI alone
+    comm_all = mpi_comm_world
+    call mpi_init(ierr)
+    model_uses_mpi = .false.
+  end if
 
-  call oak_split_comm(comm,Nens,comm_ensmember)
+  call mpi_comm_size(comm, nprocs, ierr)
+  call oak_split_comm(comm,nprocs/Nens,comm_da,.false.)
+  
  end subroutine oak_init
 
 
  subroutine oak_done()
+  use mpi
   implicit none
+  integer :: ierr
 
+  if (.not.model_uses_mpi) then
+    call mpi_finalize(ierr)
+  end if
  end subroutine oak_done
- 
- subroutine oak_split_comm(comm,Nens,comm_ensmember)
+
+!------------------------------------------------------------------------------
+!
+! split communicator in n sub-groups, either by having continous ranks (mode = 
+! true) or by having ranks separated by size/n (where size is the group of the 
+! communicator comm)
+!
+
+ subroutine oak_split_comm(comm,N,comm_ensmember,mode)
   implicit none
 
   integer, intent(in) :: comm
   ! number of ensemble members
-  integer, intent(in) :: Nens
+  integer, intent(in) :: N
+  logical, intent(in) :: mode
   integer, intent(out) :: comm_ensmember
-
+  
   integer :: rank, nprocs
   integer :: ierr
   integer :: group, group_ensmember
@@ -36,25 +70,35 @@ module oak
   call mpi_comm_rank(comm, rank, ierr)
   call mpi_comm_size(comm, nprocs, ierr)
   
-  if (modulo(nprocs,Nens) /= 0) then
-    print *, 'Error: number of processes (',nprocs,') must be divisible by number of ensemble members (',Nens,')'
+  if (modulo(nprocs,N) /= 0) then
+    print *, 'Error: number of processes (',nprocs,') must be divisible by number of ensemble members (',N,')'
     
     call mpi_finalize(ierr)
     stop
   endif
   
-  nprocs_ensmember = nprocs/Nens
+  nprocs_ensmember = nprocs/N
   !   write(6,*) 'nprocs_ensmember',nprocs_ensmember
 
   ! ranks belonging to the same ensemble member group   
+
   allocate(ranks(nprocs_ensmember))
-  ranks = [(i,i=0,nprocs_ensmember-1)] + &
-       nprocs_ensmember*(rank/nprocs_ensmember)
-  
+
+  if (mode) then
+    ranks = [(i,i=0,nprocs_ensmember-1)] + &
+         nprocs_ensmember*(rank/nprocs_ensmember)
+  else
+! CONTINUE HERE
+    ranks = [((nprocs/nprocs_ensmember) * i,i=0,nprocs_ensmember-1)] + &
+         modulo(rank,N)
+  end if
+
+  write(6,*) 'ranks ',rank,':',ranks
+
 !  Extract the original group handle
   call mpi_comm_group(comm, group, ierr)
   
-!  Divide group into Nens distinct groups based upon rank
+!  Divide group into N distinct groups based upon rank
   call mpi_group_incl(group, nprocs_ensmember, ranks,  &
        group_ensmember, ierr)
   
@@ -65,6 +109,24 @@ module oak
   
   call mpi_barrier(comm, ierr )
  end subroutine oak_split_comm
+
+ subroutine oak_assim(i,x)
+  use mpi
+  implicit none
+  integer, intent(in) :: i
+  real, intent(inout) :: x(:)
+
+  integer :: n = 100
+  
+
+  ! x(space) -> x(space/Nens,Nens)
+!  x(2:n/Nens)
+  
+  
+  
+ end subroutine oak_assim
+
+
 
 end module oak
 #endif
@@ -122,8 +184,9 @@ program toymodel
 
  tag = 1
 ! write(6,*) 'size rank master',nprocs,rank,comm,j0,j1,k0,k1
- call mpi_barrier(comm, ierr )
+ call mpi_barrier(comm, ierr)
 #else
+ ! model does not run in parallel
  rank = 0
  j0 = 1
  j1 = n
@@ -131,6 +194,11 @@ program toymodel
  k0 = halo+1
  k1 = halo+n
  nl = n
+
+#ifdef OAK
+ call oak_init()
+#endif
+
 #endif
 
  ! initialize j1-j0+1 grid points and two halo points
@@ -155,34 +223,14 @@ program toymodel
    call bc(i,x)
 
 #ifdef OAK
-!   call oak_assim(i,x,)
+   call oak_assim(i,x)
 #endif
  end do
 
 ! write(6,*) 'x ',x, 'rank',rank
 ! write(6,*) 'xinit ',xinit, 'rank',rank
 
-# ifdef MODEL_PARALLEL
- call mpi_reduce(sum(x(k0:k1)), sumx, 1, precision, mpi_sum, 0, comm, ierr)
-#else
- sumx = sum(x(k0:k1))
-#endif 
-
- if (rank == 0) then
-   if (abs(sumx - n*(n+1)/2) > 1e-6) then
-     write(6,*) 'sum: FAIL'
-   else
-     write(6,*) 'sum:  OK'
-   end if
-
- end if
-
-! write(6,*) 'sum(x) ',sum(x), maxval(abs(x - xinit))
- if (maxval(abs(x - xinit)) > 1e-6) then
-   write(6,*) 'sub-domain check: FAIL'
- else
-   write(6,*) 'sub-domain check:  OK'
- end if
+ call check_results(x)
 
  deallocate(x,xinit)
 
@@ -236,4 +284,36 @@ contains
 #endif
 
  end subroutine bc
+
+
+ subroutine check_results(x)
+  implicit none
+  real, intent(in) :: x(:)
+
+
+# ifdef MODEL_PARALLEL
+ call mpi_reduce(sum(x(k0:k1)), sumx, 1, precision, mpi_sum, 0, comm, ierr)
+#else
+ sumx = sum(x(k0:k1))
+#endif 
+
+ if (rank == 0) then
+   if (abs(sumx - n*(n+1)/2) > 1e-6) then
+     write(6,*) 'sum: FAIL'
+   else
+     write(6,*) 'sum:  OK'
+   end if
+
+ end if
+
+! write(6,*) 'sum(x) ',sum(x), maxval(abs(x - xinit))
+ if (maxval(abs(x - xinit)) > 1e-6) then
+   write(6,*) 'sub-domain check: FAIL'
+ else
+   write(6,*) 'sub-domain check:  OK'
+ end if
+
+ end subroutine 
+
+
 end program toymodel
