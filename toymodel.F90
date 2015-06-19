@@ -3,7 +3,7 @@
 module oak
 
  integer :: comm_all
- ! communicator of data assimilation
+ ! communicator between ensemble members of the same sub-domain
  integer :: comm_da
  logical :: model_uses_mpi
  contains
@@ -52,44 +52,44 @@ module oak
 ! communicator comm)
 !
 
- subroutine oak_split_comm(comm,N,comm_ensmember,mode)
+ subroutine oak_split_comm(comm,N,new_comm,mode)
   implicit none
 
   integer, intent(in) :: comm
-  ! number of ensemble members
+  ! number of sub-groups
   integer, intent(in) :: N
   logical, intent(in) :: mode
-  integer, intent(out) :: comm_ensmember
+  integer, intent(out) :: new_comm
   
   integer :: rank, nprocs
   integer :: ierr
-  integer :: group, group_ensmember
-  integer :: nprocs_ensmember, i
+  integer :: group, new_group
+  integer :: new_group_nprocs, i
   integer, allocatable :: ranks(:)
   
   call mpi_comm_rank(comm, rank, ierr)
   call mpi_comm_size(comm, nprocs, ierr)
   
   if (modulo(nprocs,N) /= 0) then
-    print *, 'Error: number of processes (',nprocs,') must be divisible by number of ensemble members (',N,')'
-    
+    print *, 'Error: number of processes (',nprocs, &
+         ') must be divisible by the number ',N    
     call mpi_finalize(ierr)
     stop
   endif
   
-  nprocs_ensmember = nprocs/N
-  !   write(6,*) 'nprocs_ensmember',nprocs_ensmember
+  new_group_nprocs = nprocs/N
+  !   write(6,*) 'new_group_nprocs',new_group_nprocs
 
   ! ranks belonging to the same ensemble member group   
 
-  allocate(ranks(nprocs_ensmember))
+  allocate(ranks(new_group_nprocs))
 
   if (mode) then
-    ranks = [(i,i=0,nprocs_ensmember-1)] + &
-         nprocs_ensmember*(rank/nprocs_ensmember)
+    ranks = [(i,i=0,new_group_nprocs-1)] + &
+         new_group_nprocs*(rank/new_group_nprocs)
   else
 ! CONTINUE HERE
-    ranks = [((nprocs/nprocs_ensmember) * i,i=0,nprocs_ensmember-1)] + &
+    ranks = [((nprocs/new_group_nprocs) * i,i=0,new_group_nprocs-1)] + &
          modulo(rank,N)
   end if
 
@@ -99,11 +99,11 @@ module oak
   call mpi_comm_group(comm, group, ierr)
   
 !  Divide group into N distinct groups based upon rank
-  call mpi_group_incl(group, nprocs_ensmember, ranks,  &
-       group_ensmember, ierr)
+  call mpi_group_incl(group, new_group_nprocs, ranks,  &
+       new_group, ierr)
   
-  call mpi_comm_create(comm, group_ensmember,  &
-       comm_ensmember, ierr)
+  call mpi_comm_create(comm, new_group,  &
+       new_comm, ierr)
   
   deallocate(ranks)
   
