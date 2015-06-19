@@ -21,7 +21,7 @@ program toymodel
  integer status(MPI_STATUS_SIZE)
 #endif
 
- n = 5
+ n = 100
  Ntime = n
 
 #ifdef MPI
@@ -52,7 +52,6 @@ program toymodel
 #endif
 
  ! initialize j1-j0+1 grid points and two halo points
- !allocate(x(j0-halo:j1+halo),xinit(j0-halo:j1+halo))
 
  allocate(x(1:nl+2*halo),xinit(1:nl+2*halo))
  xinit = 0
@@ -122,9 +121,7 @@ contains
   x(k1+1:k1+halo) = x(k0:k0+halo-1)
   x(k0-halo:k0-1) = x(k1-halo+1:k1)
 #else
-
   !  Send to the "left"
-  !
 
   call mpi_send(x(k0:k0+halo-1), halo, precision, modulo(rank-1,nprocs), tag, &
        comm, ierr )
@@ -135,7 +132,7 @@ contains
   tag = tag+1
 
   !  Send to the "right"
-  !
+
   call mpi_send(x(k1-halo+1:k1), halo, precision, modulo(rank+1,nprocs), tag, &
        comm, ierr )
 
@@ -143,7 +140,6 @@ contains
        comm, status, ierr )
 
   tag = tag+1
-
 #endif
 
  end subroutine bc
