@@ -6,17 +6,29 @@ module oak
  ! communicator between ensemble members of the same sub-domain
  integer :: comm_da
  logical :: model_uses_mpi
+ ! ensemble size
+ integer :: Nens
+! integer :: n
+ integer, allocatable :: startIndex(:),endIndex(:)
+
+ ! size of local distributed state vector
+ integer, allocatable :: locsize(:)
+
+ integer :: schemetype = 1
+
  contains
 
  subroutine oak_init(comm,comm_ensmember)
   use mpi
   implicit none
   
+  ! size of model 
   integer, intent(in), optional :: comm
   integer, intent(out), optional :: comm_ensmember
-  integer :: Nens = 2, nprocs
+  integer :: nprocs
   integer :: ierr
 
+  Nens = 2
   if (present(comm)) then
     ! model uses also MPI, split communicators
     call oak_split_comm(comm,Nens,comm_ensmember,.true.)
@@ -31,8 +43,36 @@ module oak
 
   call mpi_comm_size(comm_all, nprocs, ierr)
   call oak_split_comm(comm_all,nprocs/Nens,comm_da,.false.)
-  
+
  end subroutine oak_init
+
+
+
+ subroutine oak_domain(nl)
+  use mpi
+  implicit none
+  
+  ! size of model 
+  integer, intent(in) :: nl
+  integer, allocatable :: itemp(:)
+  integer :: i
+
+  allocate(startIndex(Nens),endIndex(Nens),locsize(Nens),itemp(Nens+1))
+  
+
+  ! indices for distributed state vector
+  itemp = [ (1 + ( (i-1)*nl)/Nens, i=1,Nens+1)]
+  !write(6,*) 'itemp ',itemp
+
+  startIndex = itemp(1:Nens)
+  endIndex = itemp(2:Nens+1)-1
+
+  ! local size for assimilation
+  locsize = endIndex - startIndex+1
+
+  deallocate(itemp)
+
+ end subroutine 
 
 
  subroutine oak_done()
@@ -43,12 +83,14 @@ module oak
   if (.not.model_uses_mpi) then
     call mpi_finalize(ierr)
   end if
+
+  deallocate(startIndex,endIndex,locsize)
  end subroutine oak_done
 
 !------------------------------------------------------------------------------
 !
-! split communicator in n sub-groups, either by having continous ranks (mode = 
-! true) or by having ranks separated by size/n (where size is the group of the 
+! split communicator in N sub-groups, either by having continous ranks (mode = 
+! true) or by having ranks separated by size/N (where size is the group of the 
 ! communicator comm)
 !
 
@@ -92,7 +134,7 @@ module oak
          modulo(rank,N)
   end if
 
-  write(6,*) 'ranks ',rank,':',ranks
+  !write(6,*) 'ranks ',rank,':',ranks
 
 !  Extract the original group handle
   call mpi_comm_group(comm, group, ierr)
@@ -109,19 +151,71 @@ module oak
   call mpi_barrier(comm, ierr )
  end subroutine oak_split_comm
 
- subroutine oak_assim(i,x)
+!-------------------------------------------------------------
+
+ subroutine oak_assim(ntime,x)
   use mpi
   implicit none
-  integer, intent(in) :: i
+  integer, intent(in) :: ntime
   real, intent(inout) :: x(:)
+  integer :: ierr, i, obs_dim, r, myrank
+  real, allocatable :: xloc(:,:) 
+  integer, dimension(Nens) :: recvcounts, sdispls, rdispls
 
-  integer :: n = 100
+  real, allocatable :: Hx(:),HE(:,:), d(:), meanHx(:), HSf(:)
+  real, pointer :: yo(:), invsqrtR(:)
+  real :: scale
+
+ write(6,*) 'x',x
   
+  call mpi_comm_rank(comm_da, myrank, ierr)
 
   ! x(space) -> x(space/Nens,Nens)
 !  x(2:n/Nens)
-  
-  
+ 
+ ! collect the local part of the state vector
+
+ recvcounts = locsize(myrank+1)
+
+! allocate(xloc(sum(recvcounts)))
+ allocate(xloc(locsize(myrank+1),Nens))
+
+ write(6,*) 'model ',myrank,'counts ',locsize,recvcounts
+
+! The type signature associated with sendcount[j], sendtype at process i must be equal to the type signature associated with recvcount[i], recvtype at process j. This implies that the amount of data sent must be equal to the amount of data received, pairwise between every pair of processes.
+
+ sdispls = startIndex-1
+ rdispls(1) = 0
+ do i=2,Nens
+   rdispls(i) = rdispls(i-1) + recvcounts(i-1)
+ end do
+
+ !write(6,*) 'model ',myrank,'disp ',sdispls,rdispls
+
+ call mpi_alltoallv(x, locsize, sdispls, mpi_real, &
+      xloc, recvcounts, rdispls, mpi_real, comm_da, ierr)
+
+
+ write(6,*) 'xloc1',xloc(:,1)
+ write(6,*) 'xloc2',xloc(:,2)
+
+
+ !write(6,*) 'model ',myrank,'has loc ',xloc
+
+ ! analysis
+
+ if (schemetype == 1) then
+   ! global
+   
+ else
+
+ end if
+ 
+
+ call mpi_alltoallv(xloc, recvcounts, rdispls, mpi_real, &
+      x, locsize, sdispls, mpi_real, comm_da, ierr)
+
+ !write(6,*) 'model ',myrank,'has global',x
   
  end subroutine oak_assim
 
@@ -156,7 +250,7 @@ program toymodel
  integer :: status(mpi_status_size)
 #endif
 
- n = 100
+ n = 8
  Ntime = n
 
 #ifdef MODEL_PARALLEL
@@ -200,6 +294,11 @@ program toymodel
 
 #endif
 
+
+#ifdef OAK
+ call oak_domain(nl)
+#endif
+
  ! initialize j1-j0+1 grid points and two halo points
 
  allocate(x(1:nl+2*halo),xinit(1:nl+2*halo))
@@ -222,7 +321,7 @@ program toymodel
    call bc(i,x)
 
 #ifdef OAK
-   call oak_assim(i,x)
+   call oak_assim(i,x(k0:k1))
 #endif
  end do
 
