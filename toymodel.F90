@@ -151,6 +151,31 @@ module oak
   call mpi_barrier(comm, ierr )
  end subroutine oak_split_comm
 
+
+!-------------------------------------------------------------
+
+subroutine oak_obsoper(x,Hx)
+ implicit none
+ real, intent(in) :: x(:)
+ real, intent(out) :: Hx(:)
+
+ ! use communicator for each ensemble member
+ Hx = x(1) 
+end subroutine oak_obsoper
+
+
+!-------------------------------------------------------------
+
+subroutine oak_load_obs(ntime,yo,invsqrtR)
+ implicit none
+ integer, intent(in) :: ntime
+ real, intent(out), pointer :: yo(:), invsqrtR(:)
+
+ allocate(yo(1),invsqrtR(1))
+ yo = 1
+ invsqrtR = 1  
+end subroutine oak_load_obs
+
 !-------------------------------------------------------------
 
  subroutine oak_assim(ntime,x)
@@ -166,55 +191,61 @@ module oak
   real, pointer :: yo(:), invsqrtR(:)
   real :: scale
 
- write(6,*) 'x',x
+  ! load observations
+  call oak_load_obs(ntime,yo,invsqrtR)
+
+  obs_dim = size(yo)
+  allocate(Hx(obs_dim),HE(obs_dim,Nens),d(obs_dim),HSf(obs_dim),meanHx(obs_dim))
+
+  ! extract observations
+  call oak_obsoper(x,Hx)
+
+  write(6,*) 'x',x
   
   call mpi_comm_rank(comm_da, myrank, ierr)
+  
+  ! collect the local part of the state vector
+  
+  recvcounts = locsize(myrank+1)
+  
+  ! allocate(xloc(sum(recvcounts)))
+  allocate(xloc(locsize(myrank+1),Nens))
 
-  ! x(space) -> x(space/Nens,Nens)
-!  x(2:n/Nens)
- 
- ! collect the local part of the state vector
+  write(6,*) 'model ',myrank,'counts ',locsize,recvcounts
 
- recvcounts = locsize(myrank+1)
+  ! The type signature associated with sendcount[j], sendtype at process i must be equal to the type signature associated with recvcount[i], recvtype at process j. This implies that the amount of data sent must be equal to the amount of data received, pairwise between every pair of processes.
 
-! allocate(xloc(sum(recvcounts)))
- allocate(xloc(locsize(myrank+1),Nens))
-
- write(6,*) 'model ',myrank,'counts ',locsize,recvcounts
-
-! The type signature associated with sendcount[j], sendtype at process i must be equal to the type signature associated with recvcount[i], recvtype at process j. This implies that the amount of data sent must be equal to the amount of data received, pairwise between every pair of processes.
-
- sdispls = startIndex-1
- rdispls(1) = 0
- do i=2,Nens
-   rdispls(i) = rdispls(i-1) + recvcounts(i-1)
- end do
-
- !write(6,*) 'model ',myrank,'disp ',sdispls,rdispls
-
- call mpi_alltoallv(x, locsize, sdispls, mpi_real, &
-      xloc, recvcounts, rdispls, mpi_real, comm_da, ierr)
+  sdispls = startIndex-1
+  rdispls(1) = 0
+  do i=2,Nens
+    rdispls(i) = rdispls(i-1) + recvcounts(i-1)
+  end do
+  
+  !write(6,*) 'model ',myrank,'disp ',sdispls,rdispls
+  
+  call mpi_alltoallv(x, locsize, sdispls, mpi_real, &
+       xloc, recvcounts, rdispls, mpi_real, comm_da, ierr)
 
 
- write(6,*) 'xloc1',xloc(:,1)
- write(6,*) 'xloc2',xloc(:,2)
+  write(6,*) 'xloc1',xloc(:,1)
+  write(6,*) 'xloc2',xloc(:,2)
 
 
- !write(6,*) 'model ',myrank,'has loc ',xloc
+  !write(6,*) 'model ',myrank,'has loc ',xloc
+  
+  ! analysis
+  
+  if (schemetype == 1) then
+    ! global
+    
+  else
+    
+  end if
+  
 
- ! analysis
-
- if (schemetype == 1) then
-   ! global
-   
- else
-
- end if
- 
-
- call mpi_alltoallv(xloc, recvcounts, rdispls, mpi_real, &
-      x, locsize, sdispls, mpi_real, comm_da, ierr)
-
+  call mpi_alltoallv(xloc, recvcounts, rdispls, mpi_real, &
+       x, locsize, sdispls, mpi_real, comm_da, ierr)
+  
  !write(6,*) 'model ',myrank,'has global',x
   
  end subroutine oak_assim
