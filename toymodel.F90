@@ -35,7 +35,7 @@ program toymodel
  call mpi_init(ierr)
 
 #ifdef OAK
- call oak_init(config,mpi_comm_world,comm)
+ call oak_init(config,mpi_comm_world,comm,fname='test_assim.init')
 #else
  comm = mpi_comm_world
 #endif

@@ -1,7 +1,8 @@
 module oak
  use ndgrid
+ use assimilation
 
- integer, parameter :: maxLen = 256
+! integer, parameter :: maxLen = 256
  
  type oakconfig
    character(len=maxLen) :: initfname
@@ -27,23 +28,39 @@ module oak
    logical, allocatable :: mask(:)
    real, allocatable :: gridx(:), gridy(:), gridz(:), gridt(:)
    
+   type(MemLayout) :: ModML
    type(grid), allocatable :: ModelGrid(:)
    integer :: schemetype = 1
+   integer :: obsntime = 1   
  end type oakconfig
 
  contains
 
- subroutine oak_init(config,comm,comm_ensmember_)
+ subroutine oak_init(config,comm,comm_ensmember_,fname)
   use mpi
+  use initfile
   implicit none
   
   type(oakconfig), intent(out) :: config
   integer, intent(in), optional :: comm
   integer, intent(out), optional :: comm_ensmember_
-  integer :: nprocs, nprocs_ensmember 
+  character(len=maxLen), optional :: fname
+  
+  integer :: nprocs, nprocs_ensmember, vmax
   integer :: ierr
 
-  config%Nens = 2
+  config%initfname = ''
+
+  if (present(fname)) then
+    ! remove this one
+    initfname = fname
+    config%initfname = fname
+    call oak_load_model_grid(config)
+
+    call getInitValue(initfname,'ErrorSpace.dimension',config%Nens,default=0)
+  
+  end if
+
   if (present(comm)) then
     ! model uses also MPI, split communicators
     call oak_split_comm(comm,config%Nens,comm_ensmember_,.true.)
@@ -67,7 +84,6 @@ module oak
   call oak_split_comm(config%comm_all,nprocs/config%Nens,config%comm_da,.false.)
 
 
-!  allocate(config%ModelGrid(2))
 
   ! print diagnostic information
   write(6,*) 'OAK is initialized'
@@ -76,7 +92,73 @@ module oak
 
  end subroutine oak_init
 
+!--------------------------------------------------------------------
 
+ subroutine oak_load_model_grid(config)
+  use mpi
+  use initfile
+  use ufileformat
+  implicit none
+  type(oakconfig), intent(inout) :: config
+  integer :: vmax
+  character(len=MaxFNameLength), pointer   ::  &
+       filenamesX(:),filenamesY(:),filenamesZ(:),    &
+       filenamesT(:)
+  character(len=MaxFNameLength)            :: path
+  integer :: v,n
+
+  if (config%initfname /= '') then
+  ! Models Memory Layout 
+    call MemoryLayout('Model.',config%ModML)
+    
+    vmax = config%ModML%nvar
+
+    allocate(config%ModelGrid(vmax))
+
+
+  call getInitValue(initfname,'Model.path',path,default='')
+
+!
+! define model grid
+!
+
+  call getInitValue(config%initfname,'Model.gridX',filenamesX)
+  call getInitValue(config%initfname,'Model.gridY',filenamesY)
+  call getInitValue(config%initfname,'Model.gridZ',filenamesZ)
+
+  write(6,*) 'filenamesX',filenamesX(1)
+  write(6,*) 'filenamesY',filenamesY(1)
+  write(6,*) 'filenamesZ',filenamesZ(1),vmax,trim(path)
+  do v=1,vmax
+    n = config%ModML%ndim(v)
+  
+    ! initialisze the model grid structure ModelGrid(v)
+    call initgrid(config%ModelGrid(v),n,config%ModML%varshape(1:n,v), &
+       config%ModML%Mask(config%ModML%StartIndex(v):config%ModML%EndIndex(v)).eq.0)
+
+    ! set the coordinates of the model grid
+    call setCoord(config%ModelGrid(v),1,trim(path)//filenamesX(v))
+    call setCoord(config%ModelGrid(v),2,trim(path)//filenamesY(v))
+
+    if (n > 2) then
+      call setCoord(config%ModelGrid(v),3,trim(path)//filenamesZ(v))
+
+
+      if (n > 3) then
+        call getInitValue(initfname,'Model.gridT',filenamesT)
+        call setCoord(config%ModelGrid(v),4,trim(path)//filenamesT(v))
+        deallocate(filenamesT)
+      end if
+    end if
+    
+
+  end do
+
+  deallocate(filenamesX,filenamesY,filenamesZ)
+
+  end if
+
+ end subroutine oak_load_model_grid
 
  subroutine oak_domain(config,nl,partition,gridx,gridy,gridz,gridt)
   use mpi
@@ -139,9 +221,10 @@ module oak
 
  subroutine oak_done(config)
   use mpi
+  use ndgrid
   implicit none
   type(oakconfig), intent(inout) :: config
-  integer :: ierr
+  integer :: ierr, v
 
   if (.not.config%model_uses_mpi) then
     call mpi_finalize(ierr)
@@ -153,6 +236,16 @@ module oak
   if (allocated(config%gridy)) deallocate(config%gridy)
   if (allocated(config%gridz)) deallocate(config%gridz)
   if (allocated(config%gridt)) deallocate(config%gridt)
+
+  do v=1,config%ModML%nvar
+    ! deallocate the model grid structure ModelGrid(v)
+    call donegrid(config%ModelGrid(v))
+  end do
+
+  deallocate(config%ModelGrid)
+
+  call MemoryLayoutDone(config%ModML)
+
  end subroutine oak_done
 
 !------------------------------------------------------------------------------
@@ -247,22 +340,40 @@ end subroutine oak_obsoper
 
 !-------------------------------------------------------------
 
-subroutine oak_load_obs(ntime,yo,invsqrtR)
+subroutine oak_load_obs(config,ntime,ObsML,yo,invsqrtR,error)
  implicit none
+ type(oakconfig), intent(inout) :: config
  integer, intent(in) :: ntime
+ type(MemLayout), intent(out) :: ObsML
  real, intent(out), pointer :: yo(:), invsqrtR(:)
+ character(len=256)             :: infix
+ real(8) :: mjd0
+ integer :: error, m
 
- allocate(yo(1),invsqrtR(1))
- yo = 1
- invsqrtR = 1  
+ ! fixme ntime
+ call loadObsTime(ntime,mjd0,error)
+
+ if (error == 0) then
+   call fmtIndex('',ntime,'.',infix)
+   call MemoryLayout('Obs'//trim(infix),ObsML)
+
+   m = ObsML%effsize
+   
+   allocate(yo(m),invsqrtR(m))
+   call loadObs(ntime,ObsML,yo,invsqrtR)    
+   
+   allocate(yo(1),invsqrtR(1))
+   yo = 1
+   invsqrtR = 1  
+ end if
 end subroutine oak_load_obs
 
 
 
 !-------------------------------------------------------------
 
- subroutine oak_assim(config,ntime,x)
-  use mpi
+subroutine oak_assim(config,ntime,x)
+ use mpi
   use sangoma_ensemble_analysis
   implicit none
   type(oakconfig), intent(inout) :: config
@@ -276,9 +387,14 @@ end subroutine oak_load_obs
   real, pointer :: yo(:), invsqrtR(:)
   real :: scale
   character(len=64) :: method = 'ETKF'
+  type(MemLayout) :: ObsML
 
-  ! load observations
-  call oak_load_obs(ntime,yo,invsqrtR)
+  ! load observations if available
+  call oak_load_obs(config,ntime,ObsML,yo,invsqrtR,ierr)
+
+  if (ierr /= 0) then
+    return
+  end if
 
   obs_dim = size(yo)
   allocate(Hx(obs_dim),HEf(obs_dim,config%Nens),d(obs_dim),HSf(obs_dim),meanHx(obs_dim),diagR(obs_dim))
