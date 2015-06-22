@@ -1,16 +1,18 @@
 #!/bin/bash -xe
 
 
-F="-fdefault-real-8 /home/abarth/src/sangoma/tools/trunk/Fortran/utilities/sangoma_utils.F90 /home/abarth/src/sangoma/tools/trunk/Fortran/analysis/sangoma_ensemble_analysis.F90"
+# F="-fdefault-real-8 /home/abarth/src/sangoma/tools/trunk/Fortran/utilities/sangoma_utils.F90 /home/abarth/src/sangoma/tools/trunk/Fortran/analysis/sangoma_ensemble_analysis.F90"
 
-echo 'Serial model'
-gfortran -fdefault-real-8 -o toymodel toymodel.F90 && ./toymodel
+# echo 'Serial model'
+# gfortran -fdefault-real-8 -o toymodel toymodel.F90 && ./toymodel
 
-echo 'Parallel model'
-mpif90 -fdefault-real-8 -g -C  -DMODEL_PARALLEL -o toymodel toymodel.F90 && mpirun -np 4 toymodel
+# echo 'Parallel model'
+# mpif90 -fdefault-real-8 -g -C  -DMODEL_PARALLEL -o toymodel toymodel.F90 && mpirun -np 4 toymodel
 
-echo 'Parallel model + Assim'
-mpif90 -fdefault-real-8 -g -C -DOAK -DMODEL_PARALLEL -o toymodel $F oak.F90 toymodel.F90 -llapack -lblas && mpirun -np 4 toymodel
+# echo 'Parallel model + Assim'
+# mpif90 -fdefault-real-8 -g -C -DOAK -DMODEL_PARALLEL -o toymodel $F ndgrid.F90 matoper.F90 oak.F90 toymodel.F90 -llapack -lblas && mpirun -np 4 toymodel
 
-echo 'Serial model + Assim'
-mpif90 -fdefault-real-8 -g -C -DOAK -o toymodel $F oak.F90 toymodel.F90  -llapack -lblas && mpirun -np 4 toymodel
+# echo 'Serial model + Assim'
+# mpif90 -fdefault-real-8 -g -C -DOAK -o toymodel $F ndgrid.F90 oak.F90 toymodel.F90  -llapack -lblas && mpirun -np 4 toymodel
+
+make PRECISION=double  MPI=on EXTRA_F90FLAGS='-g -C -DOAK -DMODEL_PARALLEL'  toymodel && mpirun -np 4 toymodel

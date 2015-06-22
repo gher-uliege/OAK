@@ -1,25 +1,34 @@
 module oak
+ use ndgrid
 
+ integer, parameter :: maxLen = 256
+ 
  type oakconfig
+   character(len=maxLen) :: initfname
+
+  ! communicator model + assimilation
    integer :: comm_all
-   ! communicator between ensemble members of the same sub-domain
+   ! communicator between ensemble members (of the same sub-domain)
    integer :: comm_da
+   ! communicator between sub-domains (of the same ensemble member)
    integer :: comm_ensmember
+   ! flag wheter the model uses MPI
    logical :: model_uses_mpi
    ! ensemble size
    integer :: Nens
+
    ! integer :: n
    
-   integer :: mpi_precision
-
    integer, allocatable :: startIndex(:),endIndex(:)
    
    ! size of local distributed state vector
    integer, allocatable :: locsize(:), partition(:)
 
+   logical, allocatable :: mask(:)
    real, allocatable :: gridx(:), gridy(:), gridz(:), gridt(:)
    
-   integer :: schemetype = 1   
+   type(grid), allocatable :: ModelGrid(:)
+   integer :: schemetype = 1
  end type oakconfig
 
  contains
@@ -31,7 +40,7 @@ module oak
   type(oakconfig), intent(out) :: config
   integer, intent(in), optional :: comm
   integer, intent(out), optional :: comm_ensmember_
-  integer :: nprocs
+  integer :: nprocs, nprocs_ensmember 
   integer :: ierr
 
   config%Nens = 2
@@ -43,6 +52,7 @@ module oak
 
     !write(6,*) 'comm_ensmember_',comm_ensmember_
     config%comm_ensmember = comm_ensmember_
+    call mpi_comm_size(config%comm_ensmember, nprocs_ensmember, ierr)
   else
     ! modes does not use MPI, we can use MPI alone
     config%comm_all = mpi_comm_world
@@ -50,19 +60,20 @@ module oak
     config%comm_ensmember = -1
     call mpi_init(ierr)
     config%model_uses_mpi = .false.
+    nprocs_ensmember = 1
   end if
 
   call mpi_comm_size(config%comm_all, nprocs, ierr)
   call oak_split_comm(config%comm_all,nprocs/config%Nens,config%comm_da,.false.)
 
-  if (kind(config%gridx) == 4) then
-    config%mpi_precision = mpi_real
-  elseif (kind(config%gridx) == 8) then
-    config%mpi_precision = mpi_double_precision
-  else
-    write(6,*) 'unknown precision'
-    stop
-  end if
+
+!  allocate(config%ModelGrid(2))
+
+  ! print diagnostic information
+  write(6,*) 'OAK is initialized'
+  write(6,*) 'Total number of processes',nprocs
+  write(6,*) 'Processes per ensemble member',nprocs_ensmember
+
  end subroutine oak_init
 
 
@@ -205,7 +216,7 @@ module oak
   deallocate(ranks)
   !write(6,*) 'ranks ',rank,':',ranks, new_comm
   
-  call mpi_barrier(comm, ierr )
+  call mpi_barrier(comm, ierr)
  end subroutine oak_split_comm
 
 
@@ -227,7 +238,7 @@ subroutine oak_obsoper(config,x,Hx)
      Hx = x(1) 
    end if
    
-   call mpi_bcast(Hx, m, config%mpi_precision, 0, config%comm_ensmember, ierr)
+   call mpi_bcast(Hx, m, DEFAULT_REAL, 0, config%comm_ensmember, ierr)
  else
    Hx = x(1)
  end if
@@ -247,15 +258,6 @@ subroutine oak_load_obs(ntime,yo,invsqrtR)
 end subroutine oak_load_obs
 
 
-!-------------------------------------------------------------
-
-subroutine selectObs(i,w) 
- implicit none
- integer, intent(in) :: i
- real, intent(out) :: w(:)
- 
- 
-end subroutine selectObs
 
 !-------------------------------------------------------------
 
@@ -284,7 +286,8 @@ end subroutine selectObs
   ! extract observations
   call oak_obsoper(config,x,Hx)
 
-  call mpi_allgather(Hx, obs_dim, config%mpi_precision, HEf, obs_dim, config%mpi_precision, config%comm_da, ierr)
+  call mpi_allgather(Hx, obs_dim, DEFAULT_REAL, HEf,  &
+       obs_dim, DEFAULT_REAL, config%comm_da, ierr)
 
 !  write(6,*) 'Hx',Hx
 
@@ -311,8 +314,8 @@ end subroutine selectObs
   
   !write(6,*) 'model ',myrank,'disp ',sdispls,rdispls
   
-  call mpi_alltoallv(x, config%locsize, sdispls, config%mpi_precision, &
-       xloc, recvcounts, rdispls, config%mpi_precision, config%comm_da, ierr)
+  call mpi_alltoallv(x, config%locsize, sdispls, DEFAULT_REAL, &
+       xloc, recvcounts, rdispls, DEFAULT_REAL, config%comm_da, ierr)
 
 
   write(6,*) 'xloc1',xloc(:,1)
@@ -331,11 +334,20 @@ end subroutine selectObs
   end if
   
 
-  call mpi_alltoallv(xloc, recvcounts, rdispls, config%mpi_precision, &
-       x, config%locsize, sdispls, config%mpi_precision, config%comm_da, ierr)
+  call mpi_alltoallv(xloc, recvcounts, rdispls, DEFAULT_REAL, &
+       x, config%locsize, sdispls, DEFAULT_REAL, config%comm_da, ierr)
   
  !write(6,*) 'model ',myrank,'has global',x
-  
+
+!-------------------------------------------------------------
+  contains
+   subroutine selectObs(i,w) 
+    implicit none
+    integer, intent(in) :: i
+    real, intent(out) :: w(:)
+    
+ 
+   end subroutine selectObs   
  end subroutine oak_assim
 
 

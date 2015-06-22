@@ -14,6 +14,9 @@
 %.o: %.F90
 	$(F90C) $(F90FLAGS) -c $<
 
+%.o: %.f90
+	$(F90C) $(F90FLAGS) -c $<
+
 .SUFFIXES: $(SUFFIXES) .f90 .F90
 
 #-------------------------------#
@@ -161,3 +164,12 @@ assimilation.o: assimilation.F90 user_base.o sangoma_base.o sangoma_ewpf.o anamo
 ufileformat.o: ufileformat.F90 ppdef.h
 
 match.o: match.c
+
+
+OBJ=toymodel.o /home/abarth/src/sangoma/tools/trunk/Fortran/utilities/sangoma_utils.o /home/abarth/src/sangoma/tools/trunk/Fortran/analysis/sangoma_ensemble_analysis.o ndgrid.o assimilation.o rrsqrt.o anamorphosis.o date.o parall.o initfile.o user_base.o   matoper.o oak.o  ufileformat.o  random_d.f90 sangoma_base.f90 sangoma_ewpf.o match.o 
+
+oak.o: oak.F90 assimilation.o ndgrid.o
+toymodel.o: toymodel.F90 oak.o
+
+toymodel: $(OBJ) 
+	$(F90C) -fdefault-real-8 $(LDFLAGS) -o $@ $+ $(LIBS)
