@@ -5,38 +5,49 @@ module oak
  integer :: comm_all
  ! communicator between ensemble members of the same sub-domain
  integer :: comm_da
+ integer :: comm_ensmember
  logical :: model_uses_mpi
  ! ensemble size
  integer :: Nens
 ! integer :: n
+
+ integer :: mpi_precision
+
  integer, allocatable :: startIndex(:),endIndex(:)
 
  ! size of local distributed state vector
- integer, allocatable :: locsize(:)
+ integer, allocatable :: locsize(:), partition(:)
+
+ real, allocatable :: gridx(:), gridy(:), gridz(:), gridt(:)
 
  integer :: schemetype = 1
 
  contains
 
- subroutine oak_init(comm,comm_ensmember)
+ subroutine oak_init(comm,comm_ensmember_)
   use mpi
   implicit none
   
   ! size of model 
   integer, intent(in), optional :: comm
-  integer, intent(out), optional :: comm_ensmember
+  integer, intent(out), optional :: comm_ensmember_
   integer :: nprocs
   integer :: ierr
 
   Nens = 2
   if (present(comm)) then
     ! model uses also MPI, split communicators
-    call oak_split_comm(comm,Nens,comm_ensmember,.true.)
+    call oak_split_comm(comm,Nens,comm_ensmember_,.true.)
     comm_all = comm
     model_uses_mpi = .true.
+
+    write(6,*) 'comm_ensmember_',comm_ensmember_
+    comm_ensmember = comm_ensmember_
   else
     ! modes does not use MPI, we can use MPI alone
     comm_all = mpi_comm_world
+    ! comm_ensmember should never be used
+    comm_ensmember = -1
     call mpi_init(ierr)
     model_uses_mpi = .false.
   end if
@@ -44,17 +55,31 @@ module oak
   call mpi_comm_size(comm_all, nprocs, ierr)
   call oak_split_comm(comm_all,nprocs/Nens,comm_da,.false.)
 
+  if (kind(gridx) == 4) then
+    mpi_precision = mpi_real
+  elseif (kind(gridx) == 8) then
+    mpi_precision = mpi_double_precision
+  else
+    write(6,*) 'unknown precision'
+    stop
+  end if
  end subroutine oak_init
 
 
 
- subroutine oak_domain(nl)
+ subroutine oak_domain(nl,part,gridx_,gridy_,gridz_,gridt_)
   use mpi
   implicit none
   
   ! size of model 
   integer, intent(in) :: nl
+  integer, intent(in), optional :: part(:)
+  real, intent(in), optional :: gridx_(:)
+  real, intent(in), optional :: gridy_(:)
+  real, intent(in), optional :: gridz_(:)
+  real, intent(in), optional :: gridt_(:)
   integer, allocatable :: itemp(:)
+  
   integer :: i
 
   allocate(startIndex(Nens),endIndex(Nens),locsize(Nens),itemp(Nens+1))
@@ -71,6 +96,11 @@ module oak
   locsize = endIndex - startIndex+1
 
   deallocate(itemp)
+
+  if (present(part)) then
+    allocate(partition(size(part)))
+    partition = part
+  end if
 
  end subroutine 
 
@@ -134,7 +164,6 @@ module oak
          modulo(rank,N)
   end if
 
-  !write(6,*) 'ranks ',rank,':',ranks
 
 !  Extract the original group handle
   call mpi_comm_group(comm, group, ierr)
@@ -147,6 +176,7 @@ module oak
        new_comm, ierr)
   
   deallocate(ranks)
+  write(6,*) 'ranks ',rank,':',ranks, new_comm
   
   call mpi_barrier(comm, ierr )
  end subroutine oak_split_comm
@@ -154,13 +184,21 @@ module oak
 
 !-------------------------------------------------------------
 
-subroutine oak_obsoper(x,Hx)
+subroutine oak_obsoper(x,Hx,comm_ensmember)
+ use mpi
  implicit none
  real, intent(in) :: x(:)
  real, intent(out) :: Hx(:)
-
+ integer, intent(in) :: comm_ensmember
+ integer :: rank, m = 1, ierr
  ! use communicator for each ensemble member
- Hx = x(1) 
+ 
+ call mpi_comm_rank(comm_ensmember, rank, ierr)
+ if (rank == 0) then
+   Hx = x(1) 
+ end if
+
+ call mpi_bcast(Hx, m, mpi_precision, 0, comm_ensmember, ierr)
 end subroutine oak_obsoper
 
 
@@ -176,10 +214,22 @@ subroutine oak_load_obs(ntime,yo,invsqrtR)
  invsqrtR = 1  
 end subroutine oak_load_obs
 
+
+!-------------------------------------------------------------
+
+subroutine selectObs(i,w) 
+ implicit none
+ integer, intent(in) :: i
+ real, intent(out) :: w(:)
+ 
+ 
+end subroutine selectObs
+
 !-------------------------------------------------------------
 
  subroutine oak_assim(ntime,x)
   use mpi
+  use sangoma_ensemble_analysis
   implicit none
   integer, intent(in) :: ntime
   real, intent(inout) :: x(:)
@@ -187,23 +237,28 @@ end subroutine oak_load_obs
   real, allocatable :: xloc(:,:) 
   integer, dimension(Nens) :: recvcounts, sdispls, rdispls
 
-  real, allocatable :: Hx(:),HE(:,:), d(:), meanHx(:), HSf(:)
+  real, allocatable :: Hx(:),HEf(:,:), d(:), meanHx(:), HSf(:), diagR(:), Ef(:,:), Ea(:,:)
   real, pointer :: yo(:), invsqrtR(:)
   real :: scale
+  character(len=64) :: method = 'ETKF'
 
   ! load observations
   call oak_load_obs(ntime,yo,invsqrtR)
 
   obs_dim = size(yo)
-  allocate(Hx(obs_dim),HE(obs_dim,Nens),d(obs_dim),HSf(obs_dim),meanHx(obs_dim))
+  allocate(Hx(obs_dim),HEf(obs_dim,Nens),d(obs_dim),HSf(obs_dim),meanHx(obs_dim),diagR(obs_dim))
 
   ! extract observations
-  call oak_obsoper(x,Hx)
+  call oak_obsoper(x,Hx,comm_ensmember)
 
-  write(6,*) 'x',x
+  call mpi_allgather(Hx, obs_dim, mpi_precision, HEf, obs_dim, mpi_precision, comm_da, ierr)
+
+  write(6,*) 'Hx',Hx
+
+!  write(6,*) 'x',x
   
   call mpi_comm_rank(comm_da, myrank, ierr)
-  
+   
   ! collect the local part of the state vector
   
   recvcounts = locsize(myrank+1)
@@ -223,8 +278,8 @@ end subroutine oak_load_obs
   
   !write(6,*) 'model ',myrank,'disp ',sdispls,rdispls
   
-  call mpi_alltoallv(x, locsize, sdispls, mpi_real, &
-       xloc, recvcounts, rdispls, mpi_real, comm_da, ierr)
+  call mpi_alltoallv(x, locsize, sdispls, mpi_precision, &
+       xloc, recvcounts, rdispls, mpi_precision, comm_da, ierr)
 
 
   write(6,*) 'xloc1',xloc(:,1)
@@ -239,12 +294,12 @@ end subroutine oak_load_obs
     ! global
     
   else
-    
+!    call local_ensemble_analysis(Ef,HEf,yo,diagR,partition,selectObs,method,Ea)
   end if
   
 
-  call mpi_alltoallv(xloc, recvcounts, rdispls, mpi_real, &
-       x, locsize, sdispls, mpi_real, comm_da, ierr)
+  call mpi_alltoallv(xloc, recvcounts, rdispls, mpi_precision, &
+       x, locsize, sdispls, mpi_precision, comm_da, ierr)
   
  !write(6,*) 'model ',myrank,'has global',x
   
@@ -276,8 +331,8 @@ program toymodel
  integer :: rank
 #ifdef MODEL_PARALLEL
  integer :: comm, nprocs, ierr, tag
- !integer :: precision = mpi_double_precision
- integer :: precision = mpi_real
+ integer :: precision = mpi_double_precision
+ !integer :: precision = mpi_real
  integer :: status(mpi_status_size)
 #endif
 
@@ -327,7 +382,7 @@ program toymodel
 
 
 #ifdef OAK
- call oak_domain(nl)
+ call oak_domain(nl,[(i,i=j0,j1)])
 #endif
 
  ! initialize j1-j0+1 grid points and two halo points
@@ -342,17 +397,20 @@ program toymodel
  call bc(i,xinit)
 
  x = xinit
+! write(6,*) 'xinit ',xinit, 'rank',rank
+
 
  ! time loop
  do i = 1,Ntime  
    ! single time step
    call step(i,x)
+   write(6,*) 'x ',x, 'rank',rank,comm,i
 
    ! boundary conditions
    call bc(i,x)
 
 #ifdef OAK
-   call oak_assim(i,x(k0:k1))
+!   call oak_assim(i,x(k0:k1))
 #endif
  end do
 
@@ -418,7 +476,7 @@ contains
  subroutine check_results(x)
   implicit none
   real, intent(in) :: x(:)
-
+  real :: sumx_ref
 
 # ifdef MODEL_PARALLEL
  call mpi_reduce(sum(x(k0:k1)), sumx, 1, precision, mpi_sum, 0, comm, ierr)
@@ -427,8 +485,11 @@ contains
 #endif 
 
  if (rank == 0) then
-   if (abs(sumx - n*(n+1)/2) > 1e-6) then
+   sumx_ref = n*(n+1)/2
+   if (abs(sumx - sumx_ref) > 1e-6) then
      write(6,*) 'sum: FAIL'
+     write(6,*) 'got: ',sumx
+     write(6,*) 'explected: ',sumx_ref
    else
      write(6,*) 'sum:  OK'
    end if
