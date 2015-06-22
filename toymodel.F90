@@ -73,7 +73,7 @@ program toymodel
 
 
 #ifdef OAK
- call oak_domain(config,nl,part=[(i,i=j0,j1)])
+ call oak_domain(config,nl,partition=[(i,i=j0,j1)])
 #endif
 
  ! initialize j1-j0+1 grid points and two halo points

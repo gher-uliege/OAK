@@ -22,26 +22,6 @@ module oak
    integer :: schemetype = 1   
  end type oakconfig
 
- integer :: comm_all
- ! communicator between ensemble members of the same sub-domain
- integer :: comm_da
- integer :: comm_ensmember
- logical :: model_uses_mpi
- ! ensemble size
- integer :: Nens
-! integer :: n
-
- integer :: mpi_precision
-
- integer, allocatable :: startIndex(:),endIndex(:)
-
- ! size of local distributed state vector
- integer, allocatable :: locsize(:), partition(:)
-
- real, allocatable :: gridx(:), gridy(:), gridz(:), gridt(:)
-
- integer :: schemetype = 1
-
  contains
 
  subroutine oak_init(config,comm,comm_ensmember_)
@@ -54,31 +34,31 @@ module oak
   integer :: nprocs
   integer :: ierr
 
-  Nens = 2
+  config%Nens = 2
   if (present(comm)) then
     ! model uses also MPI, split communicators
-    call oak_split_comm(comm,Nens,comm_ensmember_,.true.)
-    comm_all = comm
-    model_uses_mpi = .true.
+    call oak_split_comm(comm,config%Nens,comm_ensmember_,.true.)
+    config%comm_all = comm
+    config%model_uses_mpi = .true.
 
     !write(6,*) 'comm_ensmember_',comm_ensmember_
-    comm_ensmember = comm_ensmember_
+    config%comm_ensmember = comm_ensmember_
   else
     ! modes does not use MPI, we can use MPI alone
-    comm_all = mpi_comm_world
+    config%comm_all = mpi_comm_world
     ! comm_ensmember should never be used
-    comm_ensmember = -1
+    config%comm_ensmember = -1
     call mpi_init(ierr)
-    model_uses_mpi = .false.
+    config%model_uses_mpi = .false.
   end if
 
-  call mpi_comm_size(comm_all, nprocs, ierr)
-  call oak_split_comm(comm_all,nprocs/Nens,comm_da,.false.)
+  call mpi_comm_size(config%comm_all, nprocs, ierr)
+  call oak_split_comm(config%comm_all,nprocs/config%Nens,config%comm_da,.false.)
 
-  if (kind(gridx) == 4) then
-    mpi_precision = mpi_real
-  elseif (kind(gridx) == 8) then
-    mpi_precision = mpi_double_precision
+  if (kind(config%gridx) == 4) then
+    config%mpi_precision = mpi_real
+  elseif (kind(config%gridx) == 8) then
+    config%mpi_precision = mpi_double_precision
   else
     write(6,*) 'unknown precision'
     stop
@@ -87,60 +67,60 @@ module oak
 
 
 
- subroutine oak_domain(config,nl,part,gridx_,gridy_,gridz_,gridt_)
+ subroutine oak_domain(config,nl,partition,gridx,gridy,gridz,gridt)
   use mpi
   implicit none
 
   type(oakconfig), intent(inout) :: config  
   ! size of model 
   integer, intent(in) :: nl
-  integer, intent(in), optional :: part(:)
-  real, intent(in), optional :: gridx_(:)
-  real, intent(in), optional :: gridy_(:)
-  real, intent(in), optional :: gridz_(:)
-  real, intent(in), optional :: gridt_(:)
+  integer, intent(in), optional :: partition(:)
+  real, intent(in), optional :: gridx(:)
+  real, intent(in), optional :: gridy(:)
+  real, intent(in), optional :: gridz(:)
+  real, intent(in), optional :: gridt(:)
   integer, allocatable :: itemp(:)
   
   integer :: i
 
-  allocate(startIndex(Nens),endIndex(Nens),locsize(Nens),itemp(Nens+1))
+  allocate(config%startIndex(config%Nens),config%endIndex(config%Nens),config%locsize(config%Nens),itemp(config%Nens+1))
   
 
   ! indices for distributed state vector
-  itemp = [ (1 + ( (i-1)*nl)/Nens, i=1,Nens+1)]
+  itemp = [ (1 + ( (i-1)*nl)/config%Nens, i=1,config%Nens+1)]
   !write(6,*) 'itemp ',itemp
  
-  startIndex = itemp(1:Nens)
-  endIndex = itemp(2:Nens+1)-1
+  config%startIndex = itemp(1:config%Nens)
+  config%endIndex = itemp(2:config%Nens+1)-1
 
   ! local size for assimilation
-  locsize = endIndex - startIndex+1
+  config%locsize = config%endIndex - config%startIndex+1
 
   deallocate(itemp)
 
-  if (present(part)) then
-    allocate(partition(size(part)))
-    partition = part
+  if (present(partition)) then
+    allocate(config%partition(size(partition)))
+    config%partition = partition
   end if
 
-  if (present(gridx_)) then
-    allocate(gridx(size(gridx_)))
-    gridx = gridx_
+  if (present(gridx)) then
+    allocate(config%gridx(size(gridx)))
+    config%gridx = gridx
   end if
 
-  if (present(gridy_)) then
-    allocate(gridy(size(gridy_)))
-    gridy = gridy_
+  if (present(gridy)) then
+    allocate(config%gridy(size(gridy)))
+    config%gridy = gridy
   end if
 
-  if (present(gridz_)) then
-    allocate(gridz(size(gridz_)))
-    gridz = gridz_
+  if (present(gridz)) then
+    allocate(config%gridz(size(gridz)))
+    config%gridz = gridz
   end if
 
-  if (present(gridt_)) then
-    allocate(gridt(size(gridt_)))
-    gridt = gridt_
+  if (present(gridt)) then
+    allocate(config%gridt(size(gridt)))
+    config%gridt = gridt
   end if
 
  end subroutine 
@@ -152,11 +132,16 @@ module oak
   type(oakconfig), intent(inout) :: config
   integer :: ierr
 
-  if (.not.model_uses_mpi) then
+  if (.not.config%model_uses_mpi) then
     call mpi_finalize(ierr)
   end if
 
-  deallocate(startIndex,endIndex,locsize)
+  deallocate(config%startIndex,config%endIndex,config%locsize)
+  
+  if (allocated(config%gridx)) deallocate(config%gridx)
+  if (allocated(config%gridy)) deallocate(config%gridy)
+  if (allocated(config%gridz)) deallocate(config%gridz)
+  if (allocated(config%gridt)) deallocate(config%gridt)
  end subroutine oak_done
 
 !------------------------------------------------------------------------------
@@ -226,24 +211,23 @@ module oak
 
 !-------------------------------------------------------------
 
-subroutine oak_obsoper(config,x,Hx,comm_ensmember)
+subroutine oak_obsoper(config,x,Hx)
  use mpi
  implicit none
  type(oakconfig), intent(inout) :: config
  real, intent(in) :: x(:)
  real, intent(out) :: Hx(:)
- integer, intent(in) :: comm_ensmember
  integer :: rank, m = 1, ierr
  ! use communicator for each ensemble member
 
 
- if (model_uses_mpi) then
-   call mpi_comm_rank(comm_ensmember, rank, ierr)
+ if (config%model_uses_mpi) then
+   call mpi_comm_rank(config%comm_ensmember, rank, ierr)
    if (rank == 0) then
      Hx = x(1) 
    end if
    
-   call mpi_bcast(Hx, m, mpi_precision, 0, comm_ensmember, ierr)
+   call mpi_bcast(Hx, m, config%mpi_precision, 0, config%comm_ensmember, ierr)
  else
    Hx = x(1)
  end if
@@ -284,7 +268,7 @@ end subroutine selectObs
   real, intent(inout) :: x(:)
   integer :: ierr, i, obs_dim, r, myrank
   real, allocatable :: xloc(:,:) 
-  integer, dimension(Nens) :: recvcounts, sdispls, rdispls
+  integer, dimension(config%Nens) :: recvcounts, sdispls, rdispls
 
   real, allocatable :: Hx(:),HEf(:,:), d(:), meanHx(:), HSf(:), diagR(:), Ef(:,:), Ea(:,:)
   real, pointer :: yo(:), invsqrtR(:)
@@ -295,40 +279,40 @@ end subroutine selectObs
   call oak_load_obs(ntime,yo,invsqrtR)
 
   obs_dim = size(yo)
-  allocate(Hx(obs_dim),HEf(obs_dim,Nens),d(obs_dim),HSf(obs_dim),meanHx(obs_dim),diagR(obs_dim))
+  allocate(Hx(obs_dim),HEf(obs_dim,config%Nens),d(obs_dim),HSf(obs_dim),meanHx(obs_dim),diagR(obs_dim))
 
   ! extract observations
-  call oak_obsoper(config,x,Hx,comm_ensmember)
+  call oak_obsoper(config,x,Hx)
 
-  call mpi_allgather(Hx, obs_dim, mpi_precision, HEf, obs_dim, mpi_precision, comm_da, ierr)
+  call mpi_allgather(Hx, obs_dim, config%mpi_precision, HEf, obs_dim, config%mpi_precision, config%comm_da, ierr)
 
 !  write(6,*) 'Hx',Hx
 
 !  write(6,*) 'x',x
   
-  call mpi_comm_rank(comm_da, myrank, ierr)
+  call mpi_comm_rank(config%comm_da, myrank, ierr)
    
   ! collect the local part of the state vector
   
-  recvcounts = locsize(myrank+1)
+  recvcounts = config%locsize(myrank+1)
   
   ! allocate(xloc(sum(recvcounts)))
-  allocate(xloc(locsize(myrank+1),Nens))
+  allocate(xloc(config%locsize(myrank+1),config%Nens))
 
-!  write(6,*) 'model ',myrank,'counts ',locsize,recvcounts
+!  write(6,*) 'model ',myrank,'counts ',config%locsize,recvcounts
 
   ! The type signature associated with sendcount[j], sendtype at process i must be equal to the type signature associated with recvcount[i], recvtype at process j. This implies that the amount of data sent must be equal to the amount of data received, pairwise between every pair of processes.
 
-  sdispls = startIndex-1
+  sdispls = config%startIndex-1
   rdispls(1) = 0
-  do i=2,Nens
+  do i=2,config%Nens
     rdispls(i) = rdispls(i-1) + recvcounts(i-1)
   end do
   
   !write(6,*) 'model ',myrank,'disp ',sdispls,rdispls
   
-  call mpi_alltoallv(x, locsize, sdispls, mpi_precision, &
-       xloc, recvcounts, rdispls, mpi_precision, comm_da, ierr)
+  call mpi_alltoallv(x, config%locsize, sdispls, config%mpi_precision, &
+       xloc, recvcounts, rdispls, config%mpi_precision, config%comm_da, ierr)
 
 
   write(6,*) 'xloc1',xloc(:,1)
@@ -339,16 +323,16 @@ end subroutine selectObs
   
   ! analysis
   
-  if (schemetype == 1) then
+  if (config%schemetype == 1) then
     ! global
     
   else
-!    call local_ensemble_analysis(Ef,HEf,yo,diagR,partition,selectObs,method,Ea)
+!    call local_ensemble_analysis(Ef,HEf,yo,diagR,config%partition,selectObs,method,Ea)
   end if
   
 
-  call mpi_alltoallv(xloc, recvcounts, rdispls, mpi_precision, &
-       x, locsize, sdispls, mpi_precision, comm_da, ierr)
+  call mpi_alltoallv(xloc, recvcounts, rdispls, config%mpi_precision, &
+       x, config%locsize, sdispls, config%mpi_precision, config%comm_da, ierr)
   
  !write(6,*) 'model ',myrank,'has global',x
   
