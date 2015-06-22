@@ -404,7 +404,6 @@ program toymodel
  do i = 1,Ntime  
    ! single time step
    call step(i,x)
-   write(6,*) 'x ',x, 'rank',rank,comm,i
 
    ! boundary conditions
    call bc(i,x)
