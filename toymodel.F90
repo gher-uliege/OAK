@@ -41,7 +41,7 @@ module oak
     comm_all = comm
     model_uses_mpi = .true.
 
-    write(6,*) 'comm_ensmember_',comm_ensmember_
+    !write(6,*) 'comm_ensmember_',comm_ensmember_
     comm_ensmember = comm_ensmember_
   else
     ! modes does not use MPI, we can use MPI alone
@@ -176,7 +176,7 @@ module oak
        new_comm, ierr)
   
   deallocate(ranks)
-  write(6,*) 'ranks ',rank,':',ranks, new_comm
+  !write(6,*) 'ranks ',rank,':',ranks, new_comm
   
   call mpi_barrier(comm, ierr )
  end subroutine oak_split_comm
@@ -192,13 +192,18 @@ subroutine oak_obsoper(x,Hx,comm_ensmember)
  integer, intent(in) :: comm_ensmember
  integer :: rank, m = 1, ierr
  ! use communicator for each ensemble member
- 
- call mpi_comm_rank(comm_ensmember, rank, ierr)
- if (rank == 0) then
-   Hx = x(1) 
- end if
 
- call mpi_bcast(Hx, m, mpi_precision, 0, comm_ensmember, ierr)
+
+ if (model_uses_mpi) then
+   call mpi_comm_rank(comm_ensmember, rank, ierr)
+   if (rank == 0) then
+     Hx = x(1) 
+   end if
+   
+   call mpi_bcast(Hx, m, mpi_precision, 0, comm_ensmember, ierr)
+ else
+   Hx = x(1)
+ end if
 end subroutine oak_obsoper
 
 
@@ -253,7 +258,7 @@ end subroutine selectObs
 
   call mpi_allgather(Hx, obs_dim, mpi_precision, HEf, obs_dim, mpi_precision, comm_da, ierr)
 
-  write(6,*) 'Hx',Hx
+!  write(6,*) 'Hx',Hx
 
 !  write(6,*) 'x',x
   
@@ -266,7 +271,7 @@ end subroutine selectObs
   ! allocate(xloc(sum(recvcounts)))
   allocate(xloc(locsize(myrank+1),Nens))
 
-  write(6,*) 'model ',myrank,'counts ',locsize,recvcounts
+!  write(6,*) 'model ',myrank,'counts ',locsize,recvcounts
 
   ! The type signature associated with sendcount[j], sendtype at process i must be equal to the type signature associated with recvcount[i], recvtype at process j. This implies that the amount of data sent must be equal to the amount of data received, pairwise between every pair of processes.
 
@@ -409,7 +414,7 @@ program toymodel
    call bc(i,x)
 
 #ifdef OAK
-!   call oak_assim(i,x(k0:k1))
+   call oak_assim(i,x(k0:k1))
 #endif
  end do
 
