@@ -409,7 +409,7 @@ program toymodel
    call bc(i,x)
 
 #ifdef OAK
-   call oak_assim(i,x(k0:k1))
+!   call oak_assim(i,x(k0:k1))
 #endif
  end do
 
