@@ -1611,6 +1611,7 @@ end subroutine fmtIndex
 
       if (la%varshape(3,m).eq.1) la%ndim(m) = 2
     end if
+    !write(6,*) 'la%varshape(:,m), la%ndim(m)',la%varshape(:,m), la%ndim(m)
 
     la%VarSize(m) = product(la%varshape(1:la%ndim(m),m))
     la%EndIndex(m) = la%StartIndex(m) + la%VarSize(m)-1 
@@ -2467,7 +2468,10 @@ end subroutine fmtIndex
             
             tindexes = 1
 
-            if (ModML%ndim(v).eq.2) then
+            if (ModML%ndim(v).eq.1) then
+              call cinterp(ModelGrid(v), (/ obsX(linindex) /), &
+                   tindexes(1:1,1:2),tc(1:2),tn)
+            elseif (ModML%ndim(v).eq.2) then
               call cinterp(ModelGrid(v), (/ obsX(linindex),obsY(linindex) /), &
                    tindexes(1:2,1:4),tc(1:4),tn)
             elseif (ModML%ndim(v).eq.3) then

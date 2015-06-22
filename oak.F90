@@ -109,12 +109,12 @@ module oak
 
   if (config%initfname /= '') then
   ! Models Memory Layout 
-    call MemoryLayout('Model.',config%ModML)
+    call MemoryLayout('Model.',ModML)
     
-    vmax = config%ModML%nvar
+    vmax = ModML%nvar
 
-    allocate(config%ModelGrid(vmax))
-
+    allocate(ModelGrid(vmax),hres(vmax))
+    hres = 0
 
   call getInitValue(initfname,'Model.path',path,default='')
 
@@ -130,29 +130,33 @@ module oak
   write(6,*) 'filenamesY',filenamesY(1)
   write(6,*) 'filenamesZ',filenamesZ(1),vmax,trim(path)
   do v=1,vmax
-    n = config%ModML%ndim(v)
+    n = ModML%ndim(v)
   
     ! initialisze the model grid structure ModelGrid(v)
-    call initgrid(config%ModelGrid(v),n,config%ModML%varshape(1:n,v), &
-       config%ModML%Mask(config%ModML%StartIndex(v):config%ModML%EndIndex(v)).eq.0)
+    call initgrid(ModelGrid(v),n,ModML%varshape(1:n,v), &
+       ModML%Mask(ModML%StartIndex(v):ModML%EndIndex(v)).eq.0)
 
     ! set the coordinates of the model grid
-    call setCoord(config%ModelGrid(v),1,trim(path)//filenamesX(v))
-    call setCoord(config%ModelGrid(v),2,trim(path)//filenamesY(v))
+    call setCoord(ModelGrid(v),1,trim(path)//filenamesX(v))
+    call setCoord(ModelGrid(v),2,trim(path)//filenamesY(v))
 
     if (n > 2) then
-      call setCoord(config%ModelGrid(v),3,trim(path)//filenamesZ(v))
+      call setCoord(ModelGrid(v),3,trim(path)//filenamesZ(v))
 
 
       if (n > 3) then
         call getInitValue(initfname,'Model.gridT',filenamesT)
-        call setCoord(config%ModelGrid(v),4,trim(path)//filenamesT(v))
+        call setCoord(ModelGrid(v),4,trim(path)//filenamesT(v))
         deallocate(filenamesT)
       end if
     end if
     
 
   end do
+
+  ! legacy for obs* routines
+  !ModML = ModML
+  !ModelGrid = ModelGrid
 
   deallocate(filenamesX,filenamesY,filenamesZ)
 
@@ -237,14 +241,14 @@ module oak
   if (allocated(config%gridz)) deallocate(config%gridz)
   if (allocated(config%gridt)) deallocate(config%gridt)
 
-  do v=1,config%ModML%nvar
+  do v=1,ModML%nvar
     ! deallocate the model grid structure ModelGrid(v)
-    call donegrid(config%ModelGrid(v))
+    call donegrid(ModelGrid(v))
   end do
 
-  deallocate(config%ModelGrid)
+  deallocate(ModelGrid)
 
-  call MemoryLayoutDone(config%ModML)
+  call MemoryLayoutDone(ModML)
 
  end subroutine oak_done
 
@@ -340,32 +344,29 @@ end subroutine oak_obsoper
 
 !-------------------------------------------------------------
 
-subroutine oak_load_obs(config,ntime,ObsML,yo,invsqrtR,error)
+subroutine oak_load_obs(config,ntime,ObsML,yo,invsqrtR,H,Hshift)
+ use matoper
  implicit none
  type(oakconfig), intent(inout) :: config
  integer, intent(in) :: ntime
  type(MemLayout), intent(out) :: ObsML
- real, intent(out), pointer :: yo(:), invsqrtR(:)
+ real, intent(out), pointer :: yo(:), invsqrtR(:), Hshift(:)
+ type(SparseMatrix), intent(out) :: H
+
  character(len=256)             :: infix
  real(8) :: mjd0
- integer :: error, m
+ integer :: m
 
- ! fixme ntime
- call loadObsTime(ntime,mjd0,error)
-
- if (error == 0) then
-   call fmtIndex('',ntime,'.',infix)
-   call MemoryLayout('Obs'//trim(infix),ObsML)
-
-   m = ObsML%effsize
+ call fmtIndex('',ntime,'.',infix)
+ call MemoryLayout('Obs'//trim(infix),ObsML)
+ 
+ m = ObsML%effsize
    
-   allocate(yo(m),invsqrtR(m))
-   call loadObs(ntime,ObsML,yo,invsqrtR)    
-   
-   allocate(yo(1),invsqrtR(1))
-   yo = 1
-   invsqrtR = 1  
- end if
+ allocate(yo(m),invsqrtR(m),Hshift(m))
+ call loadObs(ntime,ObsML,yo,invsqrtR)    
+ 
+ call loadObservationOper(ntime,ObsML,H,Hshift,invsqrtR)
+
 end subroutine oak_load_obs
 
 
@@ -374,8 +375,9 @@ end subroutine oak_load_obs
 
 subroutine oak_assim(config,ntime,x)
  use mpi
-  use sangoma_ensemble_analysis
-  implicit none
+ use matoper
+ use sangoma_ensemble_analysis
+ implicit none
   type(oakconfig), intent(inout) :: config
   integer, intent(in) :: ntime
   real, intent(inout) :: x(:)
@@ -384,17 +386,22 @@ subroutine oak_assim(config,ntime,x)
   integer, dimension(config%Nens) :: recvcounts, sdispls, rdispls
 
   real, allocatable :: Hx(:),HEf(:,:), d(:), meanHx(:), HSf(:), diagR(:), Ef(:,:), Ea(:,:)
-  real, pointer :: yo(:), invsqrtR(:)
+  real, pointer :: yo(:), invsqrtR(:), Hshift(:)
   real :: scale
   character(len=64) :: method = 'ETKF'
   type(MemLayout) :: ObsML
+  type(SparseMatrix) :: H
+  real(8) :: mjd0
 
-  ! load observations if available
-  call oak_load_obs(config,ntime,ObsML,yo,invsqrtR,ierr)
-
+  ! fixme ntime
+  ! check if observations are available
+  call loadObsTime(ntime,mjd0,ierr)
   if (ierr /= 0) then
     return
   end if
+
+  ! load observations
+  call oak_load_obs(config,ntime,ObsML,yo,invsqrtR,H,Hshift)
 
   obs_dim = size(yo)
   allocate(Hx(obs_dim),HEf(obs_dim,config%Nens),d(obs_dim),HSf(obs_dim),meanHx(obs_dim),diagR(obs_dim))
