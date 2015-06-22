@@ -2,12 +2,12 @@ module oak
  use ndgrid
  use assimilation
 
-! integer, parameter :: maxLen = 256
- 
+ ! integer, parameter :: maxLen = 256
+
  type oakconfig
    character(len=maxLen) :: initfname
 
-  ! communicator model + assimilation
+   ! communicator model + assimilation
    integer :: comm_all
    ! communicator between ensemble members (of the same sub-domain)
    integer :: comm_da
@@ -19,33 +19,33 @@ module oak
    integer :: Nens
 
    ! integer :: n
-   
+
    integer, allocatable :: startIndex(:),endIndex(:)
-   
+
    ! size of local distributed state vector
    integer, allocatable :: locsize(:), partition(:)
 
    logical, allocatable :: mask(:)
    real, allocatable :: gridx(:), gridy(:), gridz(:), gridt(:)
-   
+
    type(MemLayout) :: ModML
    type(grid), allocatable :: ModelGrid(:)
    integer :: schemetype = 1
    integer :: obsntime = 1   
  end type oakconfig
 
- contains
+contains
 
  subroutine oak_init(config,comm,comm_ensmember_,fname)
   use mpi
   use initfile
   implicit none
-  
+
   type(oakconfig), intent(out) :: config
   integer, intent(in), optional :: comm
   integer, intent(out), optional :: comm_ensmember_
   character(len=maxLen), optional :: fname
-  
+
   integer :: nprocs, nprocs_ensmember, vmax
   integer :: ierr
 
@@ -58,7 +58,7 @@ module oak
     call oak_load_model_grid(config)
 
     call getInitValue(initfname,'ErrorSpace.dimension',config%Nens,default=0)
-  
+
   end if
 
   if (present(comm)) then
@@ -92,7 +92,7 @@ module oak
 
  end subroutine oak_init
 
-!--------------------------------------------------------------------
+ !--------------------------------------------------------------------
 
  subroutine oak_load_model_grid(config)
   use mpi
@@ -108,57 +108,57 @@ module oak
   integer :: v,n
 
   if (config%initfname /= '') then
-  ! Models Memory Layout 
+    ! Models Memory Layout 
     call MemoryLayout('Model.',ModML)
-    
+
     vmax = ModML%nvar
 
     allocate(ModelGrid(vmax),hres(vmax))
     hres = 0
 
-  call getInitValue(initfname,'Model.path',path,default='')
+    call getInitValue(initfname,'Model.path',path,default='')
 
-!
-! define model grid
-!
+    !
+    ! define model grid
+    !
 
-  call getInitValue(config%initfname,'Model.gridX',filenamesX)
-  call getInitValue(config%initfname,'Model.gridY',filenamesY)
-  call getInitValue(config%initfname,'Model.gridZ',filenamesZ)
+    call getInitValue(config%initfname,'Model.gridX',filenamesX)
+    call getInitValue(config%initfname,'Model.gridY',filenamesY)
+    call getInitValue(config%initfname,'Model.gridZ',filenamesZ)
 
-  write(6,*) 'filenamesX',filenamesX(1)
-  write(6,*) 'filenamesY',filenamesY(1)
-  write(6,*) 'filenamesZ',filenamesZ(1),vmax,trim(path)
-  do v=1,vmax
-    n = ModML%ndim(v)
-  
-    ! initialisze the model grid structure ModelGrid(v)
-    call initgrid(ModelGrid(v),n,ModML%varshape(1:n,v), &
-       ModML%Mask(ModML%StartIndex(v):ModML%EndIndex(v)).eq.0)
+    write(6,*) 'filenamesX',filenamesX(1)
+    write(6,*) 'filenamesY',filenamesY(1)
+    write(6,*) 'filenamesZ',filenamesZ(1),vmax,trim(path)
+    do v=1,vmax
+      n = ModML%ndim(v)
 
-    ! set the coordinates of the model grid
-    call setCoord(ModelGrid(v),1,trim(path)//filenamesX(v))
-    call setCoord(ModelGrid(v),2,trim(path)//filenamesY(v))
+      ! initialisze the model grid structure ModelGrid(v)
+      call initgrid(ModelGrid(v),n,ModML%varshape(1:n,v), &
+           ModML%Mask(ModML%StartIndex(v):ModML%EndIndex(v)).eq.0)
 
-    if (n > 2) then
-      call setCoord(ModelGrid(v),3,trim(path)//filenamesZ(v))
+      ! set the coordinates of the model grid
+      call setCoord(ModelGrid(v),1,trim(path)//filenamesX(v))
+      call setCoord(ModelGrid(v),2,trim(path)//filenamesY(v))
+
+      if (n > 2) then
+        call setCoord(ModelGrid(v),3,trim(path)//filenamesZ(v))
 
 
-      if (n > 3) then
-        call getInitValue(initfname,'Model.gridT',filenamesT)
-        call setCoord(ModelGrid(v),4,trim(path)//filenamesT(v))
-        deallocate(filenamesT)
+        if (n > 3) then
+          call getInitValue(initfname,'Model.gridT',filenamesT)
+          call setCoord(ModelGrid(v),4,trim(path)//filenamesT(v))
+          deallocate(filenamesT)
+        end if
       end if
-    end if
-    
 
-  end do
 
-  ! legacy for obs* routines
-  !ModML = ModML
-  !ModelGrid = ModelGrid
+    end do
 
-  deallocate(filenamesX,filenamesY,filenamesZ)
+    ! legacy for obs* routines
+    !ModML = ModML
+    !ModelGrid = ModelGrid
+
+    deallocate(filenamesX,filenamesY,filenamesZ)
 
   end if
 
@@ -177,16 +177,16 @@ module oak
   real, intent(in), optional :: gridz(:)
   real, intent(in), optional :: gridt(:)
   integer, allocatable :: itemp(:)
-  
+
   integer :: i
 
   allocate(config%startIndex(config%Nens),config%endIndex(config%Nens),config%locsize(config%Nens),itemp(config%Nens+1))
-  
+
 
   ! indices for distributed state vector
   itemp = [ (1 + ( (i-1)*nl)/config%Nens, i=1,config%Nens+1)]
   !write(6,*) 'itemp ',itemp
- 
+
   config%startIndex = itemp(1:config%Nens)
   config%endIndex = itemp(2:config%Nens+1)-1
 
@@ -220,7 +220,7 @@ module oak
     config%gridt = gridt
   end if
 
- end subroutine 
+ end subroutine oak_domain
 
 
  subroutine oak_done(config)
@@ -235,7 +235,7 @@ module oak
   end if
 
   deallocate(config%startIndex,config%endIndex,config%locsize)
-  
+
   if (allocated(config%gridx)) deallocate(config%gridx)
   if (allocated(config%gridy)) deallocate(config%gridy)
   if (allocated(config%gridz)) deallocate(config%gridz)
@@ -252,12 +252,12 @@ module oak
 
  end subroutine oak_done
 
-!------------------------------------------------------------------------------
-!
-! split communicator in N sub-groups, either by having continous ranks (mode = 
-! true) or by having ranks separated by size/N (where size is the group of the 
-! communicator comm)
-!
+ !------------------------------------------------------------------------------
+ !
+ ! split communicator in N sub-groups, either by having continous ranks (mode = 
+ ! true) or by having ranks separated by size/N (where size is the group of the 
+ ! communicator comm)
+ !
 
  subroutine oak_split_comm(comm,N,new_comm,mode)
   implicit none
@@ -267,23 +267,23 @@ module oak
   integer, intent(in) :: N
   logical, intent(in) :: mode
   integer, intent(out) :: new_comm
-  
+
   integer :: rank, nprocs
   integer :: ierr
   integer :: group, new_group
   integer :: new_group_nprocs, i
   integer, allocatable :: ranks(:)
-  
+
   call mpi_comm_rank(comm, rank, ierr)
   call mpi_comm_size(comm, nprocs, ierr)
-  
+
   if (modulo(nprocs,N) /= 0) then
     print *, 'Error: number of processes (',nprocs, &
          ') must be divisible by the number ',N    
     call mpi_finalize(ierr)
     stop
   endif
-  
+
   new_group_nprocs = nprocs/N
   !   write(6,*) 'new_group_nprocs',new_group_nprocs
 
@@ -300,84 +300,84 @@ module oak
   end if
 
 
-!  Extract the original group handle
+  !  Extract the original group handle
   call mpi_comm_group(comm, group, ierr)
-  
-!  Divide group into N distinct groups based upon rank
+
+  !  Divide group into N distinct groups based upon rank
   call mpi_group_incl(group, new_group_nprocs, ranks,  &
        new_group, ierr)
-  
+
   call mpi_comm_create(comm, new_group,  &
        new_comm, ierr)
-  
+
   deallocate(ranks)
   !write(6,*) 'ranks ',rank,':',ranks, new_comm
-  
+
   call mpi_barrier(comm, ierr)
  end subroutine oak_split_comm
 
 
-!-------------------------------------------------------------
+ !-------------------------------------------------------------
 
-subroutine oak_obsoper(config,x,Hx)
- use mpi
- implicit none
- type(oakconfig), intent(inout) :: config
- real, intent(in) :: x(:)
- real, intent(out) :: Hx(:)
- integer :: rank, m = 1, ierr
- ! use communicator for each ensemble member
-
-
- if (config%model_uses_mpi) then
-   call mpi_comm_rank(config%comm_ensmember, rank, ierr)
-   if (rank == 0) then
-     Hx = x(1) 
-   end if
-   
-   call mpi_bcast(Hx, m, DEFAULT_REAL, 0, config%comm_ensmember, ierr)
- else
-   Hx = x(1)
- end if
-end subroutine oak_obsoper
+ subroutine oak_obsoper(config,x,Hx)
+  use mpi
+  implicit none
+  type(oakconfig), intent(inout) :: config
+  real, intent(in) :: x(:)
+  real, intent(out) :: Hx(:)
+  integer :: rank, m = 1, ierr
+  ! use communicator for each ensemble member
 
 
-!-------------------------------------------------------------
+  if (config%model_uses_mpi) then
+    call mpi_comm_rank(config%comm_ensmember, rank, ierr)
+    if (rank == 0) then
+      Hx = x(1) 
+    end if
 
-subroutine oak_load_obs(config,ntime,ObsML,yo,invsqrtR,H,Hshift)
- use matoper
- implicit none
- type(oakconfig), intent(inout) :: config
- integer, intent(in) :: ntime
- type(MemLayout), intent(out) :: ObsML
- real, intent(out), pointer :: yo(:), invsqrtR(:), Hshift(:)
- type(SparseMatrix), intent(out) :: H
-
- character(len=256)             :: infix
- real(8) :: mjd0
- integer :: m
-
- call fmtIndex('',ntime,'.',infix)
- call MemoryLayout('Obs'//trim(infix),ObsML)
- 
- m = ObsML%effsize
-   
- allocate(yo(m),invsqrtR(m),Hshift(m))
- call loadObs(ntime,ObsML,yo,invsqrtR)    
- 
- call loadObservationOper(ntime,ObsML,H,Hshift,invsqrtR)
-
-end subroutine oak_load_obs
+    call mpi_bcast(Hx, m, DEFAULT_REAL, 0, config%comm_ensmember, ierr)
+  else
+    Hx = x(1)
+  end if
+ end subroutine oak_obsoper
 
 
+ !-------------------------------------------------------------
 
-!-------------------------------------------------------------
+ subroutine oak_load_obs(config,ntime,ObsML,yo,invsqrtR,H,Hshift)
+  use matoper
+  implicit none
+  type(oakconfig), intent(inout) :: config
+  integer, intent(in) :: ntime
+  type(MemLayout), intent(out) :: ObsML
+  real, intent(out), pointer :: yo(:), invsqrtR(:), Hshift(:)
+  type(SparseMatrix), intent(out) :: H
 
-subroutine oak_assim(config,ntime,x)
- use mpi
- use matoper
- use sangoma_ensemble_analysis
- implicit none
+  character(len=256)             :: infix
+  real(8) :: mjd0
+  integer :: m
+
+  call fmtIndex('',ntime,'.',infix)
+  call MemoryLayout('Obs'//trim(infix),ObsML)
+
+  m = ObsML%effsize
+
+  allocate(yo(m),invsqrtR(m),Hshift(m))
+  call loadObs(ntime,ObsML,yo,invsqrtR)    
+
+  call loadObservationOper(ntime,ObsML,H,Hshift,invsqrtR)
+
+ end subroutine oak_load_obs
+
+
+
+ !-------------------------------------------------------------
+
+ subroutine oak_assim(config,ntime,x)
+  use mpi
+  use matoper
+  use sangoma_ensemble_analysis
+  implicit none
   type(oakconfig), intent(inout) :: config
   integer, intent(in) :: ntime
   real, intent(inout) :: x(:)
@@ -412,20 +412,20 @@ subroutine oak_assim(config,ntime,x)
   call mpi_allgather(Hx, obs_dim, DEFAULT_REAL, HEf,  &
        obs_dim, DEFAULT_REAL, config%comm_da, ierr)
 
-!  write(6,*) 'Hx',Hx
+  !  write(6,*) 'Hx',Hx
 
-!  write(6,*) 'x',x
-  
+  !  write(6,*) 'x',x
+
   call mpi_comm_rank(config%comm_da, myrank, ierr)
-   
+
   ! collect the local part of the state vector
-  
+
   recvcounts = config%locsize(myrank+1)
-  
+
   ! allocate(xloc(sum(recvcounts)))
   allocate(xloc(config%locsize(myrank+1),config%Nens))
 
-!  write(6,*) 'model ',myrank,'counts ',config%locsize,recvcounts
+  !  write(6,*) 'model ',myrank,'counts ',config%locsize,recvcounts
 
   ! The type signature associated with sendcount[j], sendtype at process i must be equal to the type signature associated with recvcount[i], recvtype at process j. This implies that the amount of data sent must be equal to the amount of data received, pairwise between every pair of processes.
 
@@ -434,9 +434,9 @@ subroutine oak_assim(config,ntime,x)
   do i=2,config%Nens
     rdispls(i) = rdispls(i-1) + recvcounts(i-1)
   end do
-  
+
   !write(6,*) 'model ',myrank,'disp ',sdispls,rdispls
-  
+
   call mpi_alltoallv(x, config%locsize, sdispls, DEFAULT_REAL, &
        xloc, recvcounts, rdispls, DEFAULT_REAL, config%comm_da, ierr)
 
@@ -446,31 +446,31 @@ subroutine oak_assim(config,ntime,x)
 
 
   !write(6,*) 'model ',myrank,'has loc ',xloc
-  
+
   ! analysis
-  
+
   if (config%schemetype == 1) then
     ! global
-    
+
   else
-!    call local_ensemble_analysis(Ef,HEf,yo,diagR,config%partition,selectObs,method,Ea)
+    !    call local_ensemble_analysis(Ef,HEf,yo,diagR,config%partition,selectObs,method,Ea)
   end if
-  
+
 
   call mpi_alltoallv(xloc, recvcounts, rdispls, DEFAULT_REAL, &
        x, config%locsize, sdispls, DEFAULT_REAL, config%comm_da, ierr)
-  
- !write(6,*) 'model ',myrank,'has global',x
 
-!-------------------------------------------------------------
-  contains
-   subroutine selectObs(i,w) 
-    implicit none
-    integer, intent(in) :: i
-    real, intent(out) :: w(:)
-    
- 
-   end subroutine selectObs   
+  !write(6,*) 'model ',myrank,'has global',x
+
+  !-------------------------------------------------------------
+ contains
+  subroutine selectObs(i,w) 
+   implicit none
+   integer, intent(in) :: i
+   real, intent(out) :: w(:)
+
+
+  end subroutine selectObs
  end subroutine oak_assim
 
 
