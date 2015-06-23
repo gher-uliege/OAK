@@ -48,12 +48,12 @@ runtype = 2
 #   0 = global assimilation (default)
 #   1 = local assimilation
 
-schemetype = 0
+schemetype = 1
 
 Zones.partition        = ['domain.nc#part']
 Zones.corrLength.const = [            30e3]
 Zones.maxLength.const  = [          2000e3]
-Zones.path = 'Common/'
+Zones.path = ''
 
  
 # logfile contains simple diagnostics such as RMSE with observations

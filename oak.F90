@@ -25,11 +25,11 @@ module oak
    ! size of local distributed state vector
    integer, allocatable :: locsize(:), partition(:)
 
-   logical, allocatable :: mask(:)
+!   logical, allocatable :: mask(:)
    real, allocatable :: gridx(:), gridy(:), gridz(:), gridt(:)
 
-   type(MemLayout) :: ModML
-   type(grid), allocatable :: ModelGrid(:)
+!   type(MemLayout) :: ModML
+!   type(grid), allocatable :: ModelGrid(:)
    integer :: schemetype = 1
    integer :: obsntime = 1   
  end type oakconfig
@@ -75,6 +75,7 @@ contains
     config%comm_all = mpi_comm_world
     ! comm_ensmember should never be used
     config%comm_ensmember = -1
+
     call mpi_init(ierr)
     config%model_uses_mpi = .false.
     nprocs_ensmember = 1
@@ -108,6 +109,9 @@ contains
   integer :: v,n
 
   if (config%initfname /= '') then
+
+    ! call init(config%initfname)
+
     ! Models Memory Layout 
     call MemoryLayout('Model.',ModML)
 
