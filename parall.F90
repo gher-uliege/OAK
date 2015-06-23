@@ -22,7 +22,7 @@
 
 module parall
 # ifdef MPI  
-  include 'mpif.h'
+  use mpi
 # endif
 # ifdef PVM
   include 'fpvm3.h'
@@ -48,18 +48,24 @@ contains
 !_______________________________________________________
 
 
- subroutine parallInit(num,nb,speed)
+ subroutine parallInit(num,nb,speed,comm)
   implicit none
   integer, intent(in), optional :: num,nb
   integer, intent(in), optional :: speed
+  integer, intent(in), optional :: comm
 
-  integer :: i,inum,istat,info,ierr
+  integer :: i,inum,istat,info,ierr,comm_
+  logical :: flag
 
+  comm_ = mpi_comm_world
+  if (present(comm)) comm_ = comm
 
 #ifdef MPI  
-  call mpi_init(ierr)
-  call mpi_comm_rank(mpi_comm_world, procnum, ierr)
-  call mpi_comm_size(mpi_comm_world, nbprocs, ierr)
+  call mpi_initialized(flag, ierr)
+  if (.not.flag) call mpi_init(ierr)
+
+  call mpi_comm_rank(comm_, procnum, ierr)
+  call mpi_comm_size(comm_, nbprocs, ierr)
 
   procnum = procnum+1
 

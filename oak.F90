@@ -99,14 +99,19 @@ contains
   use mpi
   use initfile
   use ufileformat
+  use parall
   implicit none
   type(oakconfig), intent(inout) :: config
+
+
+  call parallInit(comm=config%comm_da)
+  call init(config%initfname)
 
   if (config%initfname /= '') then
     call getInitValue(initfname,'schemetype',schemetype,default=GlobalScheme)
     ! variables for local assimilation
 
-    call load_grid()
+    !call load_grid()
 
     if (schemetype.eq.LocalScheme) then
     !  call load_partition()
@@ -126,7 +131,6 @@ contains
    integer :: vmax
    integer :: v,n
 
-   ! call init(config%initfname)
 
    ! Models Memory Layout 
    call MemoryLayout('Model.',ModML)
