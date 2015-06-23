@@ -383,21 +383,25 @@ contains
 
  !-------------------------------------------------------------
 
- subroutine oak_load_obs(config,ntime,ObsML,yo,invsqrtR,H,Hshift)
+ subroutine oak_load_obs(config,ntime,ObsML,yo,invsqrtR,H,Hshift, &
+      obsX, obsY, obsZ, obsT)
   use matoper
+  use initfile
   implicit none
   type(oakconfig), intent(inout) :: config
   integer, intent(in) :: ntime
   type(MemLayout), intent(out) :: ObsML
   real, intent(out), pointer :: yo(:), invsqrtR(:), Hshift(:)
+  real, intent(out), pointer, dimension(:) :: obsX, obsY, obsZ, obsT
+
   type(SparseMatrix), intent(out) :: H
 
-  character(len=256)             :: infix
+  character(len=256)             :: prefix
   real(8) :: mjd0
   integer :: m
 
-  call fmtIndex('',ntime,'.',infix)
-  call MemoryLayout('Obs'//trim(infix),ObsML)
+  call fmtIndex('Obs',ntime,'.',prefix)
+  call MemoryLayout(prefix,ObsML)
 
   m = ObsML%effsize
 
@@ -405,6 +409,14 @@ contains
   call loadObs(ntime,ObsML,yo,invsqrtR)    
 
   call loadObservationOper(ntime,ObsML,H,Hshift,invsqrtR)
+
+!  call loadVector(trim(prefix)//'gridX',ObsML,obsX)
+!  call loadVector(trim(prefix)//'gridY',ObsML,obsY)
+!  call loadVector(trim(prefix)//'gridZ',ObsML,obsZ)
+
+  if (presentInitValue(initfname,trim(prefix)//'gridT')) then
+!    call loadVector(trim(prefix)//'gridT',ObsML,obsT)
+  end if
 
  end subroutine oak_load_obs
 
@@ -434,6 +446,8 @@ contains
   type(MemLayout) :: ObsML
   type(SparseMatrix) :: H
   real(8) :: mjd0
+  real, pointer, dimension(:) :: obsX, obsY, obsZ, obsT
+
 
   ! fixme ntime
   ! check if observations are available
@@ -443,10 +457,12 @@ contains
   end if
 
   ! load observations
-  call oak_load_obs(config,ntime,ObsML,yo,invsqrtR,H,Hshift)
+  call oak_load_obs(config,ntime,ObsML,yo,invsqrtR,H,Hshift, &
+       obsX, obsY, obsZ, obsT)
 
   obs_dim = size(yo)
-  allocate(Hx(obs_dim),HEf(obs_dim,config%Nens),d(obs_dim),HSf(obs_dim),meanHx(obs_dim),diagR(obs_dim))
+  allocate(Hx(obs_dim),HEf(obs_dim,config%Nens),d(obs_dim),HSf(obs_dim), &
+       meanHx(obs_dim),diagR(obs_dim))
 
   ! extract observations
   call oak_obsoper(config,x,Hx)
@@ -495,7 +511,7 @@ contains
     ! global
 
   else
-    !    call local_ensemble_analysis(Ef,HEf,yo,diagR,config%partition,selectObs,method,Ea)
+    call local_ensemble_analysis(Ef,HEf,yo,diagR,partition,selectObs,method,Ea)
   end if
 
 
