@@ -2310,7 +2310,7 @@ end subroutine fmtIndex
   end if
 
 
-  if (schemetype.eq.LocalScheme) then
+  if (schemetype.eq.LocalScheme .and. allocated(invZoneIndex)) then
     ! permute state vector
     do j=1,H%nz
       H%j(j) = invZoneIndex(H%j(j))

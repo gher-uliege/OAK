@@ -101,71 +101,106 @@ contains
   use ufileformat
   implicit none
   type(oakconfig), intent(inout) :: config
-  integer :: vmax
-  character(len=MaxFNameLength), pointer   ::  &
-       filenamesX(:),filenamesY(:),filenamesZ(:),    &
-       filenamesT(:)
-  character(len=MaxFNameLength)            :: path
-  integer :: v,n
 
   if (config%initfname /= '') then
+    call getInitValue(initfname,'schemetype',schemetype,default=GlobalScheme)
+    ! variables for local assimilation
 
-    ! call init(config%initfname)
+    call load_grid()
 
-    ! Models Memory Layout 
-    call MemoryLayout('Model.',ModML)
+    if (schemetype.eq.LocalScheme) then
+    !  call load_partition()
+    end if
 
-    vmax = ModML%nvar
-
-    allocate(ModelGrid(vmax),hres(vmax))
-    hres = 0
-
-    call getInitValue(initfname,'Model.path',path,default='')
-
-    !
-    ! define model grid
-    !
-
-    call getInitValue(config%initfname,'Model.gridX',filenamesX)
-    call getInitValue(config%initfname,'Model.gridY',filenamesY)
-    call getInitValue(config%initfname,'Model.gridZ',filenamesZ)
-
-    write(6,*) 'filenamesX',filenamesX(1)
-    write(6,*) 'filenamesY',filenamesY(1)
-    write(6,*) 'filenamesZ',filenamesZ(1),vmax,trim(path)
-    do v=1,vmax
-      n = ModML%ndim(v)
-
-      ! initialisze the model grid structure ModelGrid(v)
-      call initgrid(ModelGrid(v),n,ModML%varshape(1:n,v), &
-           ModML%Mask(ModML%StartIndex(v):ModML%EndIndex(v)).eq.0)
-
-      ! set the coordinates of the model grid
-      call setCoord(ModelGrid(v),1,trim(path)//filenamesX(v))
-      call setCoord(ModelGrid(v),2,trim(path)//filenamesY(v))
-
-      if (n > 2) then
-        call setCoord(ModelGrid(v),3,trim(path)//filenamesZ(v))
-
-
-        if (n > 3) then
-          call getInitValue(initfname,'Model.gridT',filenamesT)
-          call setCoord(ModelGrid(v),4,trim(path)//filenamesT(v))
-          deallocate(filenamesT)
-        end if
-      end if
-
-
-    end do
-
-    ! legacy for obs* routines
-    !ModML = ModML
-    !ModelGrid = ModelGrid
-
-    deallocate(filenamesX,filenamesY,filenamesZ)
 
   end if
 
+ contains
+
+  subroutine load_grid()
+   implicit none
+   character(len=MaxFNameLength), pointer   ::  &
+        filenamesX(:),filenamesY(:),filenamesZ(:),    &
+        filenamesT(:)
+   character(len=MaxFNameLength)            :: path
+   integer :: vmax
+   integer :: v,n
+
+   ! call init(config%initfname)
+
+   ! Models Memory Layout 
+   call MemoryLayout('Model.',ModML)
+
+   vmax = ModML%nvar
+
+   allocate(ModelGrid(vmax),hres(vmax))
+   hres = 0
+
+   call getInitValue(initfname,'Model.path',path,default='')
+
+   !
+   ! define model grid
+   !
+
+   call getInitValue(config%initfname,'Model.gridX',filenamesX)
+   call getInitValue(config%initfname,'Model.gridY',filenamesY)
+   call getInitValue(config%initfname,'Model.gridZ',filenamesZ)
+
+   write(6,*) 'filenamesX',filenamesX(1)
+   write(6,*) 'filenamesY',filenamesY(1)
+   write(6,*) 'filenamesZ',filenamesZ(1),vmax,trim(path)
+   do v=1,vmax
+     n = ModML%ndim(v)
+
+     ! initialisze the model grid structure ModelGrid(v)
+     call initgrid(ModelGrid(v),n,ModML%varshape(1:n,v), &
+          ModML%Mask(ModML%StartIndex(v):ModML%EndIndex(v)).eq.0)
+
+     ! set the coordinates of the model grid
+     call setCoord(ModelGrid(v),1,trim(path)//filenamesX(v))
+     call setCoord(ModelGrid(v),2,trim(path)//filenamesY(v))
+
+     if (n > 2) then
+       call setCoord(ModelGrid(v),3,trim(path)//filenamesZ(v))
+
+
+       if (n > 3) then
+         call getInitValue(initfname,'Model.gridT',filenamesT)
+         call setCoord(ModelGrid(v),4,trim(path)//filenamesT(v))
+         deallocate(filenamesT)
+       end if
+     end if
+
+
+   end do
+
+   ! legacy for obs* routines
+   !ModML = ModML
+   !ModelGrid = ModelGrid
+
+   deallocate(filenamesX,filenamesY,filenamesZ)
+  end subroutine load_grid
+
+
+  subroutine load_partition()
+   implicit none
+   real, pointer :: tmp(:)
+
+   allocate(tmp(ModML%effsize),partition(ModML%effsize), &
+        hCorrLengthToObs(ModML%effsize),hMaxCorrLengthToObs(ModML%effsize))
+
+   call loadVector('Zones.partition',ModML,tmp)
+   ! convertion real -> integer
+   partition = nint(tmp)
+   deallocate(tmp)
+
+   call loadVector('Zones.corrLength',ModML,hCorrLengthToObs)
+   call loadVector('Zones.maxLength',ModML,hMaxCorrLengthToObs)
+
+   ! optimization: permute element in the vector so that element in the same
+   ! sub-zone are close in memory
+
+  end subroutine load_partition
  end subroutine oak_load_model_grid
 
  subroutine oak_domain(config,nl,partition,gridx,gridy,gridz,gridt)
@@ -376,6 +411,9 @@ contains
 
 
  !-------------------------------------------------------------
+ !
+ ! x is the state vector with all variables concatenated and masked points 
+ ! removed
 
  subroutine oak_assim(config,ntime,x)
   use mpi
