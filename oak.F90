@@ -104,21 +104,21 @@ contains
   type(oakconfig), intent(inout) :: config
 
 
-  call parallInit(comm=config%comm_da)
+  call parallInit(communicator=config%comm_da)
   call init(config%initfname)
 
-  if (config%initfname /= '') then
-    call getInitValue(initfname,'schemetype',schemetype,default=GlobalScheme)
-    ! variables for local assimilation
+  ! if (config%initfname /= '') then
+  !   call getInitValue(initfname,'schemetype',schemetype,default=GlobalScheme)
+  !   ! variables for local assimilation
 
-    !call load_grid()
+  !   !call load_grid()
 
-    if (schemetype.eq.LocalScheme) then
-    !  call load_partition()
-    end if
+  !   if (schemetype.eq.LocalScheme) then
+  !   !  call load_partition()
+  !   end if
 
 
-  end if
+  ! end if
 
  contains
 
@@ -440,7 +440,6 @@ contains
   integer, intent(in) :: ntime
   real, intent(inout) :: x(:)
   integer :: ierr, i, obs_dim, r, myrank
-  real, allocatable :: xloc(:,:) 
   integer, dimension(config%Nens) :: recvcounts, sdispls, rdispls
 
   real, allocatable :: Hx(:),HEf(:,:), d(:), meanHx(:), HSf(:), diagR(:), Ef(:,:), Ea(:,:)
@@ -485,7 +484,13 @@ contains
   recvcounts = config%locsize(myrank+1)
 
   ! allocate(xloc(sum(recvcounts)))
-  allocate(xloc(config%locsize(myrank+1),config%Nens))
+  !allocate(Ef(config%locsize(myrank+1),config%Nens))
+
+  allocate( &
+       Ea(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel,ErrorSpaceDim), &
+       Ef(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel,ErrorSpaceDim))
+
+
 
   !  write(6,*) 'model ',myrank,'counts ',config%locsize,recvcounts
 
@@ -500,14 +505,18 @@ contains
   !write(6,*) 'model ',myrank,'disp ',sdispls,rdispls
 
   call mpi_alltoallv(x, config%locsize, sdispls, DEFAULT_REAL, &
-       xloc, recvcounts, rdispls, DEFAULT_REAL, config%comm_da, ierr)
+       Ef, recvcounts, rdispls, DEFAULT_REAL, config%comm_da, ierr)
 
 
-  write(6,*) 'xloc1',xloc(:,1)
-  write(6,*) 'xloc2',xloc(:,2)
 
 
-  !write(6,*) 'model ',myrank,'has loc ',xloc
+  write(6,*) 'Ef1',Ef(:,1)
+  write(6,*) 'Ef2',Ef(:,2)
+
+!   call assim(ntime,Ef,Ea)
+
+
+  !write(6,*) 'model ',myrank,'has loc ',Ef
 
   ! analysis
 
@@ -515,11 +524,11 @@ contains
     ! global
 
   else
-    call local_ensemble_analysis(Ef,HEf,yo,diagR,partition,selectObs,method,Ea)
+!    call local_ensemble_analysis(Ef,HEf,yo,diagR,partition,selectObs,method,Ea)
   end if
 
 
-  call mpi_alltoallv(xloc, recvcounts, rdispls, DEFAULT_REAL, &
+  call mpi_alltoallv(Ef, recvcounts, rdispls, DEFAULT_REAL, &
        x, config%locsize, sdispls, DEFAULT_REAL, config%comm_da, ierr)
 
   !write(6,*) 'model ',myrank,'has global',x

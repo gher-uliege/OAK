@@ -2772,7 +2772,7 @@ end subroutine fmtIndex
     Hx = H.x.xt
     deallocate(xt)
   end if
-  call mpi_bcast(Hx,H%m,DEFAULT_REAL,0,mpi_comm_world,ierr)
+  call mpi_bcast(Hx,H%m,DEFAULT_REAL,0,comm,ierr)
 #else
   tmp = 0
 
@@ -2787,7 +2787,7 @@ end subroutine fmtIndex
     end if
   end do
 
-  call mpi_allreduce(tmp, Hx, H%m, DEFAULT_REAL,mpi_sum, mpi_comm_world, ierr)
+  call mpi_allreduce(tmp, Hx, H%m, DEFAULT_REAL,mpi_sum, comm, ierr)
 #endif
 #endif
 

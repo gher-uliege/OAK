@@ -35,6 +35,8 @@ module parall
  integer, save :: procnum=1, nbprocs=1
  integer, save, allocatable :: procid(:), procSpeed(:), cumulProcSpeed(:)
 
+ ! communicator
+ integer :: comm
 
  ! indices for parallelisation (zones)
  ! vector of nbprocs integer
@@ -48,24 +50,24 @@ contains
 !_______________________________________________________
 
 
- subroutine parallInit(num,nb,speed,comm)
+ subroutine parallInit(num,nb,speed,communicator)
   implicit none
   integer, intent(in), optional :: num,nb
   integer, intent(in), optional :: speed
-  integer, intent(in), optional :: comm
+  integer, intent(in), optional :: communicator
 
-  integer :: i,inum,istat,info,ierr,comm_
+  integer :: i,inum,istat,info,ierr
   logical :: flag
 
-  comm_ = mpi_comm_world
-  if (present(comm)) comm_ = comm
+  comm = mpi_comm_world
+  if (present(communicator)) comm = communicator
 
 #ifdef MPI  
   call mpi_initialized(flag, ierr)
   if (.not.flag) call mpi_init(ierr)
 
-  call mpi_comm_rank(comm_, procnum, ierr)
-  call mpi_comm_size(comm_, nbprocs, ierr)
+  call mpi_comm_rank(comm, procnum, ierr)
+  call mpi_comm_size(comm, nbprocs, ierr)
 
   procnum = procnum+1
 
