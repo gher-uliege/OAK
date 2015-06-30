@@ -173,8 +173,8 @@ subroutine parallPartion(nzones)
 #ifdef ASSIM_PARALLEL
 
   allocate(startZIndex(nbprocs),endZIndex(nbprocs))
-  startZIndex =(nzones*cumulprocspeed(1:nbprocs))/cumulprocspeed(nbprocs+1) + 1
-  endZIndex =  (nzones*cumulprocspeed(2:nbprocs+1))/cumulprocspeed(nbprocs+1)
+  startZIndex =(nzones*cumulProcSpeed(1:nbprocs))/cumulProcSpeed(nbprocs+1) + 1
+  endZIndex =  (nzones*cumulProcSpeed(2:nbprocs+1))/cumulProcSpeed(nbprocs+1)
 
 # ifdef DEBUG
   write(stdout,*) 'partitioning start',startZIndex

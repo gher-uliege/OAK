@@ -57,7 +57,9 @@ program toymodel
  call mpi_barrier(comm, ierr)
 #else
  ! model does not run in parallel
+ nprocs = 1
  rank = 0
+ 
  j0 = 1
  j1 = n
 
@@ -74,6 +76,11 @@ program toymodel
 
 #ifdef OAK
  call oak_domain(config,nl,partition=[(i,i=j0,j1)])
+
+ do i = 1,nprocs
+   config%dom(((i-1) * n)/nprocs + 1:(i * n)/nprocs) = i   
+ end do
+ write(6,*) 'config%dom ',config%dom
 #endif
 
  ! initialize j1-j0+1 grid points and two halo points
