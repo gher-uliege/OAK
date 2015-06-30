@@ -442,11 +442,12 @@ contains
   real, intent(in) :: xdomain(:)
   real, intent(out) :: E(:,:)
 
-  integer :: zi1,zi2,i1,i2,i,ndom, subdomsize, needsize,k, p, rank, & 
+  integer :: i1,i2,i,ndom, subdomsize, needsize,k, p, rank, & 
        ensmember, tag, ierr, source, dest, source_idom, source_ensmember
 
   integer, allocatable :: ind(:), ind2(:)
   logical, allocatable :: need(:)
+  real,    allocatable :: data(:)
   integer :: status(mpi_status_size)
 
   tag = 1
@@ -475,7 +476,7 @@ contains
       ind = pack(invZoneIndex,config%dom == source_idom)
       need = i1 <= ind .and. ind <= i2
       needsize = count(need)
-      allocate(ind2(needsize))
+      allocate(ind2(needsize),data(needsize))
 
       ind2 = pack(ind,need)
 
@@ -486,17 +487,87 @@ contains
         end if
 
         if (rank == dest) then
-          call mpi_recv(E(ind2 - i1 + 1,source_ensmember), needsize, & 
+          call mpi_recv(data, needsize, & 
                DEFAULT_REAL, source, tag, config%comm_all, status, ierr)
+
+          E(ind2 - i1 + 1,source_ensmember) = data
         end if
       end if
 
-      deallocate(ind,ind2,need)
+      deallocate(ind,ind2,need,data)
 
     end do
   end do
 
  end subroutine oak_gather_members
+
+ !-------------------------------------------------------------
+
+ subroutine oak_spread_members(config,E,xdomain)
+  use parall
+  implicit none  
+  type(oakconfig), intent(inout) :: config
+  real, intent(out) :: xdomain(:)
+  real, intent(in) :: E(:,:)
+
+  integer :: i1,i2,i,ndom, subdomsize, needsize,k, p, rank, & 
+       ensmember, tag, ierr, dest, source, dest_idom, dest_ensmember
+
+  integer, allocatable :: ind(:), ind2(:)
+  logical, allocatable :: need(:)
+  real,    allocatable :: data(:)
+  integer :: status(mpi_status_size)
+
+  tag = 1
+
+  ! number of processes
+  call mpi_comm_size(config%comm_all, p, ierr)
+
+  ! number of domains
+  ndom = maxval(config%dom)
+
+  rank = procnum - 1
+
+  do dest = 0,p-1
+    do source = 0,p-1
+      dest_idom = mod(dest,ndom) + 1
+      ! ensemble member index (integer division)
+      dest_ensmember = dest/ndom + 1
+
+
+      i1 = startIndexZones(startZIndex(source+1))
+      i2 =   endIndexZones(endZIndex(source+1))
+
+      subdomsize = count(config%dom == dest_idom)
+      allocate(ind(subdomsize),need(subdomsize))
+
+      ind = pack(invZoneIndex,config%dom == dest_idom)
+      need = i1 <= ind .and. ind <= i2
+      needsize = count(need)
+      allocate(ind2(needsize),data(needsize))
+
+      ind2 = pack(ind,need)
+
+      if (count(need) > 0) then
+        if (rank == source) then
+          call mpi_send(E(ind2 - i1 + 1,dest_ensmember), needsize, & 
+               DEFAULT_REAL, dest, tag, config%comm_all, status, ierr)
+        end if
+
+        if (rank == dest) then
+          call mpi_recv(data, needsize, DEFAULT_REAL, source, & 
+               tag, config%comm_all, ierr)
+          xdomain(pack([(i,i=1,size(xdomain))],need)) = data
+        end if
+
+      end if
+
+      deallocate(ind,ind2,need,data)
+
+    end do
+  end do
+
+ end subroutine oak_spread_members
 
 
  !-------------------------------------------------------------
@@ -567,25 +638,11 @@ contains
 
   !  Write(6,*) 'model ',myrank,'counts ',config%locsize,recvcounts
 
-  ! The type signature associated with sendcount[j], sendtype at process i must be equal to the type signature associated with recvcount[i], recvtype at process j. This implies that the amount of data sent must be equal to the amount of data received, pairwise between every pair of processes.
-
-!  sdispls = config%startIndex-1
-!  rdispls(1) = 0
-!  do i=2,config%Nens
-!    rdispls(i) = rdispls(i-1) + recvcounts(i-1)
-!  end do
-
-  !write(6,*) 'model ',myrank,'disp ',sdispls,rdispls
-
-!  call mpi_alltoallv(x, config%locsize, sdispls, DEFAULT_REAL, &
-!       Ef, recvcounts, rdispls, DEFAULT_REAL, config%comm_da, ierr)
-
-
-
-
+  write(6,*) 'x',x
   write(6,*) 'Ef1',Ef(:,1)
   write(6,*) 'Ef2',Ef(:,2)
 
+  Ea = Ef
 !   call assim(ntime,Ef,Ea)
 
 
@@ -605,6 +662,8 @@ contains
 !       x, config%locsize, sdispls, DEFAULT_REAL, config%comm_da, ierr)
 
   !write(6,*) 'model ',myrank,'has global',x
+
+!  call oak_spread_members(config,Ea,x)
 
   !-------------------------------------------------------------
  contains
