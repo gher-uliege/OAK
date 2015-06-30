@@ -300,7 +300,10 @@ contains
   end do
 
   deallocate(ModelGrid)
-  deallocate(config%weightf,config%weighta)
+
+  if (allocated(config%weightf)) deallocate(config%weightf)
+  if (allocated(config%weighta)) deallocate(config%weighta)
+!  deallocate(config%weightf,config%weighta)
 
   call MemoryLayoutDone(ModML)
 
@@ -691,6 +694,7 @@ contains
 
  subroutine oak_assim(config,ntime,x)
   use mpi
+  use parall
   use matoper
   implicit none
   type(oakconfig), intent(inout) :: config
@@ -765,8 +769,7 @@ contains
     
     ! analysis
 
-    ! weights are not used unless  schemetype == EWPFScheme
-    call assim(ntime,Ef,Ea,config%weightf,config%weighta)
+    call assim(ntime,Ef,Ea)
 
     call oak_spread_members(config,Ea,x)
   else
@@ -777,6 +780,13 @@ contains
 
     call oak_gather_master(config,x,Ef)
     Ea = Ef
+    if (procnum == 1) then
+      write(6,*) 'model ',procnum,'has loc ',shape(Ef)
+      ! weights are not used unless  schemetype == EWPFScheme
+      call assim(ntime,Ef,Ea,weightf=config%weightf,weighta=config%weighta)
+      ! for testing
+      Ea = Ef
+    end if
     call oak_spread_master(config,Ea,x)   
   end if
 
