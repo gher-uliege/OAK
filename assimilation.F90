@@ -1,6 +1,6 @@
 !
 !  OAK, Ocean Assimilation Kit
-!  Copyright(c) 2002-2012 Alexander Barth and Luc Vandenblucke
+!  Copyright(c) 2002-2015 Alexander Barth and Luc Vandenblucke
 !
 !  This program is free software; you can redistribute it and/or
 !  modify it under the terms of the GNU General Public License
@@ -2768,10 +2768,18 @@ end subroutine fmtIndex
   Hx = H.x.xf
 #else
 
-#ifdef EXACT_OBS_OPER
-   if (procnum.eq.1) allocate(xt(H%n))
-  call parallGather(xf,xt,startIndexZones,endIndexZones)
+  write(6,*) 'size(xf) == StateVectorSizeSea',size(xf), StateVectorSizeSea
+  if (size(xf) == StateVectorSizeSea) then
+    ! we have already the complete state vector
 
+    Hx = H.x.xf
+    return
+  end if
+
+#ifdef EXACT_OBS_OPER
+  if (procnum.eq.1) allocate(xt(H%n))
+  call parallGather(xf,xt,startIndexZones,endIndexZones)
+  
   if (procnum == 1) then
     Hx = H.x.xt
     deallocate(xt)
@@ -2982,6 +2990,7 @@ end function
     xf => xfp
     xa => xap
 
+    write(6,*) 'here ',procnum,' xf ',shape(xf)
     Hxf = obsoper(H,xf) + Hshift
 
     ! observed part of error modes
@@ -4279,8 +4288,10 @@ subroutine ewpf_proposal_step(X,Xp,weight,yo,invsqrtR,timestep,obsstep,steps_btw
 !      yo,timestep,obsstep,steps_btw_obs, &
 !      cb_H, cb_HT, cb_Qhalf, cb_solve_r)
 
+ !subroutine proposal_step(Ne,Nx,Ny,weight,x_n,y,t_model,obsVec,dt_obs, &
+ !          cb_H, cb_HT, cb_Qhalf, cb_solve_r) bind(C, name="proposal_step_")
 
- call proposal_step(size(X,1),size(yo),size(X,2), &
+ call proposal_step(size(X,2),size(X,1),size(yo), &
       weight,X, &
       yo, &
       t_model,obsVec,dt_obs, &
@@ -4290,7 +4301,7 @@ subroutine ewpf_proposal_step(X,Xp,weight,yo,invsqrtR,timestep,obsstep,steps_btw
 
 contains
 
- subroutine cb_H(Nx,Ny,Ne,vec_in,vec_out) bind(C)
+ subroutine cb_H(Ne,Nx,Ny,vec_in,vec_out) bind(C)
   use, intrinsic :: ISO_C_BINDING
   use sangoma_base, only: REALPREC, INTPREC
   implicit none
@@ -4303,7 +4314,7 @@ contains
   vec_out = H.x.vec_in
  end subroutine cb_H
 
- subroutine cb_HT(Nx,Ny,Ne,vec_in,vec_out) bind(C)
+ subroutine cb_HT(Ne,Nx,Ny,vec_in,vec_out) bind(C)
   use, intrinsic :: ISO_C_BINDING
   use sangoma_base, only: REALPREC, INTPREC
   implicit none
@@ -4317,7 +4328,7 @@ contains
  end subroutine cb_HT
 
 
- subroutine cb_solve_r(Ny,Ne,vec_in,vec_out) bind(C)
+ subroutine cb_solve_r(Ne,Ny,vec_in,vec_out) bind(C)
   use, intrinsic :: ISO_C_BINDING
   use sangoma_base, only: REALPREC, INTPREC
   implicit none
@@ -4334,7 +4345,7 @@ contains
   end do
  end subroutine cb_solve_r
 
- subroutine cb_Qhalf(Nx,Ne,vec_in,vec_out) bind(C)
+ subroutine cb_Qhalf(Ne,Nx,vec_in,vec_out) bind(C)
   use, intrinsic :: ISO_C_BINDING
   use sangoma_base, only: REALPREC, INTPREC
   implicit none
@@ -4390,11 +4401,11 @@ subroutine ewpf_analysis(xf,Sf,weight,H,invsqrtR, &
 
  weighta = weight
 
- write(6,*) 'here',__LINE__
- call equal_weight_step(size(xf),size(yo),size(Sf,2), &
+ write(6,*) 'here',__LINE__,size(xf),size(yo),size(Sf,2),size(weighta)
+ write(6,*) 'here',__LINE__,shape(X) 
+ call equal_weight_step(size(Sf,2),size(xf),size(yo), &
       weighta,X,yo, &
       cb_H, cb_HT, cb_solve_r, cb_solve_hqht_plus_r, cb_Qhalf)
-
 
  !proposal_step(Nx,Ny,Ne,weight,x_n,x_n1,y,timestep,obsstep,steps_btw_obs, &
  !          cb_H, cb_HT, cb_Qhalf, cb_solve_r)
@@ -4402,7 +4413,7 @@ subroutine ewpf_analysis(xf,Sf,weight,H,invsqrtR, &
  write(6,*) 'here',__LINE__,weighta
 
 
- call ewpf_proposal_step(X,X,weighta,yo,invsqrtR,1,20,20,H)
+! call ewpf_proposal_step(X,X,weighta,yo,invsqrtR,1,20,20,H)
 
  write(6,*) 'here',__LINE__,weighta
 
@@ -4414,28 +4425,30 @@ subroutine ewpf_analysis(xf,Sf,weight,H,invsqrtR, &
  deallocate(X)
 contains
 
- subroutine cb_H(Nx,Ny,Ne,vec_in,vec_out) bind(C)
+ subroutine cb_H(Ne,Nx,Ny,vec_in,vec_out) bind(C)
   use, intrinsic :: ISO_C_BINDING
   use sangoma_base, only: REALPREC, INTPREC
   implicit none
   
-  integer(INTPREC), value, intent(in) :: Nx,Ny,Ne             ! state, observation and ensemble dimensions
+  integer(INTPREC), intent(in) :: Nx,Ny,Ne             ! state, observation and ensemble dimensions
   real(REALPREC), intent(in), dimension(Nx,Ne) :: vec_in      ! input vector in state space to which
   ! to apply the observation operator h, e.g. h(x)
   real(REALPREC), intent(inout), dimension(Ny,Ne) :: vec_out  ! resulting vector in observation space
 
-  !write(6,*) 'H'
+!  write(6,*) 'H',shape(vec_in),H%m,H%n
+  write(6,*) 'H',Nx,Ny,Ne
+
   vec_out = H.x.vec_in
-  !write(6,*) 'H end'
+  write(6,*) 'H end'
 
  end subroutine cb_H
 
- subroutine cb_HT(Nx,Ny,Ne,vec_in,vec_out) bind(C)
+ subroutine cb_HT(Ne,Nx,Ny,vec_in,vec_out) bind(C)
   use, intrinsic :: ISO_C_BINDING
   use sangoma_base, only: REALPREC, INTPREC
   implicit none
   
-  integer(INTPREC), value, intent(in) :: Nx,Ny,Ne            ! state, observation and ensemble dimensions
+  integer(INTPREC), intent(in) :: Nx,Ny,Ne            ! state, observation and ensemble dimensions
   real(REALPREC), intent(in), dimension(Ny,Ne) :: vec_in     ! input vector in observation space to which
   ! to apply the observation operator h, e.g. h^T(x)
   real(REALPREC), intent(inout), dimension(Nx,Ne) :: vec_out ! resulting vector in state space
@@ -4463,12 +4476,12 @@ contains
  end function hqht_plus_r
 
 
- subroutine cb_solve_hqht_plus_r(Ny,Ne,vec_in,vec_out) bind(C)
+ subroutine cb_solve_hqht_plus_r(Ne,Ny,vec_in,vec_out) bind(C)
   use, intrinsic :: ISO_C_BINDING
   use sangoma_base, only: REALPREC, INTPREC
   implicit none
   
-  integer(INTPREC), value, intent(in) :: Ny,Ne                ! observation and ensemble dimensions
+  integer(INTPREC), intent(in) :: Ny,Ne                ! observation and ensemble dimensions
   real(REALPREC), intent(in), dimension(Ny,Ne) :: vec_in      ! vector in observation space to which to
   ! apply the observation error covariances R,
   ! e.g. (HQH^T+R)^{-1}(d)
@@ -4495,12 +4508,12 @@ contains
 
  end subroutine cb_solve_hqht_plus_R
 
- subroutine cb_solve_r(Ny,Ne,vec_in,vec_out) bind(C)
+ subroutine cb_solve_r(Ne,Ny,vec_in,vec_out) bind(C)
   use, intrinsic :: ISO_C_BINDING
   use sangoma_base, only: REALPREC, INTPREC
   implicit none
   
-  integer(INTPREC), value, intent(in) :: Ny,Ne               ! observation and ensemble dimensions
+  integer(INTPREC), intent(in) :: Ny,Ne               ! observation and ensemble dimensions
   real(REALPREC), intent(in), dimension(Ny,Ne) :: vec_in     ! input vector in observation space 
   ! which to apply the inverse observation error
   ! covariances R, e.g. R^{-1}(d)
@@ -4512,12 +4525,12 @@ contains
   end do
  end subroutine cb_solve_r
 
- subroutine cb_Qhalf(Nx,Ne,vec_in,vec_out) bind(C)
+ subroutine cb_Qhalf(Ne,Nx,vec_in,vec_out) bind(C)
   use, intrinsic :: ISO_C_BINDING
   use sangoma_base, only: REALPREC, INTPREC
   implicit none
   
-  integer(INTPREC), value, intent(in) :: Nx,Ne               ! state and ensemble dimensions
+  integer(INTPREC), intent(in) :: Nx,Ne               ! state and ensemble dimensions
   real(REALPREC), intent(in), dimension(Nx,Ne) :: vec_in     ! vector in state space to which to apply
                                                                      ! the squarerooted model error covariances 
                                                                      ! Q^{1/2}, e.g. Q^{1/2}(d)
