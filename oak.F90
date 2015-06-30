@@ -569,16 +569,16 @@ contains
 
   ! The type signature associated with sendcount[j], sendtype at process i must be equal to the type signature associated with recvcount[i], recvtype at process j. This implies that the amount of data sent must be equal to the amount of data received, pairwise between every pair of processes.
 
-  sdispls = config%startIndex-1
-  rdispls(1) = 0
-  do i=2,config%Nens
-    rdispls(i) = rdispls(i-1) + recvcounts(i-1)
-  end do
+!  sdispls = config%startIndex-1
+!  rdispls(1) = 0
+!  do i=2,config%Nens
+!    rdispls(i) = rdispls(i-1) + recvcounts(i-1)
+!  end do
 
   !write(6,*) 'model ',myrank,'disp ',sdispls,rdispls
 
-  call mpi_alltoallv(x, config%locsize, sdispls, DEFAULT_REAL, &
-       Ef, recvcounts, rdispls, DEFAULT_REAL, config%comm_da, ierr)
+!  call mpi_alltoallv(x, config%locsize, sdispls, DEFAULT_REAL, &
+!       Ef, recvcounts, rdispls, DEFAULT_REAL, config%comm_da, ierr)
 
 
 
@@ -601,8 +601,8 @@ contains
   end if
 
 
-  call mpi_alltoallv(Ef, recvcounts, rdispls, DEFAULT_REAL, &
-       x, config%locsize, sdispls, DEFAULT_REAL, config%comm_da, ierr)
+!  call mpi_alltoallv(Ef, recvcounts, rdispls, DEFAULT_REAL, &
+!       x, config%locsize, sdispls, DEFAULT_REAL, config%comm_da, ierr)
 
   !write(6,*) 'model ',myrank,'has global',x
 
