@@ -574,6 +574,59 @@ contains
 
  !-------------------------------------------------------------
 
+ subroutine oak_gather_master(config,xdomain,E)
+  use parall
+  implicit none  
+  type(oakconfig), intent(inout) :: config
+  real, intent(in) :: xdomain(:)
+  real, intent(out) :: E(:,:)
+
+  integer :: i1,i2,i,ndom, subdomsize, needsize,k, p, rank, & 
+       ensmember, tag, ierr, source, dest, source_idom, source_ensmember
+
+  integer, allocatable :: ind(:), ind2(:)
+  logical, allocatable :: need(:)
+  real,    allocatable :: data(:)
+  integer :: status(mpi_status_size), datasize
+
+  tag = 1
+
+  ! number of processes
+  call mpi_comm_size(config%comm_all, p, ierr)
+
+  ! number of domains
+  ndom = maxval(config%dom)
+
+  rank = procnum - 1
+
+
+  call mpi_send(xdomain, size(xdomain), DEFAULT_REAL, 0, & 
+       tag, config%comm_all, ierr)
+
+  ! gather all data
+  if (rank == 0) then
+    ! collect from subdomains to form perturmed state vector
+  
+    do source = 0,p-1
+      source_idom = mod(source,ndom) + 1;
+      ! ensemble member index (integer division)
+      source_ensmember = source/ndom + 1
+
+      datasize = count(config%dom == source_idom)
+      allocate(data(datasize))
+      call mpi_recv(data, size(data), & 
+           DEFAULT_REAL, source, tag, config%comm_all, status, ierr)
+
+      write(6,*) 'invZoneIndex ',invZoneIndex
+
+!      E(pack(invZoneIndex,config%dom == source_idom),source_ensmember) = data
+      deallocate(data)
+    end do
+  end if
+
+ end subroutine
+
+ !-------------------------------------------------------------
 
 
  !-------------------------------------------------------------
@@ -635,30 +688,44 @@ contains
   ! allocate(xloc(sum(recvcounts)))
   !allocate(Ef(config%locsize(myrank+1),config%Nens))
 
-  allocate( &
-       Ea(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel,ErrorSpaceDim), &
-       Ef(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel,ErrorSpaceDim))
+      write(6,*) 'invZoneIndex ',allocated(invZoneIndex)
 
-  call oak_gather_members(config,x,Ef)
+  if (schemetype == LocalScheme) then
+    allocate( &
+         Ea(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel,ErrorSpaceDim), &
+         Ef(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel,ErrorSpaceDim))
 
-  !  Write(6,*) 'model ',myrank,'counts ',config%locsize,recvcounts
+    call oak_gather_members(config,x,Ef)
 
-  write(6,*) 'x',x
-  write(6,*) 'Ef1',Ef(:,1)
-  write(6,*) 'Ef2',Ef(:,2)
+    !  Write(6,*) 'model ',myrank,'counts ',config%locsize,recvcounts
 
-  Ea = Ef
+    write(6,*) 'x',x
+    write(6,*) 'Ef1',Ef(:,1)
+    write(6,*) 'Ef2',Ef(:,2)
+
+    Ea = Ef
 
 
-  !write(6,*) 'model ',myrank,'has loc ',Ef
+    !write(6,*) 'model ',myrank,'has loc ',Ef
+    
+    ! analysis
 
-  ! analysis
+    ! weights are not used unless  schemetype == EWPFScheme
+    call assim(ntime,Ef,Ea,config%weightf,config%weighta)
 
-  ! weights are not used unless  schemetype == EWPFScheme
-  call assim(ntime,Ef,Ea,config%weightf,config%weighta)
+    call oak_spread_members(config,Ea,x)
+  else
+    ! collect at master
+    allocate( &
+         Ea(ModML%effsize,ErrorSpaceDim), &
+         Ef(ModML%effsize,ErrorSpaceDim))
 
-  call oak_spread_members(config,Ea,x)
+    call oak_gather_master(config,x,Ef)
+    
 
+  end if
+
+  deallocate(Ea,Ef)
   !-------------------------------------------------------------
  contains
   subroutine selectObs(i,w) 

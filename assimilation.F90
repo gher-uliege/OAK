@@ -282,12 +282,12 @@ contains
   call getInitValue(initfname,'loctype',loctype,default=1)
   call getInitValue(initfname,'anamorphosistype',anamorphosistype,default=NoAnamorphosis)
 
-# ifdef ASSIM_PARALLEL
-  if (schemetype /= LocalScheme) then
-    write(stderr,*) 'Error: for parallel version schemetype should be 1 (local assimilation)'
-    ERROR_STOP
-  end if
-# endif
+! # ifdef ASSIM_PARALLEL
+!   if (schemetype /= LocalScheme) then
+!     write(stderr,*) 'Error: for parallel version schemetype should be 1 (local assimilation)'
+!     ERROR_STOP
+!   end if
+! # endif
   
   call initAnamorphosis(fname,stddebug)
 
@@ -407,6 +407,10 @@ contains
     ModMLParallel%startIndexParallel = 1
     ModMLParallel%endIndexParallel   =  ModMLParallel%effsize
 #   endif     
+  else
+    ! no permutation
+    allocate(invZoneIndex(StateVectorSizeSea))
+    invZoneIndex = [(zi,zi=1,StateVectorSizeSea)]
   end if
 
   ModMLParallel%permute = schemetype.eq.LocalScheme
