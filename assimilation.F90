@@ -4253,40 +4253,34 @@ subroutine ensAnalysisAnamorph2(yo,Ef,HEf,invsqrtR,  &
 end subroutine anamtransform
 
 
-subroutine ewpf_proposal_step(X,Xp,weight,yo,invsqrtR,timestep,obsstep,steps_btw_obs,H)
+subroutine ewpf_proposal_step(t_model,obsVec,dt_obs,X,Xp,weight,yo,invsqrtR,H)
  use matoper
  use sangoma_ewpf
  use initfile
  implicit none
+ integer, intent(in) :: t_model                   ! current model timestep
+ integer,intent(in) :: obsVec                     ! model time step at which we have next 
+                                                            ! observations, i.e. next analysis time
+ integer,intent(in) :: dt_obs                     ! model timesteps betwe
  real, intent(in) :: yo(:)
  real, intent(inout) :: weight(:),X(:,:),Xp(:,:)
  real, intent(in) :: invsqrtR(:)
  type(SparseMatrix), intent(in)  :: H
- integer, intent(in) :: timestep                  ! current model timestep
- integer, intent(in) :: obsstep,steps_btw_obs     ! number of next observ
 
 ! current model timestep
- integer ::  t_model = 0      
+! integer ::  t_model = 0      
 
  ! model time step at which we have next 
  ! observations, i.e. next analysis time 
- integer :: obsVec = 10
+ !integer :: obsVec = 10
 
  ! model timesteps between last and next
  ! observation setst
- integer :: dt_obs = 3
+ !integer :: dt_obs = 3
 
  real :: Qscale
  call getInitValue(initfname,'EWPF.Qscale',Qscale,default=0.001)
 
- !proposal_step(Nx,Ny,Ne,weight,x_n,x_n1,y,timestep,obsstep,steps_btw_obs, &
- !          cb_H, cb_HT, cb_Qhalf, cb_solve_r)
-
-! call proposal_step(size(X,1),size(yo),size(X,2), &
-!      weight,X, &
-!      Xp, & ! previous time step
-!      yo,timestep,obsstep,steps_btw_obs, &
-!      cb_H, cb_HT, cb_Qhalf, cb_solve_r)
 
  !subroutine proposal_step(Ne,Nx,Ny,weight,x_n,y,t_model,obsVec,dt_obs, &
  !          cb_H, cb_HT, cb_Qhalf, cb_solve_r) bind(C, name="proposal_step_")
@@ -4413,7 +4407,7 @@ subroutine ewpf_analysis(xf,Sf,weight,H,invsqrtR, &
  write(6,*) 'here',__LINE__,weighta
 
 
- call ewpf_proposal_step(X,X,weighta,yo,invsqrtR,1,20,20,H)
+! call ewpf_proposal_step(X,X,weighta,yo,invsqrtR,1,20,20,H)
 
  write(6,*) 'here',__LINE__,weighta
 
