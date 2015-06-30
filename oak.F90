@@ -32,6 +32,11 @@ module oak
 !   type(grid), allocatable :: ModelGrid(:)
    integer :: schemetype = 1
    integer :: obsntime = 1   
+
+   ! domain index
+   ! size state vector
+   integer, allocatable :: dom(:)
+
  end type oakconfig
 
 contains
@@ -104,8 +109,10 @@ contains
   type(oakconfig), intent(inout) :: config
 
 
-  call parallInit(communicator=config%comm_da)
+  call parallInit(communicator=config%comm_all)
   call init(config%initfname)
+
+  allocate(config%dom(ModML%effsize))
 
   ! if (config%initfname /= '') then
   !   call getInitValue(initfname,'schemetype',schemetype,default=GlobalScheme)
@@ -284,6 +291,8 @@ contains
   if (allocated(config%gridz)) deallocate(config%gridz)
   if (allocated(config%gridt)) deallocate(config%gridt)
 
+  deallocate(config%dom)
+
   do v=1,ModML%nvar
     ! deallocate the model grid structure ModelGrid(v)
     call donegrid(ModelGrid(v))
@@ -424,6 +433,70 @@ contains
 
  end subroutine oak_load_obs
 
+ !-------------------------------------------------------------
+
+ subroutine oak_gather_members(config,xdomain,E)
+  use parall
+  implicit none  
+  type(oakconfig), intent(inout) :: config
+  real, intent(in) :: xdomain(:)
+  real, intent(out) :: E(:,:)
+
+  integer :: zi1,zi2,i1,i2,i,ndom, subdomsize, needsize,k, p, rank, & 
+       ensmember, tag, ierr, source, dest, source_idom, source_ensmember
+
+  integer, allocatable :: ind(:), ind2(:)
+  logical, allocatable :: need(:)
+  integer :: status(mpi_status_size)
+
+  tag = 1
+
+  ! number of processes
+  call mpi_comm_size(config%comm_all, p, ierr)
+
+  ! number of domains
+  ndom = maxval(config%dom)
+
+  rank = procnum - 1
+
+  do source = 0,p-1
+    do dest = 0,p-1
+      source_idom = mod(source,ndom) + 1
+      ! ensemble member index (integer division)
+      source_ensmember = source/ndom + 1
+
+
+      i1 = startIndexZones(startZIndex(dest+1))
+      i2 =   endIndexZones(endZIndex(dest+1))
+
+      subdomsize = count(config%dom == source_idom)
+      allocate(ind(subdomsize),need(subdomsize))
+
+      ind = pack(invZoneIndex,config%dom == source_idom)
+      need = i1 <= ind .and. ind <= i2
+      needsize = count(need)
+      allocate(ind2(needsize))
+
+      ind2 = pack(ind,need)
+
+      if (count(need) > 0) then
+        if (rank == source) then
+          call mpi_send(pack(xdomain,need), needsize, DEFAULT_REAL, dest, & 
+               tag, config%comm_all, ierr)
+        end if
+
+        if (rank == dest) then
+          call mpi_recv(E(ind2 - i1 + 1,source_ensmember), needsize, & 
+               DEFAULT_REAL, source, tag, config%comm_all, status, ierr)
+        end if
+      end if
+
+      deallocate(ind,ind2,need)
+
+    end do
+  end do
+
+ end subroutine oak_gather_members
 
 
  !-------------------------------------------------------------
@@ -490,9 +563,9 @@ contains
        Ea(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel,ErrorSpaceDim), &
        Ef(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel,ErrorSpaceDim))
 
+  call oak_gather_members(config,x,Ef)
 
-
-  !  write(6,*) 'model ',myrank,'counts ',config%locsize,recvcounts
+  !  Write(6,*) 'model ',myrank,'counts ',config%locsize,recvcounts
 
   ! The type signature associated with sendcount[j], sendtype at process i must be equal to the type signature associated with recvcount[i], recvtype at process j. This implies that the amount of data sent must be equal to the amount of data received, pairwise between every pair of processes.
 
