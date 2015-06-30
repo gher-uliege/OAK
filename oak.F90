@@ -617,12 +617,67 @@ contains
       call mpi_recv(data, size(data), & 
            DEFAULT_REAL, source, tag, config%comm_all, status, ierr)
 
-      write(6,*) 'invZoneIndex ',invZoneIndex
-
-!      E(pack(invZoneIndex,config%dom == source_idom),source_ensmember) = data
+      E(pack(invZoneIndex,config%dom == source_idom),source_ensmember) = data
       deallocate(data)
     end do
   end if
+
+ end subroutine
+
+ !-------------------------------------------------------------
+
+ !-------------------------------------------------------------
+
+ subroutine oak_spread_master(config,E,xdomain)
+  use parall
+  implicit none  
+  type(oakconfig), intent(inout) :: config
+  real, intent(in) :: E(:,:)
+  real, intent(out) :: xdomain(:)
+
+  integer :: i1,i2,i,ndom, subdomsize, needsize,k, p, rank, & 
+       ensmember, tag, ierr, source, dest, source_idom, source_ensmember
+
+  integer, allocatable :: ind(:), ind2(:)
+  logical, allocatable :: need(:)
+  real,    allocatable :: data(:)
+  integer :: status(mpi_status_size), datasize
+
+  tag = 1
+
+  ! number of processes
+  call mpi_comm_size(config%comm_all, p, ierr)
+
+  ! number of domains
+  ndom = maxval(config%dom)
+
+  rank = procnum - 1
+
+
+  ! gather all data
+  if (rank == 0) then
+    ! collect from subdomains to form perturmed state vector
+  
+    do source = 0,p-1
+      source_idom = mod(source,ndom) + 1;
+      ! ensemble member index (integer division)
+      source_ensmember = source/ndom + 1
+
+      datasize = count(config%dom == source_idom)
+      allocate(data(datasize))
+
+      data = E(pack(invZoneIndex,config%dom == source_idom),source_ensmember)
+
+      call mpi_send(data, size(data), & 
+           DEFAULT_REAL, source, tag, config%comm_all, ierr)
+
+      deallocate(data)
+    end do
+  end if
+
+  call mpi_recv(xdomain, size(xdomain), DEFAULT_REAL, 0, & 
+       tag, config%comm_all, status, ierr)
+
 
  end subroutine
 
@@ -721,8 +776,8 @@ contains
          Ef(ModML%effsize,ErrorSpaceDim))
 
     call oak_gather_master(config,x,Ef)
-    
-
+    Ea = Ef
+    call oak_spread_master(config,Ea,x)   
   end if
 
   deallocate(Ea,Ef)
