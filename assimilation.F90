@@ -4306,7 +4306,7 @@ contains
   use sangoma_base, only: REALPREC, INTPREC
   implicit none
   
-  integer(INTPREC), value, intent(in) :: Nx,Ny,Ne             ! state, observation and ensemble dimensions
+  integer(INTPREC), intent(in) :: Nx,Ny,Ne             ! state, observation and ensemble dimensions
   real(REALPREC), intent(in), dimension(Nx,Ne) :: vec_in      ! input vector in state space to which
   ! to apply the observation operator h, e.g. h(x)
   real(REALPREC), intent(inout), dimension(Ny,Ne) :: vec_out  ! resulting vector in observation space
@@ -4319,7 +4319,7 @@ contains
   use sangoma_base, only: REALPREC, INTPREC
   implicit none
   
-  integer(INTPREC), value, intent(in) :: Nx,Ny,Ne            ! state, observation and ensemble dimensions
+  integer(INTPREC), intent(in) :: Nx,Ny,Ne            ! state, observation and ensemble dimensions
   real(REALPREC), intent(in), dimension(Ny,Ne) :: vec_in     ! input vector in observation space to which
   ! to apply the observation operator h, e.g. h^T(x)
   real(REALPREC), intent(inout), dimension(Nx,Ne) :: vec_out ! resulting vector in state space
@@ -4333,7 +4333,7 @@ contains
   use sangoma_base, only: REALPREC, INTPREC
   implicit none
   
-  integer(INTPREC), value, intent(in) :: Ny,Ne               ! observation and ensemble dimensions
+  integer(INTPREC), intent(in) :: Ny,Ne               ! observation and ensemble dimensions
   real(REALPREC), intent(in), dimension(Ny,Ne) :: vec_in     ! input vector in observation space 
   ! which to apply the inverse observation error
   ! covariances R, e.g. R^{-1}(d)
@@ -4350,7 +4350,7 @@ contains
   use sangoma_base, only: REALPREC, INTPREC
   implicit none
   
-  integer(INTPREC), value, intent(in) :: Nx,Ne               ! state and ensemble dimensions
+  integer(INTPREC), intent(in) :: Nx,Ne               ! state and ensemble dimensions
   real(REALPREC), intent(in), dimension(Nx,Ne) :: vec_in     ! vector in state space to which to apply
                                                                      ! the squarerooted model error covariances 
                                                                      ! Q^{1/2}, e.g. Q^{1/2}(d)
@@ -4413,7 +4413,7 @@ subroutine ewpf_analysis(xf,Sf,weight,H,invsqrtR, &
  write(6,*) 'here',__LINE__,weighta
 
 
-! call ewpf_proposal_step(X,X,weighta,yo,invsqrtR,1,20,20,H)
+ call ewpf_proposal_step(X,X,weighta,yo,invsqrtR,1,20,20,H)
 
  write(6,*) 'here',__LINE__,weighta
 
