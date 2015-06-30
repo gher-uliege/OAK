@@ -2871,7 +2871,7 @@ end function
  ! bindex: index of each timed block 
  !
 
- subroutine Assim(ntime,Sf,Sa,xfp,xap,Efanam,Eaanam)
+ subroutine Assim(ntime,Sf,Sa,xfp,xap,Efanam,Eaanam,weightf,weighta)
   use matoper
   use rrsqrt
   use ufileformat
@@ -2885,7 +2885,9 @@ end function
   real, intent(out)              :: Sa(:,:)
   real, intent(inout), optional, target  :: xfp(:)
   real, intent(out),   optional, target  :: xap(:)
-  real, optional, intent(out)    :: Efanam(:,:),Eaanam(:,:)
+  real, intent(out),   optional  :: Efanam(:,:),Eaanam(:,:)
+  real, intent(in),    optional  :: weightf(:)
+  real, intent(out),   optional  :: weighta(:)
 
   ! local variables
   character(len=256)             :: prefix,path, str, str2
@@ -2917,7 +2919,7 @@ end function
   integer :: bindex=1
 # endif
 
-  real, pointer :: weight(:),weighta(:)
+
   real :: valex
 
 
@@ -3125,23 +3127,26 @@ end function
                 xf,Hxf,yo,Sf,HSf,invsqrtR, xa,Sa,locAmplitudes)
         end if
      elseif (schemetype.eq.EWPFScheme) then
-       write(6,*) 'here'
+       if (.not.present(weightf) .or. .not.present(weighta)) then
+         write(stdout,*) 'Error: the parameters weigthf and weighta not ', &
+              ' specified for EWPFScheme'
+       end if
+         
+       !call getInitValue(initfname,'ErrorSpace.path',path)
+       !call getInitValue(initfname,'ErrorSpace.weight',str)
+       !call uload(trim(path)//str,weight,valex)
        
-       call getInitValue(initfname,'ErrorSpace.path',path)
-       call getInitValue(initfname,'ErrorSpace.weight',str)
-       call uload(trim(path)//str,weight,valex)
-       
-       allocate(weighta(size(weight,1)))
-       call ewpf_analysis(xf,Sf,weight,H,invsqrtR,yo,xa,Sa,weighta)
-       write(6,*) 'here',weight
-       weighta = 2
+       !allocate(weighta(size(weight,1)))
+       call ewpf_analysis(xf,Sf,weightf,H,invsqrtR,yo,xa,Sa,weighta)
+       write(6,*) 'here',weightf
+       !weighta = 2
 
-       call getInitValue(initfname,'Diag'//trim(infix)//'path',path)
-       call getInitValue(initfname,'Diag'//trim(infix)//'weighta',str)
-       call usave(trim(path)//str,weighta,9999.)
-       deallocate(weight,weighta)
+       if (presentInitValue(initfname,'Diag'//trim(infix)//'weighta')) then
 
-
+         call getInitValue(initfname,'Diag'//trim(infix)//'path',path)
+         call getInitValue(initfname,'Diag'//trim(infix)//'weighta',str)
+         call usave(trim(path)//str,weighta,9999.)
+       end if
      else
 !$omp master
         if (biastype.eq.ErrorFractionBias) then

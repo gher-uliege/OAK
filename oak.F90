@@ -643,7 +643,7 @@ contains
   write(6,*) 'Ef2',Ef(:,2)
 
   Ea = Ef
-!   call assim(ntime,Ef,Ea)
+  call assim(ntime,Ef,Ea)
 
 
   !write(6,*) 'model ',myrank,'has loc ',Ef
@@ -663,7 +663,7 @@ contains
 
   !write(6,*) 'model ',myrank,'has global',x
 
-!  call oak_spread_members(config,Ea,x)
+  call oak_spread_members(config,Ea,x)
 
   !-------------------------------------------------------------
  contains
