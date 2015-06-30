@@ -1,8 +1,8 @@
+! module for on-line coupling between model and assimilation routines
+
 module oak
  use ndgrid
  use assimilation
-
- ! integer, parameter :: maxLen = 256
 
  type oakconfig
    character(len=maxLen) :: initfname
@@ -28,9 +28,9 @@ module oak
 !   logical, allocatable :: mask(:)
    real, allocatable :: gridx(:), gridy(:), gridz(:), gridt(:)
 
-!   type(MemLayout) :: ModML
-!   type(grid), allocatable :: ModelGrid(:)
-   integer :: schemetype = 1
+   ! weights for particle filter
+   real, allocatable :: weightf(:), weighta(:)
+
    integer :: obsntime = 1   
 
    ! domain index
@@ -90,6 +90,7 @@ contains
   call oak_split_comm(config%comm_all,nprocs/config%Nens,config%comm_da,.false.)
 
 
+  allocate(config%weightf(config%Nens),config%weighta(config%Nens))
 
   ! print diagnostic information
   write(6,*) 'OAK is initialized'
@@ -299,6 +300,7 @@ contains
   end do
 
   deallocate(ModelGrid)
+  deallocate(config%weightf,config%weighta)
 
   call MemoryLayoutDone(ModML)
 
@@ -310,6 +312,7 @@ contains
  ! true) or by having ranks separated by size/N (where size is the group of the 
  ! communicator comm)
  !
+ 
 
  subroutine oak_split_comm(comm,N,new_comm,mode)
   implicit none
@@ -569,6 +572,9 @@ contains
 
  end subroutine oak_spread_members
 
+ !-------------------------------------------------------------
+
+
 
  !-------------------------------------------------------------
  !
@@ -578,7 +584,6 @@ contains
  subroutine oak_assim(config,ntime,x)
   use mpi
   use matoper
-  use sangoma_ensemble_analysis
   implicit none
   type(oakconfig), intent(inout) :: config
   integer, intent(in) :: ntime
@@ -643,25 +648,14 @@ contains
   write(6,*) 'Ef2',Ef(:,2)
 
   Ea = Ef
-  call assim(ntime,Ef,Ea)
 
 
   !write(6,*) 'model ',myrank,'has loc ',Ef
 
   ! analysis
 
-  if (config%schemetype == 1) then
-    ! global
-
-  else
-!    call local_ensemble_analysis(Ef,HEf,yo,diagR,partition,selectObs,method,Ea)
-  end if
-
-
-!  call mpi_alltoallv(Ef, recvcounts, rdispls, DEFAULT_REAL, &
-!       x, config%locsize, sdispls, DEFAULT_REAL, config%comm_da, ierr)
-
-  !write(6,*) 'model ',myrank,'has global',x
+  ! weights are not used unless  schemetype == EWPFScheme
+  call assim(ntime,Ef,Ea,config%weightf,config%weighta)
 
   call oak_spread_members(config,Ea,x)
 
