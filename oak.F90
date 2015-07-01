@@ -273,6 +273,13 @@ contains
 
  end subroutine oak_domain
 
+!--------------------------------------------------------------------------------
+
+ subroutine oak_define_domain_decomposition()
+  
+ end subroutine oak_define_domain_decomposition
+
+!--------------------------------------------------------------------------------
 
  subroutine oak_done(config)
   use mpi
@@ -692,13 +699,14 @@ contains
  ! x is the state vector with all variables concatenated and masked points 
  ! removed
 
- subroutine oak_assim(config,ntime,x)
+ subroutine oak_assim(config,time,x)
   use mpi
   use parall
   use matoper
+  use initfile
   implicit none
   type(oakconfig), intent(inout) :: config
-  integer, intent(in) :: ntime
+  real(8), intent(in) :: time
   real, intent(inout) :: x(:)
   integer :: ierr, i, obs_dim, r, myrank
   integer, dimension(config%Nens) :: recvcounts, sdispls, rdispls
@@ -707,90 +715,114 @@ contains
   real, pointer :: yo(:), invsqrtR(:), Hshift(:)
   real :: scale
   character(len=64) :: method = 'ETKF'
+  character(len=256)             :: infix
   type(MemLayout) :: ObsML
   type(SparseMatrix) :: H
-  real(8) :: mjd0
+  ! force double precision of time
+  real(8) :: obstime, obstime_next, model_dt
   real, pointer, dimension(:) :: obsX, obsY, obsZ, obsT
+  integer :: ntime, obsVec, dt_obs
 
 
-  ! fixme ntime
-  ! check if observations are available
-  call loadObsTime(ntime,mjd0,ierr)
-  if (ierr /= 0) then
-    return
-  end if
+  if (schemetype == EWPFScheme) then
+    ! time of the next observation
+    call loadObsTime(config%obsntime,obstime,ierr)    
+    call getInitValue(initfname,'Config.dt',model_dt)
 
-  ! load observations
-  call oak_load_obs(config,ntime,ObsML,yo,invsqrtR,H,Hshift, &
-       obsX, obsY, obsZ, obsT)
-
-  obs_dim = size(yo)
-  allocate(Hx(obs_dim),HEf(obs_dim,config%Nens),d(obs_dim),HSf(obs_dim), &
-       meanHx(obs_dim),diagR(obs_dim))
-
-  ! extract observations
-  call oak_obsoper(config,x,Hx)
-
-  call mpi_allgather(Hx, obs_dim, DEFAULT_REAL, HEf,  &
-       obs_dim, DEFAULT_REAL, config%comm_da, ierr)
-
-  !  write(6,*) 'Hx',Hx
-
-  !  write(6,*) 'x',x
-
-  call mpi_comm_rank(config%comm_da, myrank, ierr)
-
-  ! collect the local part of the state vector
-
-  recvcounts = config%locsize(myrank+1)
-
-  ! allocate(xloc(sum(recvcounts)))
-  !allocate(Ef(config%locsize(myrank+1),config%Nens))
-
-      write(6,*) 'invZoneIndex ',allocated(invZoneIndex)
-
-  if (schemetype == LocalScheme) then
-    allocate( &
-         Ea(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel,ErrorSpaceDim), &
-         Ef(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel,ErrorSpaceDim))
-
-    call oak_gather_members(config,x,Ef)
-
-    !  Write(6,*) 'model ',myrank,'counts ',config%locsize,recvcounts
-
-    write(6,*) 'x',x
-    write(6,*) 'Ef1',Ef(:,1)
-    write(6,*) 'Ef2',Ef(:,2)
-
-    Ea = Ef
-
-
-    !write(6,*) 'model ',myrank,'has loc ',Ef
-    
-    ! analysis
-
-    call assim(ntime,Ef,Ea)
-
-    call oak_spread_members(config,Ea,x)
-  else
-    ! collect at master
     allocate( &
          Ea(ModML%effsize,ErrorSpaceDim), &
          Ef(ModML%effsize,ErrorSpaceDim))
 
     call oak_gather_master(config,x,Ef)
-    Ea = Ef
-    if (procnum == 1) then
-      write(6,*) 'model ',procnum,'has loc ',shape(Ef)
-      ! weights are not used unless  schemetype == EWPFScheme
-      call assim(ntime,Ef,Ea,weightf=config%weightf,weighta=config%weighta)
-      ! for testing
-      Ea = Ef
-    end if
-    call oak_spread_master(config,Ea,x)   
-  end if
 
-  deallocate(Ea,Ef)
+    if (procnum == 1) then
+      if (time < obstime) then
+        ! proposal step
+
+        ntime = time / model_dt
+        call loadObsTime(config%obsntime+1,obstime_next,ierr)    
+
+        if (ierr == 0) then
+          obsVec = obstime_next / model_dt
+          dt_obs = (obstime_next - obstime) / model_dt
+
+          call fmtIndex('',config%obsntime+1,'.',infix)
+          call MemoryLayout('Obs'//trim(infix),ObsML,.true.)
+          allocate(yo(ObsML%effsize),invsqrtR(ObsML%effsize),Hshift(ObsML%effsize))
+
+          call loadObs(config%obsntime+1,ObsML,yo,invsqrtR)    
+          call loadObservationOper(config%obsntime+1,ObsML,H,Hshift,invsqrtR)
+
+          call ewpf_proposal_step(ntime,obsVec,dt_obs,Ef,Ea,config%weightf,yo,invsqrtR,H)
+          deallocate(yo,invsqrtR,Hshift)
+        end if
+      else
+        ! analysis step
+        call assim(config%obsntime,Ef,Ea, & 
+             weightf=config%weightf,weighta=config%weighta)
+        config%weightf = config%weighta
+      end if
+    end if
+
+    call oak_spread_master(config,Ea,x)   
+
+    deallocate(Ea,Ef)
+  else
+
+    ! fixme ntime
+    ! check if observations are available
+    call loadObsTime(config%obsntime,obstime,ierr)
+    if (ierr /= 0) then
+      return
+    end if
+
+    write(6,*) 'invZoneIndex ',allocated(invZoneIndex)
+    
+    if (schemetype == LocalScheme) then
+      allocate( &
+           Ea(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel,ErrorSpaceDim), &
+           Ef(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel,ErrorSpaceDim))
+      
+      call oak_gather_members(config,x,Ef)
+      
+      !  Write(6,*) 'model ',myrank,'counts ',config%locsize,recvcounts
+      
+      write(6,*) 'x',x
+      write(6,*) 'Ef1',Ef(:,1)
+      write(6,*) 'Ef2',Ef(:,2)
+      
+      Ea = Ef
+      
+      
+      !write(6,*) 'model ',myrank,'has loc ',Ef
+      
+      ! analysis
+      
+      call assim(config%obsntime,Ef,Ea)
+      
+      call oak_spread_members(config,Ea,x)
+    else
+    ! collect at master
+      allocate( &
+           Ea(ModML%effsize,ErrorSpaceDim), &
+           Ef(ModML%effsize,ErrorSpaceDim))
+      
+      call oak_gather_master(config,x,Ef)
+      Ea = Ef
+      if (procnum == 1) then
+        write(6,*) 'model ',procnum,'has loc ',shape(Ef)
+        ! weights are not used unless  schemetype == EWPFScheme
+        call assim(config%obsntime,Ef,Ea,weightf=config%weightf,weighta=config%weighta)
+        ! for testing
+        Ea = Ef
+      end if
+      call oak_spread_master(config,Ea,x)   
+    end if
+
+
+    config%obsntime = config%obsntime +1
+    deallocate(Ea,Ef)
+  end if
   !-------------------------------------------------------------
  contains
   subroutine selectObs(i,w) 
