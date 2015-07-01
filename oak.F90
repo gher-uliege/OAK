@@ -44,30 +44,31 @@ module oak
 
 contains
 
- subroutine oak_init(config,comm,comm_ensmember_,fname)
+ subroutine oak_init(config,fname,comm,comm_ensmember_)
   use mpi
+  use initfile
+  use parall, only: parallInit
   use initfile
   implicit none
 
   type(oakconfig), intent(out) :: config
+  character(len=maxLen) :: fname
   integer, intent(in), optional :: comm
   integer, intent(out), optional :: comm_ensmember_
-  character(len=maxLen), optional :: fname
 
   integer :: nprocs, nprocs_ensmember, vmax
   integer :: ierr
 
   config%initfname = ''
 
-  if (present(fname)) then
-    ! remove this one
-    initfname = fname
-    config%initfname = fname
-    call oak_load_model_grid(config)
+  initfname = fname
+  config%initfname = fname
+  call getInitValue(initfname,'ErrorSpace.dimension',config%Nens,default=0)
 
-    call getInitValue(initfname,'ErrorSpace.dimension',config%Nens,default=0)
-
-  end if
+  !call oak_load_model_grid(config)
+  call parallInit(communicator=config%comm_all)
+  call init(config%initfname)
+  allocate(config%dom(ModML%effsize))
 
   if (present(comm)) then
     ! model uses also MPI, split communicators
@@ -93,12 +94,13 @@ contains
   call oak_split_comm(config%comm_all,nprocs/config%Nens,config%comm_da,.false.)
 
 
+
   allocate(config%weightf(config%Nens),config%weighta(config%Nens))
 
   ! print diagnostic information
-  write(6,*) 'OAK is initialized'
-  write(6,*) 'Total number of processes',nprocs
-  write(6,*) 'Processes per ensemble member',nprocs_ensmember
+!  write(6,*) 'OAK is initialized'
+!  write(6,*) 'Total number of processes',nprocs
+!  write(6,*) 'Processes per ensemble member',nprocs_ensmember
 
  end subroutine oak_init
 
@@ -113,23 +115,6 @@ contains
   type(oakconfig), intent(inout) :: config
 
 
-  call parallInit(communicator=config%comm_all)
-  call init(config%initfname)
-
-  allocate(config%dom(ModML%effsize))
-
-  ! if (config%initfname /= '') then
-  !   call getInitValue(initfname,'schemetype',schemetype,default=GlobalScheme)
-  !   ! variables for local assimilation
-
-  !   !call load_grid()
-
-  !   if (schemetype.eq.LocalScheme) then
-  !   !  call load_partition()
-  !   end if
-
-
-  ! end if
 
  contains
 
@@ -220,67 +205,6 @@ contains
 
 !---------------------------------------------------------------
 
- subroutine oak_domain(config,nl,partition,gridx,gridy,gridz,gridt)
-  use mpi
-  implicit none
-
-  type(oakconfig), intent(inout) :: config  
-  ! size of model 
-  integer, intent(in) :: nl
-  integer, intent(in), optional :: partition(:)
-  real, intent(in), optional :: gridx(:)
-  real, intent(in), optional :: gridy(:)
-  real, intent(in), optional :: gridz(:)
-  real, intent(in), optional :: gridt(:)
-  integer, allocatable :: itemp(:)
-
-  integer :: i
-
-  allocate(config%startIndex(config%Nens),config%endIndex(config%Nens), &
-       config%locsize(config%Nens),itemp(config%Nens+1))
-
-
-  ! indices for distributed state vector
-  itemp = [ (1 + ( (i-1)*nl)/config%Nens, i=1,config%Nens+1)]
-  !write(6,*) 'itemp ',itemp
-
-  config%startIndex = itemp(1:config%Nens)
-  config%endIndex = itemp(2:config%Nens+1)-1
-
-  ! local size for assimilation
-  config%locsize = config%endIndex - config%startIndex+1
-
-  deallocate(itemp)
-
-  if (present(partition)) then
-    allocate(config%partition(size(partition)))
-    config%partition = partition
-  end if
-
-  if (present(gridx)) then
-    allocate(config%gridx(size(gridx)))
-    config%gridx = gridx
-  end if
-
-  if (present(gridy)) then
-    allocate(config%gridy(size(gridy)))
-    config%gridy = gridy
-  end if
-
-  if (present(gridz)) then
-    allocate(config%gridz(size(gridz)))
-    config%gridz = gridz
-  end if
-
-  if (present(gridt)) then
-    allocate(config%gridt(size(gridt)))
-    config%gridt = gridt
-  end if
-
- end subroutine oak_domain
-
-!--------------------------------------------------------------------------------
-
  subroutine oak_domain_decomposition(config,dom)
   implicit none
   type(oakconfig), intent(inout) :: config
@@ -292,7 +216,7 @@ contains
   
  end subroutine oak_domain_decomposition
 
-!--------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
 
  subroutine oak_done(config)
   use mpi
@@ -305,14 +229,8 @@ contains
     call mpi_finalize(ierr)
   end if
 
-  !deallocate(config%startIndex,config%endIndex,config%locsize)
 
-  if (allocated(config%gridx)) deallocate(config%gridx)
-  if (allocated(config%gridy)) deallocate(config%gridy)
-  if (allocated(config%gridz)) deallocate(config%gridz)
-  if (allocated(config%gridt)) deallocate(config%gridt)
-
-  deallocate(config%dom)
+  if (allocated(config%dom)) deallocate(config%dom)
 
   do v=1,ModML%nvar
     ! deallocate the model grid structure ModelGrid(v)

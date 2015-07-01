@@ -37,7 +37,7 @@ program toymodel
  call mpi_init(ierr)
 
 #ifdef OAK
- call oak_init(config,mpi_comm_world,comm,fname='test_assim.init')
+ call oak_init(config,'test_assim.init',mpi_comm_world,comm)
 #else
  comm = mpi_comm_world
 #endif
@@ -77,8 +77,6 @@ program toymodel
 
 
 #ifdef OAK
-! call oak_domain(config,nl,partition=[(i,i=j0,j1)])
-
  allocate(subdomain(ModML%effsize))
  do i = 1,nprocs
    subdomain(((i-1) * n)/nprocs + 1:(i * n)/nprocs) = i   
