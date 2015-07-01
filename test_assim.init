@@ -12,6 +12,7 @@ Config.exec = '~/Assim/OAK/assim-gfortran-single'
 # 1: shell (default)
 # 2: mex (experimental)
 Config.coupling = 1
+Config.dt = 1
 
 
 
@@ -78,16 +79,16 @@ Obs001.mask       = [      'obs1.nc#var1']
 Obs001.rmse       = [      'obs1.nc#rmse']
 
 
-# Obs002.time      = '2010-07-07T00:00:00'
-# Obs002.path      = ''
-# Obs002.variables  = [              'var1']
-# Obs002.names      = [      'var1_surface']
-# Obs002.gridX      = [       'obs1.nc#lon']
-# Obs002.gridY      = [       'obs1.nc#lat']
-# Obs002.gridZ      = [         'obs1.nc#z']
-# Obs002.value      = [      'obs1.nc#var1']
-# Obs002.mask       = [      'obs1.nc#var1']
-# Obs002.rmse       = [      'obs1.nc#rmse']
+Obs002.time      = '2010-07-07T00:00:00'
+Obs002.path      = ''
+Obs002.variables  = [              'var1']
+Obs002.names      = [      'var1_surface']
+Obs002.gridX      = [       'obs1.nc#lon']
+Obs002.gridY      = [       'obs1.nc#lat']
+Obs002.gridZ      = [         'obs1.nc#z']
+Obs002.value      = [      'obs1.nc#var1']
+Obs002.mask       = [      'obs1.nc#var1']
+Obs002.rmse       = [      'obs1.nc#rmse']
 
 # diagnostics
 

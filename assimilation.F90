@@ -4253,12 +4253,12 @@ subroutine ensAnalysisAnamorph2(yo,Ef,HEf,invsqrtR,  &
 end subroutine anamtransform
 
 
-subroutine ewpf_proposal_step(t_model,obsVec,dt_obs,X,Xp,weight,yo,invsqrtR,H)
+subroutine ewpf_proposal_step(ntime,obsVec,dt_obs,X,Xp,weight,yo,invsqrtR,H)
  use matoper
  use sangoma_ewpf
  use initfile
  implicit none
- integer, intent(in) :: t_model                   ! current model timestep
+ integer, intent(in) :: ntime                   ! current model timestep
  integer,intent(in) :: obsVec                     ! model time step at which we have next 
                                                             ! observations, i.e. next analysis time
  integer,intent(in) :: dt_obs                     ! model timesteps betwe
@@ -4268,7 +4268,7 @@ subroutine ewpf_proposal_step(t_model,obsVec,dt_obs,X,Xp,weight,yo,invsqrtR,H)
  type(SparseMatrix), intent(in)  :: H
 
 ! current model timestep
-! integer ::  t_model = 0      
+! integer ::  ntime = 0      
 
  ! model time step at which we have next 
  ! observations, i.e. next analysis time 
@@ -4282,13 +4282,14 @@ subroutine ewpf_proposal_step(t_model,obsVec,dt_obs,X,Xp,weight,yo,invsqrtR,H)
  call getInitValue(initfname,'EWPF.Qscale',Qscale,default=0.001)
 
 
- !subroutine proposal_step(Ne,Nx,Ny,weight,x_n,y,t_model,obsVec,dt_obs, &
+ !subroutine proposal_step(Ne,Nx,Ny,weight,x_n,y,ntime,obsVec,dt_obs, &
  !          cb_H, cb_HT, cb_Qhalf, cb_solve_r) bind(C, name="proposal_step_")
 
+ Xp = X
  call proposal_step(size(X,2),size(X,1),size(yo), &
-      weight,X, &
+      weight,Xp, &
       yo, &
-      t_model,obsVec,dt_obs, &
+      ntime,obsVec,dt_obs, &
       cb_H, cb_HT, cb_Qhalf, cb_solve_r)
 
 
@@ -4395,21 +4396,10 @@ subroutine ewpf_analysis(xf,Sf,weight,H,invsqrtR, &
 
  weighta = weight
 
- write(6,*) 'here',__LINE__,size(xf),size(yo),size(Sf,2),size(weighta)
- write(6,*) 'here',__LINE__,shape(X) 
  call equal_weight_step(size(Sf,2),size(xf),size(yo), &
       weighta,X,yo, &
       cb_H, cb_HT, cb_solve_r, cb_solve_hqht_plus_r, cb_Qhalf)
 
- !proposal_step(Nx,Ny,Ne,weight,x_n,x_n1,y,timestep,obsstep,steps_btw_obs, &
- !          cb_H, cb_HT, cb_Qhalf, cb_solve_r)
-
- write(6,*) 'here',__LINE__,weighta
-
-
-! call ewpf_proposal_step(X,X,weighta,yo,invsqrtR,1,20,20,H)
-
- write(6,*) 'here',__LINE__,weighta
 
  xa = sum(X,2) / size(X,2)
  do i=1,size(Sf,2)
