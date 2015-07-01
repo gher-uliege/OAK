@@ -15,4 +15,4 @@
 # echo 'Serial model + Assim'
 # mpif90 -fdefault-real-8 -g -C -DOAK -o toymodel $F ndgrid.F90 oak.F90 toymodel.F90  -llapack -lblas && mpirun -np 4 toymodel
 
-make PRECISION=double  MPI=on EXTRA_F90FLAGS='-g -C -DOAK -DMODEL_PARALLEL'  toymodel && mpirun -np 4 toymodel
+make PRECISION=double  MPI=on toymodel && mpirun -np 4 toymodel

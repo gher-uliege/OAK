@@ -323,34 +323,35 @@ contains
 
   do v=1,vmax
     n = ModML%ndim(v)
-  
+
     ! initialisze the model grid structure ModelGrid(v)
     call initgrid(ModelGrid(v),n,ModML%varshape(1:n,v), &
-       ModML%Mask(ModML%StartIndex(v):ModML%EndIndex(v)).eq.0)
+         ModML%Mask(ModML%StartIndex(v):ModML%EndIndex(v)).eq.0)
 
     ! set the coordinates of the model grid
     call setCoord(ModelGrid(v),1,trim(path)//filenamesX(v))
-    call setCoord(ModelGrid(v),2,trim(path)//filenamesY(v))
 
-    if (n > 2) then
-      call setCoord(ModelGrid(v),3,trim(path)//filenamesZ(v))
+    if (n > 1) then
+      call setCoord(ModelGrid(v),2,trim(path)//filenamesY(v))
 
+      if (n > 2) then
+        call setCoord(ModelGrid(v),3,trim(path)//filenamesZ(v))
 
-      if (n > 3) then
-        !write(stderr,*) 'The dimension of variable ',trim(ModML%varnames(v)),' is ',n
-        !write(stderr,*) 'Error: Only 3-d grids are supported for now. '
+        if (n > 3) then
+          !write(stderr,*) 'The dimension of variable ',trim(ModML%varnames(v)),' is ',n
+          !write(stderr,*) 'Error: Only 3-d grids are supported for now. '
 
-        !ERROR_STOP 
+          !ERROR_STOP 
 
-        call getInitValue(initfname,'Model.gridT',filenamesT)
-        call setCoord(ModelGrid(v),4,trim(path)//filenamesT(v))
-        deallocate(filenamesT)
+          call getInitValue(initfname,'Model.gridT',filenamesT)
+          call setCoord(ModelGrid(v),4,trim(path)//filenamesT(v))
+          deallocate(filenamesT)
+        end if
       end if
     end if
-    
 
-!   what to do with hres ?
-!    hres(v) = cx**2
+    !   what to do with hres ?
+    !    hres(v) = cx**2
   end do
 
   deallocate(filenamesX,filenamesY,filenamesZ)
@@ -4356,7 +4357,9 @@ contains
   real(REALPREC), intent(inout), dimension(Nx,Ne) :: vec_out ! resulting vector in state space!!!
 
 !  vec_out = sqrtQ.x.vec_in
+  write(6,*) 'vec_in',vec_in
   vec_out = sqrt(Qscale) * vec_in
+  write(6,*) 'vec_out, ewpf_proposal_step',vec_out
  end subroutine cb_Qhalf
 
  
@@ -4390,7 +4393,7 @@ subroutine ewpf_analysis(xf,Sf,weight,H,invsqrtR, &
  call getInitValue(initfname,'EWPF.efacNum',efacNum,default=efacNum)
  call getInitValue(initfname,'EWPF.freetime',freetime,default=freetime)
  call getInitValue(initfname,'EWPF.nudgefac',nudgefac,default=nudgefac)
- call getInitValue(initfname,'EWPF.Qscale',Qscale,default=Qscale)
+ call getInitValue(initfname,'EWPF.Qscale',Qscale,default=0.001)
 
  allocate(X(size(xf,1),size(Sf,2)))
 
@@ -4526,7 +4529,10 @@ contains
   real(REALPREC), intent(inout), dimension(Nx,Ne) :: vec_out ! resulting vector in state space!!!
 
 !  vec_out = sqrtQ.x.vec_in
+  write(6,*) 'vec_in',vec_in
   vec_out = sqrt(Qscale) * vec_in
+  write(6,*) 'vec_out',vec_out
+
  end subroutine cb_Qhalf
 
 
