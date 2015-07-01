@@ -9,32 +9,26 @@ module oak
 
    ! communicator model + assimilation
    integer :: comm_all
+
    ! communicator between ensemble members (of the same sub-domain)
    integer :: comm_da
+
    ! communicator between sub-domains (of the same ensemble member)
    integer :: comm_ensmember
+
    ! flag wheter the model uses MPI
    logical :: model_uses_mpi
+
    ! ensemble size
    integer :: Nens
-
-   ! integer :: n
-
-   integer, allocatable :: startIndex(:),endIndex(:)
-
-   ! size of local distributed state vector
-   integer, allocatable :: locsize(:), partition(:)
-
-!   logical, allocatable :: mask(:)
-   real, allocatable :: gridx(:), gridy(:), gridz(:), gridt(:)
 
    ! weights for particle filter
    real, allocatable :: weightf(:), weighta(:)
 
+   ! time index of the next observation
    integer :: obsntime = 1   
 
-   ! domain index
-   ! size state vector
+   ! domain index 
    integer, allocatable :: dom(:)
 
    ! number of domains
@@ -65,7 +59,6 @@ contains
   config%initfname = fname
   call getInitValue(initfname,'ErrorSpace.dimension',config%Nens,default=0)
 
-  !call oak_load_model_grid(config)
   call parallInit(communicator=config%comm_all)
   call init(config%initfname)
   allocate(config%dom(ModML%effsize))
@@ -106,104 +99,6 @@ contains
 
  !--------------------------------------------------------------------
 
- subroutine oak_load_model_grid(config)
-  use mpi
-  use initfile
-  use ufileformat
-  use parall
-  implicit none
-  type(oakconfig), intent(inout) :: config
-
-
-
- contains
-
-  subroutine load_grid()
-   implicit none
-   character(len=MaxFNameLength), pointer   ::  &
-        filenamesX(:),filenamesY(:),filenamesZ(:),    &
-        filenamesT(:)
-   character(len=MaxFNameLength)            :: path
-   integer :: vmax
-   integer :: v,n
-
-
-   ! Models Memory Layout 
-   call MemoryLayout('Model.',ModML)
-
-   vmax = ModML%nvar
-
-   allocate(ModelGrid(vmax),hres(vmax))
-   hres = 0
-
-   call getInitValue(initfname,'Model.path',path,default='')
-
-   !
-   ! define model grid
-   !
-
-   call getInitValue(config%initfname,'Model.gridX',filenamesX)
-   call getInitValue(config%initfname,'Model.gridY',filenamesY)
-   call getInitValue(config%initfname,'Model.gridZ',filenamesZ)
-
-   write(6,*) 'filenamesX',filenamesX(1)
-   write(6,*) 'filenamesY',filenamesY(1)
-   write(6,*) 'filenamesZ',filenamesZ(1),vmax,trim(path)
-   do v=1,vmax
-     n = ModML%ndim(v)
-
-     ! initialisze the model grid structure ModelGrid(v)
-     call initgrid(ModelGrid(v),n,ModML%varshape(1:n,v), &
-          ModML%Mask(ModML%StartIndex(v):ModML%EndIndex(v)).eq.0)
-
-     ! set the coordinates of the model grid
-     call setCoord(ModelGrid(v),1,trim(path)//filenamesX(v))
-     call setCoord(ModelGrid(v),2,trim(path)//filenamesY(v))
-
-     if (n > 2) then
-       call setCoord(ModelGrid(v),3,trim(path)//filenamesZ(v))
-
-
-       if (n > 3) then
-         call getInitValue(initfname,'Model.gridT',filenamesT)
-         call setCoord(ModelGrid(v),4,trim(path)//filenamesT(v))
-         deallocate(filenamesT)
-       end if
-     end if
-
-
-   end do
-
-   ! legacy for obs* routines
-   !ModML = ModML
-   !ModelGrid = ModelGrid
-
-   deallocate(filenamesX,filenamesY,filenamesZ)
-  end subroutine load_grid
-
-
-  subroutine load_partition()
-   implicit none
-   real, pointer :: tmp(:)
-
-   allocate(tmp(ModML%effsize),partition(ModML%effsize), &
-        hCorrLengthToObs(ModML%effsize),hMaxCorrLengthToObs(ModML%effsize))
-
-   call loadVector('Zones.partition',ModML,tmp)
-   ! convertion real -> integer
-   partition = nint(tmp)
-   deallocate(tmp)
-
-   call loadVector('Zones.corrLength',ModML,hCorrLengthToObs)
-   call loadVector('Zones.maxLength',ModML,hMaxCorrLengthToObs)
-
-   ! optimization: permute element in the vector so that element in the same
-   ! sub-zone are close in memory
-
-  end subroutine load_partition
- end subroutine oak_load_model_grid
-
-!---------------------------------------------------------------
 
  subroutine oak_domain_decomposition(config,dom)
   implicit none
