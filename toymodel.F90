@@ -77,7 +77,7 @@ program toymodel
 
 
 #ifdef OAK
- call oak_domain(config,nl,partition=[(i,i=j0,j1)])
+! call oak_domain(config,nl,partition=[(i,i=j0,j1)])
 
  allocate(subdomain(ModML%effsize))
  do i = 1,nprocs
@@ -85,8 +85,6 @@ program toymodel
  end do
  call oak_domain_decomposition(config,subdomain)
  deallocate(subdomain)
-
- write(6,*) 'config%dom ',config%dom
 #endif
 
  ! initialize j1-j0+1 grid points and two halo points

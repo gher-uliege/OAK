@@ -305,7 +305,7 @@ contains
     call mpi_finalize(ierr)
   end if
 
-  deallocate(config%startIndex,config%endIndex,config%locsize)
+  !deallocate(config%startIndex,config%endIndex,config%locsize)
 
   if (allocated(config%gridx)) deallocate(config%gridx)
   if (allocated(config%gridy)) deallocate(config%gridy)
