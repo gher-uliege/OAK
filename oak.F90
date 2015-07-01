@@ -1,7 +1,6 @@
 ! module for on-line coupling between model and assimilation routines
 
 module oak
- use ndgrid
  use assimilation
 
  type oakconfig
@@ -40,9 +39,9 @@ contains
   use initfile
   implicit none
 
-  type(oakconfig), intent(out) :: config
-  character(len=*) :: fname
-  integer, intent(in), optional :: comm
+  type(oakconfig), intent(out)   :: config
+  character(len=*)               :: fname
+  integer, intent(in), optional  :: comm
   integer, intent(out), optional :: comm_ensmember_
 
   integer :: nprocs, nprocs_ensmember
@@ -78,11 +77,12 @@ contains
 
 
   allocate(config%weightf(config%Nens),config%weighta(config%Nens))
-
+  config%weightf = 1/config%Nens
+  
   ! print diagnostic information
-!  write(6,*) 'OAK is initialized'
-!  write(6,*) 'Total number of processes',nprocs
-!  write(6,*) 'Processes per ensemble member',nprocs_ensmember
+  !  write(6,*) 'OAK is initialized'
+  !  write(6,*) 'Total number of processes',nprocs
+  !  write(6,*) 'Processes per ensemble member',nprocs_ensmember
 
  end subroutine oak_init
 
@@ -92,15 +92,15 @@ contains
  subroutine oak_domain_decomposition(config,dom)
   implicit none
   type(oakconfig), intent(inout) :: config
-  integer, intent(in) :: dom(:)
-  
+  integer, intent(in)            :: dom(:)
+
   config%dom = dom
   ! number of domains
   config%ndom = maxval(config%dom)
-  
+
  end subroutine oak_domain_decomposition
 
-!-------------------------------------------------------------------------------
+ !-------------------------------------------------------------------------------
 
  subroutine oak_done(config)
   use mpi
@@ -125,7 +125,7 @@ contains
 
   if (allocated(config%weightf)) deallocate(config%weightf)
   if (allocated(config%weighta)) deallocate(config%weighta)
-!  deallocate(config%weightf,config%weighta)
+  !  deallocate(config%weightf,config%weighta)
 
   call MemoryLayoutDone(ModML)
 
@@ -137,7 +137,7 @@ contains
  ! true) or by having ranks separated by size/N (where size is the group of the 
  ! communicator comm)
  !
- 
+
 
  subroutine oak_split_comm(comm,N,new_comm,mode)
   implicit none
@@ -363,7 +363,7 @@ contains
   ! gather all data
   if (rank == 0) then
     ! collect from subdomains to form perturmed state vector
-  
+
     do source = 0,p-1
       source_idom = mod(source,config%ndom) + 1;
       ! ensemble member index (integer division)
@@ -379,7 +379,7 @@ contains
     end do
   end if
 
- end subroutine
+ end subroutine oak_gather_master
 
  !-------------------------------------------------------------
 
@@ -408,7 +408,7 @@ contains
   ! gather all data
   if (rank == 0) then
     ! collect from subdomains to form perturmed state vector
-  
+
     do source = 0,p-1
       source_idom = mod(source,config%ndom) + 1;
       ! ensemble member index (integer division)
@@ -430,7 +430,7 @@ contains
        tag, config%comm_all, status, ierr)
 
 
- end subroutine
+ end subroutine oak_spread_master
 
  !-------------------------------------------------------------
 
@@ -463,17 +463,26 @@ contains
   if (schemetype == EWPFScheme) then
     ! time of the next observation
     call loadObsTime(config%obsntime,obstime,ierr)    
+    if (ierr /= 0) then
+      ! no more observations are available
+      write(6,*) 'no more obs',procnum
+      return
+    end if
+
+
     call getInitValue(initfname,'Config.dt',model_dt)
 
     allocate( &
          Ea(ModML%effsize,ErrorSpaceDim), &
          Ef(ModML%effsize,ErrorSpaceDim))
 
+    !write(6,*) 'diff f',x
     call oak_gather_master(config,x,Ef)
 
-    if (procnum == 1) then
-      if (time < obstime) then
-        ! proposal step
+    if (time < obstime) then
+      ! proposal step
+      if (procnum == 1) then
+        write(6,*) 'proposal step',time
 
         ntime = nint(time / model_dt)
         call loadObsTime(config%obsntime+1,obstime_next,ierr)    
@@ -492,57 +501,52 @@ contains
           call ewpf_proposal_step(ntime,obsVec,dt_obs,Ef,Ea,config%weightf,yo,invsqrtR,H)
           deallocate(yo,invsqrtR,Hshift)
         end if
-      else
-        ! analysis step
+      end if
+    else
+      ! analysis step
+      if (procnum == 1) then
+        write(6,*) 'analysis step',time
+
         call assim(config%obsntime,Ef,Ea, & 
              weightf=config%weightf,weighta=config%weighta)
         config%weightf = config%weighta
       end if
+      config%obsntime = config%obsntime +1    
     end if
 
     call oak_spread_master(config,Ea,x)   
 
+    write(6,*) 'diff a',x
+
     deallocate(Ea,Ef)
   else
 
-    ! fixme ntime
     ! check if observations are available
     call loadObsTime(config%obsntime,obstime,ierr)
     if (ierr /= 0) then
+      ! no more observation are available
       return
     end if
 
-    write(6,*) 'invZoneIndex ',allocated(invZoneIndex)
-    
     if (schemetype == LocalScheme) then
       allocate( &
            Ea(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel,ErrorSpaceDim), &
            Ef(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel,ErrorSpaceDim))
-      
+
       call oak_gather_members(config,x,Ef)
-      
-      !  Write(6,*) 'model ',myrank,'counts ',config%locsize,recvcounts
-      
-      write(6,*) 'x',x
-      write(6,*) 'Ef1',Ef(:,1)
-      write(6,*) 'Ef2',Ef(:,2)
-      
-      Ea = Ef
-      
-      
-      !write(6,*) 'model ',myrank,'has loc ',Ef
-      
+
+      !Ea = Ef
       ! analysis
-      
+      write(6,*) 'Ef ',Ef
       call assim(config%obsntime,Ef,Ea)
-      
+      write(6,*) 'Ea ',Ea
       call oak_spread_members(config,Ea,x)
     else
-    ! collect at master
+      ! collect at master
       allocate( &
            Ea(ModML%effsize,ErrorSpaceDim), &
            Ef(ModML%effsize,ErrorSpaceDim))
-      
+
       call oak_gather_master(config,x,Ef)
       Ea = Ef
       if (procnum == 1) then
@@ -560,7 +564,5 @@ contains
     deallocate(Ea,Ef)
   end if
  end subroutine oak_assim
-
-
 
 end module oak
