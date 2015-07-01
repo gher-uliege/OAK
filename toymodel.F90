@@ -5,6 +5,7 @@ program toymodel
 #endif
 #ifdef OAK
  use oak
+ use assimilation
 #endif
 
  implicit none
@@ -26,6 +27,7 @@ program toymodel
 
 #ifdef OAK
   type(oakconfig) :: config
+  integer, allocatable :: subdomain(:)
 #endif
  n = 8
  Ntime = n
@@ -77,9 +79,13 @@ program toymodel
 #ifdef OAK
  call oak_domain(config,nl,partition=[(i,i=j0,j1)])
 
+ allocate(subdomain(ModML%effsize))
  do i = 1,nprocs
-   config%dom(((i-1) * n)/nprocs + 1:(i * n)/nprocs) = i   
+   subdomain(((i-1) * n)/nprocs + 1:(i * n)/nprocs) = i   
  end do
+ call oak_domain_decomposition(config,subdomain)
+ deallocate(subdomain)
+
  write(6,*) 'config%dom ',config%dom
 #endif
 

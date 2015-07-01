@@ -37,6 +37,9 @@ module oak
    ! size state vector
    integer, allocatable :: dom(:)
 
+   ! number of domains
+   integer :: ndom
+
  end type oakconfig
 
 contains
@@ -215,6 +218,8 @@ contains
   end subroutine load_partition
  end subroutine oak_load_model_grid
 
+!---------------------------------------------------------------
+
  subroutine oak_domain(config,nl,partition,gridx,gridy,gridz,gridt)
   use mpi
   implicit none
@@ -231,7 +236,8 @@ contains
 
   integer :: i
 
-  allocate(config%startIndex(config%Nens),config%endIndex(config%Nens),config%locsize(config%Nens),itemp(config%Nens+1))
+  allocate(config%startIndex(config%Nens),config%endIndex(config%Nens), &
+       config%locsize(config%Nens),itemp(config%Nens+1))
 
 
   ! indices for distributed state vector
@@ -275,9 +281,16 @@ contains
 
 !--------------------------------------------------------------------------------
 
- subroutine oak_define_domain_decomposition()
+ subroutine oak_domain_decomposition(config,dom)
+  implicit none
+  type(oakconfig), intent(inout) :: config
+  integer, intent(in) :: dom(:)
   
- end subroutine oak_define_domain_decomposition
+  config%dom = dom
+  ! number of domains
+  config%ndom = maxval(config%dom)
+  
+ end subroutine oak_domain_decomposition
 
 !--------------------------------------------------------------------------------
 
@@ -468,16 +481,14 @@ contains
   ! number of processes
   call mpi_comm_size(config%comm_all, p, ierr)
 
-  ! number of domains
-  ndom = maxval(config%dom)
 
   rank = procnum - 1
 
   do source = 0,p-1
     do dest = 0,p-1
-      source_idom = mod(source,ndom) + 1
+      source_idom = mod(source,config%ndom) + 1
       ! ensemble member index (integer division)
-      source_ensmember = source/ndom + 1
+      source_ensmember = source/config%ndom + 1
 
 
       i1 = startIndexZones(startZIndex(dest+1))
@@ -543,9 +554,9 @@ contains
 
   do dest = 0,p-1
     do source = 0,p-1
-      dest_idom = mod(dest,ndom) + 1
+      dest_idom = mod(dest,config%ndom) + 1
       ! ensemble member index (integer division)
-      dest_ensmember = dest/ndom + 1
+      dest_ensmember = dest/config%ndom + 1
 
 
       i1 = startIndexZones(startZIndex(source+1))
@@ -618,9 +629,9 @@ contains
     ! collect from subdomains to form perturmed state vector
   
     do source = 0,p-1
-      source_idom = mod(source,ndom) + 1;
+      source_idom = mod(source,config%ndom) + 1;
       ! ensemble member index (integer division)
-      source_ensmember = source/ndom + 1
+      source_ensmember = source/config%ndom + 1
 
       datasize = count(config%dom == source_idom)
       allocate(data(datasize))
@@ -669,9 +680,9 @@ contains
     ! collect from subdomains to form perturmed state vector
   
     do source = 0,p-1
-      source_idom = mod(source,ndom) + 1;
+      source_idom = mod(source,config%ndom) + 1;
       ! ensemble member index (integer division)
-      source_ensmember = source/ndom + 1
+      source_ensmember = source/config%ndom + 1
 
       datasize = count(config%dom == source_idom)
       allocate(data(datasize))
