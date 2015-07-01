@@ -4287,7 +4287,7 @@ subroutine ewpf_proposal_step(ntime,obsVec,dt_obs,X,Xp,weight,yo,invsqrtR,H)
  !          cb_H, cb_HT, cb_Qhalf, cb_solve_r) bind(C, name="proposal_step_")
 
  Xp = X
- write(6,*) 'weight ',__LINE__,weight
+! write(6,*) 'weight ',__LINE__,weight
 
  call proposal_step(size(X,2),size(X,1),size(yo), &
       weight,Xp, &
@@ -4296,7 +4296,7 @@ subroutine ewpf_proposal_step(ntime,obsVec,dt_obs,X,Xp,weight,yo,invsqrtR,H)
       cb_H, cb_HT, cb_Qhalf, cb_solve_r)
 
 
- write(6,*) 'weight ',__LINE__,weight
+! write(6,*) 'weight ',__LINE__,weight
 
 contains
 
@@ -4400,11 +4400,12 @@ subroutine ewpf_analysis(xf,Sf,weight,H,invsqrtR, &
 
  weighta = weight
 
+ write(6,*) 'X', __LINE__,X
  call equal_weight_step(size(Sf,2),size(xf),size(yo), &
       weighta,X,yo, &
       cb_H, cb_HT, cb_solve_r, cb_solve_hqht_plus_r, cb_Qhalf)
 
-
+ write(6,*) 'X', __LINE__,X
  xa = sum(X,2) / size(X,2)
  do i=1,size(Sf,2)
    Sa(:,i) = X(:,i) - xa

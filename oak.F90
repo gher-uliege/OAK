@@ -28,11 +28,13 @@ module oak
    ! number of domains
    integer :: ndom
 
+   real(8) :: starttime, obstime_previous
+   
  end type oakconfig
 
 contains
 
- subroutine oak_init(config,fname,comm,comm_ensmember_)
+ subroutine oak_init(config,fname,comm,comm_ensmember_,starttime)
   use mpi
   use initfile
   use parall, only: parallInit
@@ -43,11 +45,16 @@ contains
   character(len=*)               :: fname
   integer, intent(in), optional  :: comm
   integer, intent(out), optional :: comm_ensmember_
+  real(8), intent(in), optional :: starttime
 
   integer :: nprocs, nprocs_ensmember
   integer :: ierr
 
   initfname = fname
+  config%starttime = 0
+  if (present(starttime)) config%starttime = starttime
+  config%obstime_previous = config%starttime
+
   call getInitValue(initfname,'ErrorSpace.dimension',config%Nens,default=0)
 
   call parallInit(communicator=config%comm_all)
@@ -488,8 +495,8 @@ contains
         call loadObsTime(config%obsntime+1,obstime_next,ierr)    
 
         if (ierr == 0) then
-          obsVec = nint(obstime_next / model_dt)
-          dt_obs = nint((obstime_next - obstime) / model_dt)
+          obsVec = nint(obstime / model_dt)
+          dt_obs = nint((obstime - config%obstime_previous) / model_dt)
 
           call fmtIndex('',config%obsntime+1,'.',infix)
           call MemoryLayout('Obs'//trim(infix),ObsML,.true.)
@@ -498,9 +505,9 @@ contains
           call loadObs(config%obsntime+1,ObsML,yo,invsqrtR)    
           call loadObservationOper(config%obsntime+1,ObsML,H,Hshift,invsqrtR)
 
-          write(6,*) 'weightf ',procnum,config%weightf
+          !write(6,*) 'weightf ',procnum,config%weightf
           call ewpf_proposal_step(ntime,obsVec,dt_obs,Ef,Ea,config%weightf,yo,invsqrtR,H)
-          write(6,*) 'weightf ',procnum,config%weightf
+          !write(6,*) 'weightf ',procnum,config%weightf
           deallocate(yo,invsqrtR,Hshift)
         end if
       end if
@@ -513,7 +520,9 @@ contains
              weightf=config%weightf,weighta=config%weighta)
         config%weightf = config%weighta
       end if
+
       config%obsntime = config%obsntime +1    
+      config%obstime_previous = obstime
     end if
 
     call oak_spread_master(config,Ea,x)   
@@ -556,6 +565,7 @@ contains
 
 
     config%obsntime = config%obsntime +1
+    config%obstime_previous = obstime
     deallocate(Ea,Ef)
   end if
  end subroutine oak_assim
