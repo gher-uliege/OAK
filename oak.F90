@@ -77,7 +77,7 @@ contains
 
 
   allocate(config%weightf(config%Nens),config%weighta(config%Nens))
-  config%weightf = 1/config%Nens
+  config%weightf = 1./config%Nens
   
   ! print diagnostic information
   !  write(6,*) 'OAK is initialized'
@@ -459,16 +459,16 @@ contains
   real(8) :: obstime, obstime_next, model_dt
   integer :: ntime, obsVec, dt_obs
 
+  ! time of the next observation
+  call loadObsTime(config%obsntime,obstime,ierr)    
+  if (ierr /= 0) then
+    ! no more observations are available
+    write(6,*) 'no more obs',procnum
+    return
+  end if
+  
 
   if (schemetype == EWPFScheme) then
-    ! time of the next observation
-    call loadObsTime(config%obsntime,obstime,ierr)    
-    if (ierr /= 0) then
-      ! no more observations are available
-      write(6,*) 'no more obs',procnum
-      return
-    end if
-
 
     call getInitValue(initfname,'Config.dt',model_dt)
 
@@ -498,7 +498,9 @@ contains
           call loadObs(config%obsntime+1,ObsML,yo,invsqrtR)    
           call loadObservationOper(config%obsntime+1,ObsML,H,Hshift,invsqrtR)
 
+          write(6,*) 'weightf ',procnum,config%weightf
           call ewpf_proposal_step(ntime,obsVec,dt_obs,Ef,Ea,config%weightf,yo,invsqrtR,H)
+          write(6,*) 'weightf ',procnum,config%weightf
           deallocate(yo,invsqrtR,Hshift)
         end if
       end if
@@ -520,13 +522,6 @@ contains
 
     deallocate(Ea,Ef)
   else
-
-    ! check if observations are available
-    call loadObsTime(config%obsntime,obstime,ierr)
-    if (ierr /= 0) then
-      ! no more observation are available
-      return
-    end if
 
     if (schemetype == LocalScheme) then
       allocate( &

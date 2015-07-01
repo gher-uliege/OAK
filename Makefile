@@ -156,7 +156,7 @@ initfile.o: initfile.F90 ppdef.h
 
 rrsqrt.o: rrsqrt.F90 matoper.o parall.o ufileformat.o ppdef.h
 
-sangoma_ewpf.o: random_d.o equal_weights_step.f90 quicksort.f90 gen_random.f90 subroutines_for_EWPF.f90
+sangoma_ewpf.o: random_d.o equal_weights_step.f90 quicksort.f90 gen_random.f90 subroutines_for_EWPF.f90 proposal_step.f90
 
 assimilation.o: assimilation.F90 user_base.o sangoma_base.o sangoma_ewpf.o anamorphosis.o date.o grids.o initfile.o \
 	matoper.o ndgrid.o parall.o rrsqrt.o ufileformat.o ppdef.h

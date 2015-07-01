@@ -3150,8 +3150,9 @@ end function
        !call uload(trim(path)//str,weight,valex)
        
        !allocate(weighta(size(weight,1)))
+       write(6,*) 'weightf ',weightf
        call ewpf_analysis(xf,Sf,weightf,H,invsqrtR,yo,xa,Sa,weighta)
-       write(6,*) 'here',weightf
+       write(6,*) 'weighta ',weighta
        !weighta = 2
 
        if (presentInitValue(initfname,'Diag'//trim(infix)//'weighta')) then
@@ -4286,6 +4287,8 @@ subroutine ewpf_proposal_step(ntime,obsVec,dt_obs,X,Xp,weight,yo,invsqrtR,H)
  !          cb_H, cb_HT, cb_Qhalf, cb_solve_r) bind(C, name="proposal_step_")
 
  Xp = X
+ write(6,*) 'weight ',__LINE__,weight
+
  call proposal_step(size(X,2),size(X,1),size(yo), &
       weight,Xp, &
       yo, &
@@ -4293,6 +4296,7 @@ subroutine ewpf_proposal_step(ntime,obsVec,dt_obs,X,Xp,weight,yo,invsqrtR,H)
       cb_H, cb_HT, cb_Qhalf, cb_solve_r)
 
 
+ write(6,*) 'weight ',__LINE__,weight
 
 contains
 
