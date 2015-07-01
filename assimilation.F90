@@ -4300,7 +4300,7 @@ subroutine ewpf_proposal_step(ntime,obsVec,dt_obs,X,Xp,weight,yo,invsqrtR,H)
 
 contains
 
- subroutine cb_H(Ne,Nx,Ny,vec_in,vec_out) bind(C)
+ subroutine cb_H(Ne,Nx,Ny,vec_in,vec_out) ! bind(C)
   use, intrinsic :: ISO_C_BINDING
   use sangoma_base, only: REALPREC, INTPREC
   implicit none
@@ -4313,7 +4313,7 @@ contains
   vec_out = H.x.vec_in
  end subroutine cb_H
 
- subroutine cb_HT(Ne,Nx,Ny,vec_in,vec_out) bind(C)
+ subroutine cb_HT(Ne,Nx,Ny,vec_in,vec_out) ! bind(C)
   use, intrinsic :: ISO_C_BINDING
   use sangoma_base, only: REALPREC, INTPREC
   implicit none
@@ -4327,7 +4327,7 @@ contains
  end subroutine cb_HT
 
 
- subroutine cb_solve_r(Ne,Ny,vec_in,vec_out) bind(C)
+ subroutine cb_solve_r(Ne,Ny,vec_in,vec_out) ! bind(C)
   use, intrinsic :: ISO_C_BINDING
   use sangoma_base, only: REALPREC, INTPREC
   implicit none
@@ -4344,7 +4344,7 @@ contains
   end do
  end subroutine cb_solve_r
 
- subroutine cb_Qhalf(Ne,Nx,vec_in,vec_out) bind(C)
+ subroutine cb_Qhalf(Ne,Nx,vec_in,vec_out) ! bind(C)
   use, intrinsic :: ISO_C_BINDING
   use sangoma_base, only: REALPREC, INTPREC
   implicit none
@@ -4414,7 +4414,7 @@ subroutine ewpf_analysis(xf,Sf,weight,H,invsqrtR, &
  deallocate(X)
 contains
 
- subroutine cb_H(Ne,Nx,Ny,vec_in,vec_out) bind(C)
+ subroutine cb_H(Ne,Nx,Ny,vec_in,vec_out) ! bind(C)
   use, intrinsic :: ISO_C_BINDING
   use sangoma_base, only: REALPREC, INTPREC
   implicit none
@@ -4432,7 +4432,7 @@ contains
 
  end subroutine cb_H
 
- subroutine cb_HT(Ne,Nx,Ny,vec_in,vec_out) bind(C)
+ subroutine cb_HT(Ne,Nx,Ny,vec_in,vec_out) ! bind(C)
   use, intrinsic :: ISO_C_BINDING
   use sangoma_base, only: REALPREC, INTPREC
   implicit none
@@ -4465,7 +4465,7 @@ contains
  end function hqht_plus_r
 
 
- subroutine cb_solve_hqht_plus_r(Ne,Ny,vec_in,vec_out) bind(C)
+ subroutine cb_solve_hqht_plus_r(Ne,Ny,vec_in,vec_out) ! bind(C)
   use, intrinsic :: ISO_C_BINDING
   use sangoma_base, only: REALPREC, INTPREC
   implicit none
@@ -4497,7 +4497,7 @@ contains
 
  end subroutine cb_solve_hqht_plus_R
 
- subroutine cb_solve_r(Ne,Ny,vec_in,vec_out) bind(C)
+ subroutine cb_solve_r(Ne,Ny,vec_in,vec_out) ! bind(C)
   use, intrinsic :: ISO_C_BINDING
   use sangoma_base, only: REALPREC, INTPREC
   implicit none
@@ -4514,7 +4514,7 @@ contains
   end do
  end subroutine cb_solve_r
 
- subroutine cb_Qhalf(Ne,Nx,vec_in,vec_out) bind(C)
+ subroutine cb_Qhalf(Ne,Nx,vec_in,vec_out) ! bind(C)
   use, intrinsic :: ISO_C_BINDING
   use sangoma_base, only: REALPREC, INTPREC
   implicit none

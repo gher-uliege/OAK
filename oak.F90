@@ -320,12 +320,12 @@ contains
       if (count(need) > 0) then
         if (rank == source) then
           call mpi_send(E(ind2 - i1 + 1,dest_ensmember), needsize, & 
-               DEFAULT_REAL, dest, tag, config%comm_all, status, ierr)
+               DEFAULT_REAL, dest, tag, config%comm_all, ierr)
         end if
 
         if (rank == dest) then
           call mpi_recv(data, needsize, DEFAULT_REAL, source, & 
-               tag, config%comm_all, ierr)
+               tag, config%comm_all, status, ierr)
           xdomain(pack([(i,i=1,size(xdomain))],need)) = data
         end if
 

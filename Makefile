@@ -158,6 +158,8 @@ rrsqrt.o: rrsqrt.F90 matoper.o parall.o ufileformat.o ppdef.h
 
 sangoma_ewpf.o: random_d.o equal_weights_step.f90 quicksort.f90 gen_random.f90 subroutines_for_EWPF.f90 proposal_step.f90
 
+user_base.o: sangoma_base.o
+
 assimilation.o: assimilation.F90 user_base.o sangoma_base.o sangoma_ewpf.o anamorphosis.o date.o grids.o initfile.o \
 	matoper.o ndgrid.o parall.o rrsqrt.o ufileformat.o ppdef.h
 
@@ -166,10 +168,10 @@ ufileformat.o: ufileformat.F90 ppdef.h
 match.o: match.c
 
 
-OBJ=toymodel.o /home/abarth/src/sangoma/tools/trunk/Fortran/utilities/sangoma_utils.o /home/abarth/src/sangoma/tools/trunk/Fortran/analysis/sangoma_ensemble_analysis.o ndgrid.o assimilation.o rrsqrt.o anamorphosis.o date.o parall.o initfile.o user_base.o   matoper.o oak.o  ufileformat.o  random_d.f90 sangoma_base.f90 sangoma_ewpf.o match.o 
+OBJ=toymodel.o  ndgrid.o assimilation.o rrsqrt.o anamorphosis.o date.o parall.o initfile.o user_base.o   matoper.o oak.o  ufileformat.o  random_d.f90 sangoma_base.f90 sangoma_ewpf.o match.o 
 
 oak.o: oak.F90 assimilation.o ndgrid.o
 toymodel.o: toymodel.F90 oak.o
 
 toymodel: $(OBJ) 
-	$(F90C) -fdefault-real-8 $(LDFLAGS) -o $@ $+ $(LIBS)
+	$(F90C) $(LDFLAGS) -o $@ $+ $(LIBS)
