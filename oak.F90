@@ -5,13 +5,8 @@ module oak
  use assimilation
 
  type oakconfig
-   character(len=maxLen) :: initfname
-
    ! communicator model + assimilation
    integer :: comm_all
-
-   ! communicator between ensemble members (of the same sub-domain)
-   integer :: comm_da
 
    ! communicator between sub-domains (of the same ensemble member)
    integer :: comm_ensmember
@@ -46,21 +41,18 @@ contains
   implicit none
 
   type(oakconfig), intent(out) :: config
-  character(len=maxLen) :: fname
+  character(len=*) :: fname
   integer, intent(in), optional :: comm
   integer, intent(out), optional :: comm_ensmember_
 
-  integer :: nprocs, nprocs_ensmember, vmax
+  integer :: nprocs, nprocs_ensmember
   integer :: ierr
 
-  config%initfname = ''
-
   initfname = fname
-  config%initfname = fname
   call getInitValue(initfname,'ErrorSpace.dimension',config%Nens,default=0)
 
   call parallInit(communicator=config%comm_all)
-  call init(config%initfname)
+  call init(initfname)
   allocate(config%dom(ModML%effsize))
 
   if (present(comm)) then
@@ -69,7 +61,6 @@ contains
     config%comm_all = comm
     config%model_uses_mpi = .true.
 
-    !write(6,*) 'comm_ensmember_',comm_ensmember_
     config%comm_ensmember = comm_ensmember_
     call mpi_comm_size(config%comm_ensmember, nprocs_ensmember, ierr)
   else
@@ -84,8 +75,6 @@ contains
   end if
 
   call mpi_comm_size(config%comm_all, nprocs, ierr)
-  call oak_split_comm(config%comm_all,nprocs/config%Nens,config%comm_da,.false.)
-
 
 
   allocate(config%weightf(config%Nens),config%weighta(config%Nens))
@@ -210,70 +199,6 @@ contains
 
  !-------------------------------------------------------------
 
- subroutine oak_obsoper(config,x,Hx)
-  use mpi
-  implicit none
-  type(oakconfig), intent(inout) :: config
-  real, intent(in) :: x(:)
-  real, intent(out) :: Hx(:)
-  integer :: rank, m = 1, ierr
-  ! use communicator for each ensemble member
-
-
-  if (config%model_uses_mpi) then
-    call mpi_comm_rank(config%comm_ensmember, rank, ierr)
-    if (rank == 0) then
-      Hx = x(1) 
-    end if
-
-    call mpi_bcast(Hx, m, DEFAULT_REAL, 0, config%comm_ensmember, ierr)
-  else
-    Hx = x(1)
-  end if
- end subroutine oak_obsoper
-
-
- !-------------------------------------------------------------
-
- subroutine oak_load_obs(config,ntime,ObsML,yo,invsqrtR,H,Hshift, &
-      obsX, obsY, obsZ, obsT)
-  use matoper
-  use initfile
-  implicit none
-  type(oakconfig), intent(inout) :: config
-  integer, intent(in) :: ntime
-  type(MemLayout), intent(out) :: ObsML
-  real, intent(out), pointer :: yo(:), invsqrtR(:), Hshift(:)
-  real, intent(out), pointer, dimension(:) :: obsX, obsY, obsZ, obsT
-
-  type(SparseMatrix), intent(out) :: H
-
-  character(len=256)             :: prefix
-  real(8) :: mjd0
-  integer :: m
-
-  call fmtIndex('Obs',ntime,'.',prefix)
-  call MemoryLayout(prefix,ObsML)
-
-  m = ObsML%effsize
-
-  allocate(yo(m),invsqrtR(m),Hshift(m))
-  call loadObs(ntime,ObsML,yo,invsqrtR)    
-
-  call loadObservationOper(ntime,ObsML,H,Hshift,invsqrtR)
-
-!  call loadVector(trim(prefix)//'gridX',ObsML,obsX)
-!  call loadVector(trim(prefix)//'gridY',ObsML,obsY)
-!  call loadVector(trim(prefix)//'gridZ',ObsML,obsZ)
-
-  if (presentInitValue(initfname,trim(prefix)//'gridT')) then
-!    call loadVector(trim(prefix)//'gridT',ObsML,obsT)
-  end if
-
- end subroutine oak_load_obs
-
- !-------------------------------------------------------------
-
  subroutine oak_gather_members(config,xdomain,E)
   use parall
   implicit none  
@@ -281,8 +206,8 @@ contains
   real, intent(in) :: xdomain(:)
   real, intent(out) :: E(:,:)
 
-  integer :: i1,i2,i,ndom, subdomsize, needsize,k, p, rank, & 
-       ensmember, tag, ierr, source, dest, source_idom, source_ensmember
+  integer :: i1,i2, subdomsize, needsize, p, rank, & 
+       tag, ierr, source, dest, source_idom, source_ensmember
 
   integer, allocatable :: ind(:), ind2(:)
   logical, allocatable :: need(:)
@@ -347,8 +272,8 @@ contains
   real, intent(out) :: xdomain(:)
   real, intent(in) :: E(:,:)
 
-  integer :: i1,i2,i,ndom, subdomsize, needsize,k, p, rank, & 
-       ensmember, tag, ierr, dest, source, dest_idom, dest_ensmember
+  integer :: i1,i2,i,ndom, subdomsize, needsize, p, rank, & 
+       tag, ierr, dest, source, dest_idom, dest_ensmember
 
   integer, allocatable :: ind(:), ind2(:)
   logical, allocatable :: need(:)
@@ -415,11 +340,9 @@ contains
   real, intent(in) :: xdomain(:)
   real, intent(out) :: E(:,:)
 
-  integer :: i1,i2,i,ndom, subdomsize, needsize,k, p, rank, & 
-       ensmember, tag, ierr, source, dest, source_idom, source_ensmember
+  integer :: ndom, p, rank, & 
+       tag, ierr, source, source_idom, source_ensmember
 
-  integer, allocatable :: ind(:), ind2(:)
-  logical, allocatable :: need(:)
   real,    allocatable :: data(:)
   integer :: status(mpi_status_size), datasize
 
@@ -469,11 +392,9 @@ contains
   real, intent(in) :: E(:,:)
   real, intent(out) :: xdomain(:)
 
-  integer :: i1,i2,i,ndom, subdomsize, needsize,k, p, rank, & 
-       ensmember, tag, ierr, source, dest, source_idom, source_ensmember
+  integer :: p, rank, & 
+       tag, ierr, source, source_idom, source_ensmember
 
-  integer, allocatable :: ind(:), ind2(:)
-  logical, allocatable :: need(:)
   real,    allocatable :: data(:)
   integer :: status(mpi_status_size), datasize
 
@@ -482,11 +403,7 @@ contains
   ! number of processes
   call mpi_comm_size(config%comm_all, p, ierr)
 
-  ! number of domains
-  ndom = maxval(config%dom)
-
   rank = procnum - 1
-
 
   ! gather all data
   if (rank == 0) then
@@ -532,19 +449,14 @@ contains
   type(oakconfig), intent(inout) :: config
   real(8), intent(in) :: time
   real, intent(inout) :: x(:)
-  integer :: ierr, i, obs_dim, r, myrank
-  integer, dimension(config%Nens) :: recvcounts, sdispls, rdispls
-
-  real, allocatable :: Hx(:),HEf(:,:), d(:), meanHx(:), HSf(:), diagR(:), Ef(:,:), Ea(:,:)
+  integer :: ierr
+  real, allocatable :: Ef(:,:), Ea(:,:)
   real, pointer :: yo(:), invsqrtR(:), Hshift(:)
-  real :: scale
-  character(len=64) :: method = 'ETKF'
   character(len=256)             :: infix
   type(MemLayout) :: ObsML
   type(SparseMatrix) :: H
   ! force double precision of time
   real(8) :: obstime, obstime_next, model_dt
-  real, pointer, dimension(:) :: obsX, obsY, obsZ, obsT
   integer :: ntime, obsVec, dt_obs
 
 
@@ -563,12 +475,12 @@ contains
       if (time < obstime) then
         ! proposal step
 
-        ntime = time / model_dt
+        ntime = nint(time / model_dt)
         call loadObsTime(config%obsntime+1,obstime_next,ierr)    
 
         if (ierr == 0) then
-          obsVec = obstime_next / model_dt
-          dt_obs = (obstime_next - obstime) / model_dt
+          obsVec = nint(obstime_next / model_dt)
+          dt_obs = nint((obstime_next - obstime) / model_dt)
 
           call fmtIndex('',config%obsntime+1,'.',infix)
           call MemoryLayout('Obs'//trim(infix),ObsML,.true.)
@@ -647,15 +559,6 @@ contains
     config%obsntime = config%obsntime +1
     deallocate(Ea,Ef)
   end if
-  !-------------------------------------------------------------
- contains
-  subroutine selectObs(i,w) 
-   implicit none
-   integer, intent(in) :: i
-   real, intent(out) :: w(:)
-
-
-  end subroutine selectObs
  end subroutine oak_assim
 
 
