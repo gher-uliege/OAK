@@ -75,16 +75,6 @@ program toymodel
 
 #endif
 
-
-#ifdef OAK
- allocate(subdomain(ModML%effsize))
- do i = 1,nprocs
-   subdomain(((i-1) * n)/nprocs + 1:(i * n)/nprocs) = i   
- end do
- call oak_domain_decomposition(config,subdomain)
- deallocate(subdomain)
-#endif
-
  ! initialize j1-j0+1 grid points and two halo points
 
  allocate(x(1:nl+2*halo),xinit(1:nl+2*halo))
@@ -94,10 +84,24 @@ program toymodel
    xinit(i) = i-k0+j0
  end do
 
- call bc(i,xinit)
+ call bc(0,xinit)
 
  x = xinit
 ! write(6,*) 'xinit ',xinit, 'rank',rank
+
+#ifdef OAK
+ allocate(subdomain(ModML%effsize))
+ do i = 1,nprocs
+   subdomain(((i-1) * n)/nprocs + 1:(i * n)/nprocs) = i   
+ end do
+ call oak_domain_decomposition(config,subdomain)
+ deallocate(subdomain)
+
+ call oak_perturb(config,x(k0:k1))
+ call bc(0,xinit)
+
+#endif
+
 
 
  ! time loop

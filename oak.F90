@@ -441,7 +441,18 @@ contains
 
  !-------------------------------------------------------------
 
+ subroutine oak_perturb(config,x)
+  use mpi
+  use matoper
+  implicit none
+  type(oakconfig), intent(inout) :: config
+  real, intent(inout) :: x(:)
 
+!  write(6,*) 'x',x
+  x = x + reshape(randn(size(x),1),[size(x)])
+!  write(6,*) 'x',x
+
+ end subroutine oak_perturb
  !-------------------------------------------------------------
  !
  ! x is the state vector with all variables concatenated and masked points 
