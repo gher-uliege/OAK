@@ -88,6 +88,11 @@ program toymodel
    xinit(i) = i-k0+j0
  end do
 
+ dbg(xinit(2))
+ dbg(k1)
+ dbg(k0)
+ dbg(j0)
+
  call bc(0,xinit)
 
  x = xinit
