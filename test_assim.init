@@ -79,7 +79,7 @@ Obs001.mask       = [      'obs1.nc#var1']
 Obs001.rmse       = [      'obs1.nc#rmse']
 
 
-Obs002.time      = '6'
+Obs002.time      = '16'
 Obs002.path      = ''
 Obs002.variables  = [              'var1']
 Obs002.names      = [      'var1_surface']

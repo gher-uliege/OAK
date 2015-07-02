@@ -4409,11 +4409,16 @@ subroutine ewpf_analysis(xf,Sf,weight,H,invsqrtR, &
  write(6,*) 'yo', __LINE__,yo
  write(6,*) 'Hx', __LINE__,H.x.X
  write(6,*) 'X', __LINE__,X
+ dbg(weighta)
+ dbg(yo)
+
+ write(6,*) 'X4', __LINE__,X(4,:)
  call equal_weight_step(size(Sf,2),size(xf),size(yo), &
       weighta,X,yo, &
       cb_H, cb_HT, cb_solve_r, cb_solve_hqht_plus_r, cb_Qhalf)
 
- write(6,*) 'X', __LINE__,X
+! write(6,*) 'X', __LINE__,X
+ write(6,*) 'X', __LINE__,X(4,:)
  xa = sum(X,2) / size(X,2)
  do i=1,size(Sf,2)
    Sa(:,i) = X(:,i) - xa
@@ -4469,7 +4474,7 @@ contains
   vec_out = H.x.(Qscale  * (H.tx.vec_in))
 
   ! R * vec_in
-  vec_out = vec_out + vec_out / (invsqrtR**2)
+  vec_out = vec_out + vec_in / (invsqrtR**2)
  end function hqht_plus_r
 
 
@@ -4502,6 +4507,8 @@ contains
 
     !write(6,*) 'residual ', (hqht_plus_r(vec_out(:,k)) - vec_in(:,k))
   end do
+
+  write(6,*) 'cb_solve_hqht_plus_r ',vec_in,vec_out
 
  end subroutine cb_solve_hqht_plus_R
 

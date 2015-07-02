@@ -88,11 +88,6 @@ program toymodel
    xinit(i) = i-k0+j0
  end do
 
- dbg(xinit(2))
- dbg(k1)
- dbg(k0)
- dbg(j0)
-
  call bc(0,xinit)
 
  x = xinit
@@ -111,8 +106,6 @@ program toymodel
 
 #endif
 
- dbg(x(2))
-
 
  ! time loop
  do i = 1,Ntime  
@@ -121,8 +114,6 @@ program toymodel
 
    ! boundary conditions
    call bc(i,x)
-   dbg(x(2))
-
 
 #ifdef OAK
    call oak_assim(config,real(i,8),x(k0:k1))
