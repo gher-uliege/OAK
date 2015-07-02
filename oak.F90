@@ -112,6 +112,7 @@ contains
  subroutine oak_done(config)
   use mpi
   use ndgrid
+  use assimilation
   implicit none
   type(oakconfig), intent(inout) :: config
   integer :: ierr, v
@@ -122,20 +123,10 @@ contains
 
 
   if (allocated(config%dom)) deallocate(config%dom)
-
-  do v=1,ModML%nvar
-    ! deallocate the model grid structure ModelGrid(v)
-    call donegrid(ModelGrid(v))
-  end do
-
-  deallocate(ModelGrid)
-
   if (allocated(config%weightf)) deallocate(config%weightf)
   if (allocated(config%weighta)) deallocate(config%weighta)
-  !  deallocate(config%weightf,config%weighta)
 
-  call MemoryLayoutDone(ModML)
-
+  call done()
  end subroutine oak_done
 
  !------------------------------------------------------------------------------
