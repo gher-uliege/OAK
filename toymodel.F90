@@ -102,10 +102,11 @@ program toymodel
  deallocate(subdomain)
 
  call oak_perturb(config,x(k0:k1))
- call bc(0,xinit)
+ call bc(0,x)
 
 #endif
 
+ dbg(x(2))
 
 
  ! time loop
