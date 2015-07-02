@@ -1,3 +1,26 @@
+!
+!  OAK, Ocean Assimilation Kit
+!  Copyright(c) 2015 Alexander Barth and Luc Vandenblucke
+!
+!  This program is free software; you can redistribute it and/or
+!  modify it under the terms of the GNU General Public License
+!  as published by the Free Software Foundation; either version 2
+!  of the License, or (at your option) any later version.
+!
+!  This program is distributed in the hope that it will be useful,
+!  but WITHOUT ANY WARRANTY; without even the implied warranty of
+!  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!  GNU General Public License for more details.
+!
+!  You should have received a copy of the GNU General Public License
+!  along with this program; if not, write to the Free Software
+!  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+!
+
+
+! include the fortran preprocessor definitions
+#include "ppdef.h"
+
 ! module for on-line coupling between model and assimilation routines
 
 module oak
@@ -427,7 +450,6 @@ contains
   call mpi_recv(xdomain, size(xdomain), DEFAULT_REAL, 0, & 
        tag, config%comm_all, status, ierr)
 
-
  end subroutine oak_spread_master
 
  !-------------------------------------------------------------
@@ -435,14 +457,42 @@ contains
  subroutine oak_perturb(config,x)
   use mpi
   use matoper
+  use assimilation
+  use parall
   implicit none
   type(oakconfig), intent(inout) :: config
   real, intent(inout) :: x(:)
 
+  real, allocatable :: E(:,:), meanx(:)
 !  write(6,*) 'x',x
   x = x + reshape(randn(size(x),1),[size(x)])
 !  write(6,*) 'x',x
 
+    allocate( &
+         E(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel, &
+         ErrorSpaceDim), &
+         meanx(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel))
+    
+    write(6,*) 'orig',x
+
+  if (schemetype == LocalScheme) then    
+    call loadVectorSpace('ErrorSpace.init',ModMLParallel,E)
+    call oak_spread_members(config,E,x)
+  else
+    if (procnum == 1) then
+    write(6,*) 'load vector space'
+      call loadVectorSpace('ErrorSpace.init',ModML,E,meanx)
+      E = sqrt(1.*ErrorSpaceDim - ASSIM_SCALING) * E + spread(meanx,2,ErrorSpaceDim)
+      write(6,*) 'ensemble',E
+    end if
+    
+!    call oak_spread_master(config,E,x)
+  end if
+
+    write(6,*) 'load vector space',x
+
+  
+  deallocate(E,meanx)
  end subroutine oak_perturb
  !-------------------------------------------------------------
  !

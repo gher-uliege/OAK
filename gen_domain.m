@@ -1,5 +1,6 @@
 
 n = 8;
+Nens = 100;
 fv = -9999999;
 fname = 'domain.nc';
 
@@ -9,6 +10,7 @@ nccreate(fname,'lon','Dimensions',{'x'},'FillValue',fv);
 nccreate(fname,'lat','Dimensions',{'x'},'FillValue',fv);
 nccreate(fname,'z','Dimensions',{'x'},'FillValue',fv);
 nccreate(fname,'part','Dimensions',{'x'},'FillValue',fv);
+nccreate(fname,'ens','Dimensions',{'x',n,'ensemble',Nens},'FillValue',fv);
 
 
 ncwrite(fname,'mask',ones(n,1))
@@ -16,6 +18,10 @@ ncwrite(fname,'lon',[1:n]')
 ncwrite(fname,'lat',zeros(n,1))
 ncwrite(fname,'z',zeros(n,1))
 ncwrite(fname,'part',[1:n]')
+
+E = repmat([1:n]',[1 Nens]) + 0.01 * randn(n,Nens);
+ncwrite(fname,'ens',E)
+
 
 obsfname = 'obs1.nc';
 m = 1;

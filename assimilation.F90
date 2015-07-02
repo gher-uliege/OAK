@@ -4468,7 +4468,7 @@ contains
   real :: vec_out(size(vec_in))
   
   ! (HQH^T+R) vec_in
-  ! H (Q (H^T * vec_in)) + R *vec_in
+  ! H (Q (H^T * vec_in)) + R * vec_in
 
   ! R * vec_in
   vec_out = H.x.(Qscale  * (H.tx.vec_in))

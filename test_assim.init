@@ -29,7 +29,7 @@ Model.path          = ''
 
 ErrorSpace.dimension = 2
 ErrorSpace.path      = './'
-ErrorSpace.init      = ['("Ens",I3.3,"/model.nc#var1")']
+ErrorSpace.init      = ['("domain.nc#ens(:,",I3.3,") ")']
 ErrorSpace.type      = 2
 
 anamorphosistype = 0
