@@ -139,8 +139,6 @@ subroutine equal_weight_step(Ne,Nx,Ny,weight,x_n,y, &
   ! Given current model state x_n, get Hx_n (model predicted
   ! observations at current observation time, i.e. h(x^n). 
 
-  write(6,*) 'here',__LINE__,Ne,Nx,Ny
-  
   call cb_H(Ne,Nx,Ny,x_n,Hx_n)
 
   !normalise the weights
@@ -221,9 +219,7 @@ subroutine equal_weight_step(Ne,Nx,Ny,weight,x_n,y, &
 
   ! Given random noise in statev (computed in MixtureRandomNumbers2D)
   ! compute correlated noise betan with correlation matrix Q^{1/2}
-  write(6,*) 'statev ',statev
   call cb_Qhalf(Ne,Nx,statev,betan)
-  write(6,*) 'betann',betan(:,i)
 
   !update the weights and the new state
   do i = 1,Ne_keep
@@ -243,12 +239,14 @@ subroutine equal_weight_step(Ne,Nx,Ny,weight,x_n,y, &
         
     !now do the following perform the determinsitic move plus mixed density jiggle
     !x^n = M(x^(n-1)) + alpha(i) K (y-H(M(x_i^n-1))) + betan
-    write(6,*) 'a before',alpha(i)
-    write(6,*) 'g before',gain(:,particle)
-    write(6,*) 'beta before',betan(:,i)
-    write(6,*) 'x_n before',x_n(:,particle),alpha(i),gain(:,particle), betan(:,i)
     x_n(:,particle) = x_n(:,particle) + alpha(i)*gain(:,particle) + betan(:,i)
-    write(6,*) 'x_n',x_n(:,particle)
+
+    write(6,*) 'g ',gain(:,particle)
+    write(6,*) 'b ',betan(:,i)
+    write(6,*) 'a ',alpha(i)
+
+
+!    write(6,*) 'x_n(:,particle) ',x_n(:,particle)
   end do
 
 
@@ -257,7 +255,7 @@ subroutine equal_weight_step(Ne,Nx,Ny,weight,x_n,y, &
   weightSorted = weight(idxsorted)
   x_n_sorted = x_n(:,idxsorted)
 
-  write(6,*) 'x_n_sorted',x_n_sorted
+
   call resample(Ne,Nx,Ne_keep,weightSorted,x_n_sorted)
   x_n = x_n_sorted
   weight = weightSorted

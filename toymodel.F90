@@ -32,9 +32,12 @@ program toymodel
  n = 8
  Ntime = n
 
+
 #ifdef MODEL_PARALLEL
 
+ write(6,*) 'here'
  call mpi_init(ierr)
+ write(6,*) 'here',__LINE__
 
 #ifdef OAK
  call oak_init(config,'test_assim.init',mpi_comm_world,comm)

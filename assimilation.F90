@@ -2769,7 +2769,6 @@ end subroutine fmtIndex
   Hx = H.x.xf
 #else
 
-  write(6,*) 'size(xf) == StateVectorSizeSea',size(xf), StateVectorSizeSea
   if (size(xf) == StateVectorSizeSea) then
     ! we have already the complete state vector
 
@@ -2991,7 +2990,6 @@ end function
     xf => xfp
     xa => xap
 
-    write(6,*) 'here ',procnum,' xf ',shape(xf)
     Hxf = obsoper(H,xf) + Hshift
 
     ! observed part of error modes
@@ -3022,9 +3020,6 @@ end function
 
     xf = sum(Sf,2)/size(Sf,2)
     Hxf = sum(HSf,2)/size(Sf,2)
-
-    write(stddebug,*) 'Sf ',shape(Sf),shape(xf),lbound(xf),ubound(xf)
-    write(stddebug,*) 'HSf ',shape(HSf),shape(Hxf),lbound(Hxf),ubound(Hxf)
 
     ! compute errors modes Sf and HSf
     do k=1,size(Sf,2)      
@@ -4362,9 +4357,9 @@ contains
   real(REALPREC), intent(inout), dimension(Nx,Ne) :: vec_out ! resulting vector in state space!!!
 
 !  vec_out = sqrtQ.x.vec_in
-  write(6,*) 'vec_in',vec_in
+!  write(6,*) 'vec_in',vec_in
   vec_out = sqrt(Qscale) * vec_in
-  write(6,*) 'vec_out, ewpf_proposal_step',vec_out
+!  write(6,*) 'vec_out, ewpf_proposal_step',vec_out
  end subroutine cb_Qhalf
 
  
@@ -4408,6 +4403,11 @@ subroutine ewpf_analysis(xf,Sf,weight,H,invsqrtR, &
 
  weighta = weight
 
+#define dbg(var) write(0,*) __FILE__,__LINE__,'var',var
+
+ dbg(yo)
+ write(6,*) 'yo', __LINE__,yo
+ write(6,*) 'Hx', __LINE__,H.x.X
  write(6,*) 'X', __LINE__,X
  call equal_weight_step(size(Sf,2),size(xf),size(yo), &
       weighta,X,yo, &
@@ -4433,10 +4433,10 @@ contains
   real(REALPREC), intent(inout), dimension(Ny,Ne) :: vec_out  ! resulting vector in observation space
 
 !  write(6,*) 'H',shape(vec_in),H%m,H%n
-  write(6,*) 'H',Nx,Ny,Ne
+!  write(6,*) 'H',Nx,Ny,Ne
 
   vec_out = H.x.vec_in
-  write(6,*) 'H end'
+!  write(6,*) 'H end'
 
  end subroutine cb_H
 
@@ -4494,8 +4494,8 @@ contains
 
     vec_out(:,k) = pcg(hqht_plus_r,vec_in(:,k),relres=relres)
 
-!    residual = hqht_plus_r(vec_out(:,k)) - vec_in(:,k)
-!    write(6,*) 'residual ', residual
+    residual = hqht_plus_r(vec_out(:,k)) - vec_in(:,k)
+    dbg(residual)
 
 !    write(6,*) 'residual ', relres
 !    write(6,*) 'residual ', sqrt(sum(residual**2)/sum(vec_in(:,k)**2))
@@ -4534,9 +4534,9 @@ contains
   real(REALPREC), intent(inout), dimension(Nx,Ne) :: vec_out ! resulting vector in state space!!!
 
 !  vec_out = sqrtQ.x.vec_in
-  write(6,*) 'vec_in',vec_in
+!  write(6,*) 'vec_in',vec_in
   vec_out = sqrt(Qscale) * vec_in
-  write(6,*) 'vec_out',vec_out
+!  write(6,*) 'vec_out',vec_out
 
  end subroutine cb_Qhalf
 

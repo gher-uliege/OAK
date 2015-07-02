@@ -529,7 +529,7 @@ contains
 
     call oak_spread_master(config,Ea,x)   
 
-    write(6,*) 'diff a',x
+    !write(6,*) 'diff a',x
 
     deallocate(Ea,Ef)
   else
