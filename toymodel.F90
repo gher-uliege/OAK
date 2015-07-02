@@ -1,3 +1,4 @@
+#define dbg(var) write(0,*) __FILE__,__LINE__,'var',var
 
 program toymodel
 #ifdef MODEL_PARALLEL
@@ -114,6 +115,8 @@ program toymodel
 
    ! boundary conditions
    call bc(i,x)
+   dbg(x(2))
+
 
 #ifdef OAK
    call oak_assim(config,real(i,8),x(k0:k1))
