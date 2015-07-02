@@ -3154,10 +3154,15 @@ end function
        write(6,*) 'weightf ',weightf
        call ewpf_analysis(xf,Sf,weightf,H,invsqrtR,yo,xa,Sa,weighta)
        write(6,*) 'weighta ',weighta
-       !weighta = 2
+       !weightf = 2
+
+       if (presentInitValue(initfname,'Diag'//trim(infix)//'weightf')) then
+         call getInitValue(initfname,'Diag'//trim(infix)//'path',path)
+         call getInitValue(initfname,'Diag'//trim(infix)//'weightf',str)
+         call usave(trim(path)//str,weightf,9999.)
+       end if
 
        if (presentInitValue(initfname,'Diag'//trim(infix)//'weighta')) then
-
          call getInitValue(initfname,'Diag'//trim(infix)//'path',path)
          call getInitValue(initfname,'Diag'//trim(infix)//'weighta',str)
          call usave(trim(path)//str,weighta,9999.)
