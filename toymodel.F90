@@ -106,7 +106,7 @@ program toymodel
  call oak_domain_decomposition(config,subdomain)
  deallocate(subdomain)
 
- call oak_perturb(config,x(k0:k1))
+! call oak_perturb(config,x(k0:k1))
  call bc(0,x)
 
 #endif
