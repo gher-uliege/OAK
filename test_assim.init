@@ -49,7 +49,7 @@ runtype = 2
 #   0 = global assimilation (default)
 #   1 = local assimilation
 
-schemetype = 2
+schemetype = 1
 
 Zones.partition        = ['domain.nc#part']
 Zones.corrLength.const = [            30e3]
