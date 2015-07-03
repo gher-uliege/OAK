@@ -473,24 +473,24 @@ contains
          ErrorSpaceDim), &
          meanx(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel))
     
-    write(6,*) 'orig',x
+    !write(6,*) 'orig',x
 
   if (schemetype == LocalScheme) then    
     call loadVectorSpace('ErrorSpace.init',ModMLParallel,E)
     call oak_spread_members(config,E,x)
   else
     if (procnum == 1) then
-    write(6,*) 'load vector space'
+      !write(6,*) 'load vector space'
       call loadVectorSpace('ErrorSpace.init',ModML,E,meanx)
       E = sqrt(1.*ErrorSpaceDim - ASSIM_SCALING) * E + spread(meanx,2,ErrorSpaceDim)
-      write(6,*) 'ensemble',E
+      !write(6,*) 'ensemble',E
     end if
     
     call oak_spread_master(config,E,x)
   end if
 
-    write(6,*) 'load vector space',x
-
+!  write(6,*) 'load vector space',x
+  
   
   deallocate(E,meanx)
  end subroutine oak_perturb
@@ -542,6 +542,7 @@ contains
       ! proposal step
       if (procnum == 1) then
         write(6,*) 'proposal step',time
+        dbg(Ef)
 
         ntime = nint(time / model_dt)
         call loadObsTime(config%obsntime+1,obstime_next,ierr)    
@@ -573,6 +574,10 @@ contains
         call assim(config%obsntime,Ef,Ea, & 
              weightf=config%weightf,weighta=config%weighta)
         config%weightf = config%weighta
+
+        dbg(Ea)
+        dbg(config%weightf)
+
       end if
 
       config%obsntime = config%obsntime +1    
@@ -582,9 +587,7 @@ contains
     call oak_spread_master(config,Ea,x)   
 
     !write(6,*) 'diff a',x
-    dbg(Ea)
-    dbg(config%weightf)
-
+    dbg(x)
     deallocate(Ea,Ef)
   else
 
