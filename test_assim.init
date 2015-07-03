@@ -51,6 +51,12 @@ runtype = 2
 
 schemetype = 1
 
+# metrictype = integer: possible values of metrictype are:
+# 0 = CartesianMetric
+# 1 = SphericalMetric (default)
+
+metrictype = 0
+
 Zones.partition        = ['domain.nc#part']
 Zones.corrLength.const = [            30e3]
 Zones.maxLength.const  = [          2000e3]

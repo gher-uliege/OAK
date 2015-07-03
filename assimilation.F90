@@ -3536,7 +3536,11 @@ end function
 
      call ind2sub(ModML,index,v,i,j,k,n)
 
-     if (ModML%ndim(v).eq.2) then
+     if (ModML%ndim(v).eq.1) then
+       x2 = getCoord(ModelGrid(v),(/ i /),out)
+       x = x2(1)
+       y = 0
+     elseif (ModML%ndim(v).eq.2) then
        x2 = getCoord(ModelGrid(v),(/ i,j /),out)
        x = x2(1)
        y = x2(2)
@@ -3545,12 +3549,16 @@ end function
        x = x3(1)
        y = x3(2)
        z = x3(3)
-     else
+     elseif (ModML%ndim(v).eq.4) then
        x4 = getCoord(ModelGrid(v),(/ i,j,k,n /),out)
        x = x4(1)
        y = x4(2)
        z = x4(3)
        t = x4(4)
+     else
+       write(stderr,*) __FILE__,__LINE__,'the number of dimensions should be ',&
+            'between 0 and 4 and got ',ModML%ndim(v)
+       ERROR_STOP
      end if
 
 
