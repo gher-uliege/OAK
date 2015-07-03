@@ -465,7 +465,7 @@ contains
 
   real, allocatable :: E(:,:), meanx(:)
 !  write(6,*) 'x',x
-  x = x + reshape(randn(size(x),1),[size(x)])
+!  x = x + reshape(randn(size(x),1),[size(x)])
 !  write(6,*) 'x',x
 
     allocate( &
@@ -486,7 +486,7 @@ contains
       write(6,*) 'ensemble',E
     end if
     
-!    call oak_spread_master(config,E,x)
+    call oak_spread_master(config,E,x)
   end if
 
     write(6,*) 'load vector space',x
