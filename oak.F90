@@ -531,18 +531,19 @@ contains
 
     call getInitValue(initfname,'Config.dt',model_dt)
 
-    allocate( &
+    if (procnum == 1) then
+      allocate( &
          Ea(ModML%effsize,ErrorSpaceDim), &
          Ef(ModML%effsize,ErrorSpaceDim))
-
+    end if
     !write(6,*) 'diff f',x
     call oak_gather_master(config,x,Ef)
 
     if (time < obstime) then
       ! proposal step
       if (procnum == 1) then
-        write(6,*) 'proposal step',time
-        dbg(Ef)
+        write(stddebug,*) 'proposal step',time
+        !dbg(Ef)
 
         ntime = nint(time / model_dt)
         call loadObsTime(config%obsntime+1,obstime_next,ierr)    
@@ -562,23 +563,22 @@ contains
           call ewpf_proposal_step(ntime,obsVec,dt_obs,Ef,config%weightf,yo,invsqrtR,H)
           !write(6,*) 'weightf ',procnum,config%weightf
           !dbg(Ef)
-          write(6,*) 'Ef ',__LINE__,procnum,Ef
           deallocate(yo,invsqrtR,Hshift)
         end if
       end if
     else
       ! analysis step
       if (procnum == 1) then
-        write(6,*) 'analysis step',time
-        dbg(config%weightf)
+        write(stddebug,*) 'analysis step',time
+        !dbg(config%weightf)
 
         call assim(config%obsntime,Ef,Ea, & 
              weightf=config%weightf,weighta=config%weighta)
         config%weightf = config%weighta
         Ef = Ea
 
-        dbg(Ea)
-        dbg(config%weighta)
+        !dbg(Ea)
+        !dbg(config%weighta)
 
       end if
 
@@ -590,7 +590,10 @@ contains
 
     !write(6,*) 'diff a',x
     dbg(x)
-    deallocate(Ea,Ef)
+
+    if (procnum == 1) then
+      deallocate(Ea,Ef)
+    end if
   else
 
     if (schemetype == LocalScheme) then
