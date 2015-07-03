@@ -559,10 +559,10 @@ contains
           call loadObservationOper(config%obsntime+1,ObsML,H,Hshift,invsqrtR)
 
           !write(6,*) 'weightf ',procnum,config%weightf
-          call ewpf_proposal_step(ntime,obsVec,dt_obs,Ef,Ea,config%weightf,yo,invsqrtR,H)
+          call ewpf_proposal_step(ntime,obsVec,dt_obs,Ef,config%weightf,yo,invsqrtR,H)
           !write(6,*) 'weightf ',procnum,config%weightf
-
-
+          !dbg(Ef)
+          write(6,*) 'Ef ',__LINE__,procnum,Ef
           deallocate(yo,invsqrtR,Hshift)
         end if
       end if
@@ -570,13 +570,15 @@ contains
       ! analysis step
       if (procnum == 1) then
         write(6,*) 'analysis step',time
+        dbg(config%weightf)
 
         call assim(config%obsntime,Ef,Ea, & 
              weightf=config%weightf,weighta=config%weighta)
         config%weightf = config%weighta
+        Ef = Ea
 
         dbg(Ea)
-        dbg(config%weightf)
+        dbg(config%weighta)
 
       end if
 
@@ -584,7 +586,7 @@ contains
       config%obstime_previous = obstime
     end if
 
-    call oak_spread_master(config,Ea,x)   
+    call oak_spread_master(config,Ef,x)   
 
     !write(6,*) 'diff a',x
     dbg(x)
@@ -617,7 +619,7 @@ contains
         ! weights are not used unless  schemetype == EWPFScheme
         call assim(config%obsntime,Ef,Ea,weightf=config%weightf,weighta=config%weighta)
         ! for testing
-        Ea = Ef
+        !Ea = Ef
       end if
       call oak_spread_master(config,Ea,x)   
     end if

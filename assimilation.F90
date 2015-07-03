@@ -4252,7 +4252,7 @@ subroutine ensAnalysisAnamorph2(yo,Ef,HEf,invsqrtR,  &
 end subroutine anamtransform
 
 
-subroutine ewpf_proposal_step(ntime,obsVec,dt_obs,X,Xp,weight,yo,invsqrtR,H)
+subroutine ewpf_proposal_step(ntime,obsVec,dt_obs,X,weight,yo,invsqrtR,H)
  use matoper
  use sangoma_ewpf
  use initfile
@@ -4262,7 +4262,7 @@ subroutine ewpf_proposal_step(ntime,obsVec,dt_obs,X,Xp,weight,yo,invsqrtR,H)
                                                             ! observations, i.e. next analysis time
  integer,intent(in) :: dt_obs                     ! model timesteps betwe
  real, intent(in) :: yo(:)
- real, intent(inout) :: weight(:),X(:,:),Xp(:,:)
+ real, intent(inout) :: weight(:),X(:,:)
  real, intent(in) :: invsqrtR(:)
  type(SparseMatrix), intent(in)  :: H
 
@@ -4284,18 +4284,17 @@ subroutine ewpf_proposal_step(ntime,obsVec,dt_obs,X,Xp,weight,yo,invsqrtR,H)
  !subroutine proposal_step(Ne,Nx,Ny,weight,x_n,y,ntime,obsVec,dt_obs, &
  !          cb_H, cb_HT, cb_Qhalf, cb_solve_r) bind(C, name="proposal_step_")
 
- Xp = X
 ! write(6,*) 'weight ',__LINE__,weight
 
  call proposal_step(size(X,2),size(X,1),size(yo), &
-      weight,Xp, &
+      weight,X, &
       yo, &
       ntime,obsVec,dt_obs, &
       cb_H, cb_HT, cb_Qhalf, cb_solve_r)
 
 
 ! write(6,*) 'weight ',__LINE__,weight
-! dbg(Xp)
+! dbg(X)
 contains
 
  subroutine cb_H(Ne,Nx,Ny,vec_in,vec_out) ! bind(C)
