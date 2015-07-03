@@ -240,13 +240,6 @@ subroutine equal_weight_step(Ne,Nx,Ny,weight,x_n,y, &
     !now do the following perform the determinsitic move plus mixed density jiggle
     !x^n = M(x^(n-1)) + alpha(i) K (y-H(M(x_i^n-1))) + betan
     x_n(:,particle) = x_n(:,particle) + alpha(i)*gain(:,particle) + betan(:,i)
-
-    write(6,*) 'g ',gain(:,particle)
-    write(6,*) 'b ',betan(:,i)
-    write(6,*) 'a ',alpha(i)
-
-
-!    write(6,*) 'x_n(:,particle) ',x_n(:,particle)
   end do
 
 

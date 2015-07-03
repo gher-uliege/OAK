@@ -3146,10 +3146,7 @@ end function
        !call uload(trim(path)//str,weight,valex)
        
        !allocate(weighta(size(weight,1)))
-       write(6,*) 'weightf ',weightf
        call ewpf_analysis(xf,Sf,weightf,H,invsqrtR,yo,xa,Sa,weighta)
-       write(6,*) 'weighta ',weighta
-       !weightf = 2
 
        if (presentInitValue(initfname,'Diag'//trim(infix)//'weightf')) then
          call getInitValue(initfname,'Diag'//trim(infix)//'path',path)
@@ -4357,9 +4354,7 @@ contains
   real(REALPREC), intent(inout), dimension(Nx,Ne) :: vec_out ! resulting vector in state space!!!
 
 !  vec_out = sqrtQ.x.vec_in
-!  write(6,*) 'vec_in',vec_in
   vec_out = sqrt(Qscale) * vec_in
-!  write(6,*) 'vec_out, ewpf_proposal_step',vec_out
  end subroutine cb_Qhalf
 
  
@@ -4403,22 +4398,11 @@ subroutine ewpf_analysis(xf,Sf,weight,H,invsqrtR, &
 
  weighta = weight
 
-#define dbg(var) write(0,*) __FILE__,__LINE__,'var',var
-
- dbg(yo)
- write(6,*) 'yo', __LINE__,yo
- write(6,*) 'Hx', __LINE__,H.x.X
- write(6,*) 'X', __LINE__,X
- dbg(weighta)
- dbg(yo)
-
- write(6,*) 'X4', __LINE__,X(4,:)
  call equal_weight_step(size(Sf,2),size(xf),size(yo), &
       weighta,X,yo, &
       cb_H, cb_HT, cb_solve_r, cb_solve_hqht_plus_r, cb_Qhalf)
 
-! write(6,*) 'X', __LINE__,X
- write(6,*) 'X', __LINE__,X(4,:)
+! write(6,*) 'X', __LINE__,X(4,:)
  xa = sum(X,2) / size(X,2)
  do i=1,size(Sf,2)
    Sa(:,i) = X(:,i) - xa
@@ -4437,11 +4421,7 @@ contains
   ! to apply the observation operator h, e.g. h(x)
   real(REALPREC), intent(inout), dimension(Ny,Ne) :: vec_out  ! resulting vector in observation space
 
-!  write(6,*) 'H',shape(vec_in),H%m,H%n
-!  write(6,*) 'H',Nx,Ny,Ne
-
   vec_out = H.x.vec_in
-!  write(6,*) 'H end'
 
  end subroutine cb_H
 
@@ -4455,10 +4435,7 @@ contains
   ! to apply the observation operator h, e.g. h^T(x)
   real(REALPREC), intent(inout), dimension(Nx,Ne) :: vec_out ! resulting vector in state space
 
-  !write(6,*) 'HT'
-  !vec_out = transpose(transpose(vec_in).x.H)
   vec_out = H.tx.vec_in
-  !write(6,*) 'HT end',sum( (vec_out - transpose(transpose(vec_in).x.H))**2)
  end subroutine cb_HT
 
  function hqht_plus_r(vec_in) result (vec_out)
@@ -4499,16 +4476,13 @@ contains
 
     vec_out(:,k) = pcg(hqht_plus_r,vec_in(:,k),relres=relres)
 
-    residual = hqht_plus_r(vec_out(:,k)) - vec_in(:,k)
-    dbg(residual)
+!    residual = hqht_plus_r(vec_out(:,k)) - vec_in(:,k)
 
 !    write(6,*) 'residual ', relres
 !    write(6,*) 'residual ', sqrt(sum(residual**2)/sum(vec_in(:,k)**2))
 
     !write(6,*) 'residual ', (hqht_plus_r(vec_out(:,k)) - vec_in(:,k))
   end do
-
-  write(6,*) 'cb_solve_hqht_plus_r ',vec_in,vec_out
 
  end subroutine cb_solve_hqht_plus_R
 
@@ -4540,10 +4514,7 @@ contains
                                                                      ! Q^{1/2}, e.g. Q^{1/2}(d)
   real(REALPREC), intent(inout), dimension(Nx,Ne) :: vec_out ! resulting vector in state space!!!
 
-!  vec_out = sqrtQ.x.vec_in
-!  write(6,*) 'vec_in',vec_in
   vec_out = sqrt(Qscale) * vec_in
-!  write(6,*) 'vec_out',vec_out
 
  end subroutine cb_Qhalf
 
