@@ -476,7 +476,9 @@ contains
     !write(6,*) 'orig',x
 
   if (schemetype == LocalScheme) then    
-    call loadVectorSpace('ErrorSpace.init',ModMLParallel,E)
+    call loadVectorSpace('ErrorSpace.init',ModMLParallel,E,meanx)
+      E = sqrt(1.*ErrorSpaceDim - ASSIM_SCALING) * E + spread(meanx,2,ErrorSpaceDim)
+
     call oak_spread_members(config,E,x)
   else
     if (procnum == 1) then
@@ -526,6 +528,7 @@ contains
     return
   end if
   
+  !dbg(x)
 
   if (schemetype == EWPFScheme) then
 

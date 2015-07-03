@@ -839,7 +839,7 @@ implicit none
   logical, optional, intent(out) :: out
   real :: x(size(ind))
 
-  dbg(ind)
+  !dbg(ind)
   if (present(out)) then
     x = getCoord0(g,ind-1,out)
   else

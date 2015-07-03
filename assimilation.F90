@@ -3522,7 +3522,7 @@ end function
 
 ! x,y=longitude and latitude of the element the "index"th component of 
 ! model state vector
-     real x,y,z,t,x4(4),x3(3),x2(2)
+     real x,y,z,t,x4(4),x3(3),x2(2),x1(1)
      logical out
 
      real, parameter :: pi = 3.141592653589793238462643383279502884197
@@ -3537,8 +3537,8 @@ end function
      call ind2sub(ModML,index,v,i,j,k,n)
 
      if (ModML%ndim(v).eq.1) then
-       x2 = getCoord(ModelGrid(v),(/ i /),out)
-       x = x2(1)
+       x1 = getCoord(ModelGrid(v),(/ i /),out)
+       x = x1(1)
        y = 0
      elseif (ModML%ndim(v).eq.2) then
        x2 = getCoord(ModelGrid(v),(/ i,j /),out)

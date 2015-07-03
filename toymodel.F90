@@ -115,6 +115,8 @@ program toymodel
    ! boundary conditions
    call bc(i,x)
 
+   !dbg(x)
+
 #ifdef OAK
    call oak_assim(config,real(i,8),x(k0:k1))
 #endif
