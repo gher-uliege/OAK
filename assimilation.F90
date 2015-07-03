@@ -4295,7 +4295,7 @@ subroutine ewpf_proposal_step(ntime,obsVec,dt_obs,X,Xp,weight,yo,invsqrtR,H)
 
 
 ! write(6,*) 'weight ',__LINE__,weight
- dbg(Xp)
+! dbg(Xp)
 contains
 
  subroutine cb_H(Ne,Nx,Ny,vec_in,vec_out) ! bind(C)

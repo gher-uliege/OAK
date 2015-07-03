@@ -560,6 +560,8 @@ contains
           !write(6,*) 'weightf ',procnum,config%weightf
           call ewpf_proposal_step(ntime,obsVec,dt_obs,Ef,Ea,config%weightf,yo,invsqrtR,H)
           !write(6,*) 'weightf ',procnum,config%weightf
+
+
           deallocate(yo,invsqrtR,Hshift)
         end if
       end if
@@ -580,6 +582,8 @@ contains
     call oak_spread_master(config,Ea,x)   
 
     !write(6,*) 'diff a',x
+    dbg(Ea)
+    dbg(config%weightf)
 
     deallocate(Ea,Ef)
   else
