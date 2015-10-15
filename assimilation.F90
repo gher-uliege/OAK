@@ -263,7 +263,7 @@ contains
   character(len=MaxFNameLength), pointer   :: filenamesX(:),filenamesY(:),filenamesZ(:),    &
                                               filenamesT(:)
   character(len=MaxFNameLength)            :: path
-  real, pointer                :: maxCorr(:),tmp(:)
+  real, pointer                :: maxCorr(:), tmp(:), tmp_hres(:)
   integer                      :: NZones, zi, istat
   
   initfname = fname
@@ -314,8 +314,6 @@ contains
 ! define model grid
 !
 
-  hres = 0
-
   call getInitValue(initfname,'Model.gridX',filenamesX)
   call getInitValue(initfname,'Model.gridY',filenamesY)
   call getInitValue(initfname,'Model.gridZ',filenamesZ)
@@ -349,13 +347,20 @@ contains
     end if
     
 
-!   what to do with hres ?
-!    hres(v) = cx**2
   end do
 
+  ! typical horizontal resolution to prioritize model grids in genObsOperator
+  ! in case of overlapping grids
+  if (presentInitValue(initfname,'Model.hres')) then
+    call getInitValue(initfname,'Model.hres',tmp_hres)
+    hres = tmp_hres
+    deallocate(tmp_hres)
+  else
+    ! grids should not overlap in this case
+    hres = 0
+  end if
+    
   deallocate(filenamesX,filenamesY,filenamesZ)
-
-
 
   call getInitValue(initfname,'ErrorSpace.dimension',ErrorSpaceDim,default=0)
 
@@ -2395,7 +2400,7 @@ end subroutine fmtIndex
        tindexes(4,16), tmpm
   integer :: istat
   real                 :: tc(16), minres
-
+  logical              :: ingrid
 
   !write(prefix,'(A,I3.3,A)') 'Obs',ntime,'.'
   call fmtIndex('Obs',ntime,'.',prefix)
@@ -2457,6 +2462,7 @@ end subroutine fmtIndex
         minres = huge(minres)
         v = -1
         tn = 0
+        ingrid = .false.
 
         do tv=1,size(ModML%varnames)
           if (varNames(m).eq.ModML%varnames(tv).and.minres.ge.hres(tv)) then
@@ -2488,6 +2494,7 @@ end subroutine fmtIndex
               tmpHindex(6,nz+1:nz+tn) = v
               tmpHindex(7:10,nz+1:nz+tn) = tindexes(:,1:tn)
               tmpHcoeff(nz+1:nz+tn) = tc(1:tn)
+              ingrid = .true.
             end if
           end if
         end do
@@ -2499,7 +2506,7 @@ end subroutine fmtIndex
           tmpHindex(6,nz+1:nz+tn) = -1
           tmpHindex(7:10,nz+1:nz+tn) = 0
           tmpHcoeff(nz+1:nz+tn) = 0
-        elseif (tn.eq.0) then
+        elseif (.not.ingrid) then
           ! out of domain
           tn=1
           
