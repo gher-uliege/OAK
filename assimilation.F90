@@ -2397,7 +2397,7 @@ end subroutine fmtIndex
   integer              ::  &
        i,j,k,n, &
        v,tv,m,mmax,omaxSea,tn,nz,linindex, &
-       tindexes(4,16), tmpm
+       tindexes(4,16), tmpm, tn_test
   integer :: istat
   real                 :: tc(16), minres
   logical              :: ingrid
@@ -2475,22 +2475,23 @@ end subroutine fmtIndex
 
             if (ModML%ndim(v).eq.2) then
               call cinterp(ModelGrid(v), (/ obsX(linindex),obsY(linindex) /), &
-                   tindexes(1:2,1:4),tc(1:4),tn)
+                   tindexes(1:2,1:4),tc(1:4),tn_test)
             elseif (ModML%ndim(v).eq.3) then
               call cinterp(ModelGrid(v), (/ obsX(linindex),obsY(linindex),obsZ(linindex) /), &
-                   tindexes(1:3,1:8),tc(1:8),tn)
+                   tindexes(1:3,1:8),tc(1:8),tn_test)
             elseif (ModML%ndim(v).eq.4) then
               call cinterp(ModelGrid(v), (/ obsX(linindex),obsY(linindex),obsZ(linindex),obsT(linindex) /), &
-                   tindexes,tc,tn)
+                   tindexes,tc,tn_test)
             else
               write(stderr,*) 'more than 4 dimensions are not supported'
               ERROR_STOP
             end if
 
 
-            if (tn.ne.0) then
+            if (tn_test.ne.0) then
               ! ok variable v is a candidate
               minres = hres(v)
+              tn = tn_test
               tmpHindex(6,nz+1:nz+tn) = v
               tmpHindex(7:10,nz+1:nz+tn) = tindexes(:,1:tn)
               tmpHcoeff(nz+1:nz+tn) = tc(1:tn)
