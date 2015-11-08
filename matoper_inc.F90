@@ -558,7 +558,7 @@ end function
 
 
 
-! computes all singular vectors and aingular values
+! computes all singular vectors and singular values
 
 function svd_TYPE(A,U,V,VT,work,INFO) result(S)
  implicit none

@@ -841,7 +841,6 @@ end subroutine
 ! 
 
 
-
 recursive subroutine split_databox_VARIANT(db,n,ioffset,coord)
  implicit none
  integer, intent(in) :: n
@@ -861,6 +860,8 @@ recursive subroutine split_databox_VARIANT(db,n,ioffset,coord)
  real, intent(in) :: coord(:,:)
 #endif
 
+! subimin/subimax are zero-based indices
+
  integer :: im(n),subimin(n,2**n),subimax(n,2**n),m,p
  integer :: ind(n),d,l
  logical :: subs(2**n)
@@ -869,7 +870,8 @@ recursive subroutine split_databox_VARIANT(db,n,ioffset,coord)
 
  ! check if databox has to be splitted
 
- if (any(db%imax-db%imin.ne.1))  then
+! if (any(db%imax-db%imin.ne.1))  then
+ if (any(db%imax-db%imin > 1))  then
    db%type = db_splitted
 
    ! middle of data box
@@ -884,6 +886,9 @@ recursive subroutine split_databox_VARIANT(db,n,ioffset,coord)
          subimin(d,m) = im(d)
          subimax(d,m) = db%imax(d)
        end if
+
+     !write(6,*) 'subbox ',m,d,subimin(d,m),subimax(d,m)
+
      end do
    end do
 
@@ -892,9 +897,13 @@ recursive subroutine split_databox_VARIANT(db,n,ioffset,coord)
 !!$     write(6,*) 'subimax ', subimax(1,:)
 !!$     write(6,*) 'subimax ', subimax(2,:)
 !!$    stop
-   subs = all(subimax-subimin.ge.1,1)
+!   subs = all(subimax-subimin.ge.1,1)
+   subs = any(subimax-subimin >= 1,1)
 
+   !write(6,*) 'subs ', subs
    allocate(db%db(count(subs)))
+!   stop
+
    p=1
    do m=1,size(subimax,2)
      if (subs(m)) then
@@ -946,14 +955,14 @@ recursive subroutine locate_databox_VARIANT(db,n,ioffset,tetrahedron,coord,xi,i,
       call split_databox_VARIANT(db,n,ioffset,coord)
    end if
 
-!    write(6,*) 'xi ',xi,out,db%xmin,db%xmax
+   ! write(6,*) 'xi ',xi,out,db%xmin,db%xmax,db%type,size(db%db)
 
  !  if (xi.lt.db%xmin(1).or.xi.gt.db%xmax(1).or.yi.lt.db%xmin(2).or.yi.gt.db%xmax(2)) then
  if ( any(xi.lt.db%xmin).or.any(xi.gt.db%xmax)) then
 
    out = .true.
- !   write(6,*) 'xi ',xi
-!!$    write(6,*) 'not in ',db%xmin,db%xmax
+   ! write(6,*) 'xi ',xi
+   ! write(6,*) 'not in ',db%xmin,db%xmax
 !!$    write(6,*) ' any(xi.lt.db%xmin)', any(xi.lt.db%xmin)
 !!$    write(6,*) ' any(xi.gt.db%xmax)', any(xi.gt.db%xmax)
 
@@ -977,7 +986,7 @@ recursive subroutine locate_databox_VARIANT(db,n,ioffset,tetrahedron,coord,xi,i,
 
      i = db%imin
      !      if (all(i.lt.gshape)) then
-     !        write(6,*) 'test i ',i,ioffset
+     !write(6,*) 'test i ',i,ioffset
      out = .not.InCube_VARIANT(n,ioffset,tetrahedron,coord,xi,i)
      !write(6,*) 'i ',i,out
      !     end if

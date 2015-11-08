@@ -69,8 +69,8 @@ simulation.job = submit(self.scheduler,{...
                    },'name',sprintf('member%03g-%d',member,n0));
 
 %cd(olddir);
-
-%system('sleep 10');
+% try to prevent slurmd timeout error
+system('sleep 10');
 
 variables = var(ic);
 
