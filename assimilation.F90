@@ -4293,6 +4293,10 @@ subroutine ewpf_proposal_step(ntime,obsVec,dt_obs,X,weight,yo,invsqrtR,H)
  ! observation setst
  !integer :: dt_obs = 3
 
+ ! double precision for sangoma tools
+ real(8) :: weight2(size(weight))
+ real(8)  :: X2(size(X,1),size(X,2))
+
  real :: Qscale
  call getInitValue(initfname,'EWPF.Qscale',Qscale,default=0.001)
 
@@ -4301,14 +4305,17 @@ subroutine ewpf_proposal_step(ntime,obsVec,dt_obs,X,weight,yo,invsqrtR,H)
  !          cb_H, cb_HT, cb_Qhalf, cb_solve_r) bind(C, name="proposal_step_")
 
 ! write(6,*) 'weight ',__LINE__,weight
+ weight2 = weight
+ X2 = X
 
  call proposal_step(size(X,2),size(X,1),size(yo), &
-      weight,X, &
-      yo, &
+      weight2,X2, &
+      real(yo,8), &
       ntime,obsVec,dt_obs, &
       cb_H, cb_HT, cb_Qhalf, cb_solve_r)
 
-
+ weight = weight2
+ X = X2
 ! write(6,*) 'weight ',__LINE__,weight
 ! dbg(X)
 contains
@@ -4390,19 +4397,42 @@ subroutine ewpf_analysis(xf,Sf,weight,H,invsqrtR, &
  type(SparseMatrix), intent(in)  :: H
 ! type(SparseMatrix), intent(in)  :: sqrtQ
 
+ real :: Qscale, tmp
 
- real :: Qscale
-
- real, allocatable :: X(:,:)
+ ! double precision for sangoma tools
+ real(8), allocatable :: X(:,:)
+ real(8) :: weight_analysis(size(weight))
  integer :: i
 
- call getInitValue(initfname,'EWPF.keep',keep,default=keep)
- call getInitValue(initfname,'EWPF.nstd',nstd,default=nstd)
- call getInitValue(initfname,'EWPF.nmean',nmean,default=nmean)
- call getInitValue(initfname,'EWPF.ufac',ufac,default=ufac)
- call getInitValue(initfname,'EWPF.efacNum',efacNum,default=efacNum)
- call getInitValue(initfname,'EWPF.freetime',freetime,default=freetime)
- call getInitValue(initfname,'EWPF.nudgefac',nudgefac,default=nudgefac)
+ ! parameters keep, ... are always in double precision
+ tmp = keep
+ call getInitValue(initfname,'EWPF.keep',tmp,default=tmp)
+ keep = tmp
+
+ tmp = nstd
+ call getInitValue(initfname,'EWPF.nstd',tmp,default=tmp)
+ nstd = tmp
+
+ tmp = nmean
+ call getInitValue(initfname,'EWPF.nmean',tmp,default=tmp)
+ nmean = tmp
+
+ tmp = ufac 
+ call getInitValue(initfname,'EWPF.ufac',tmp,default=tmp)
+ ufac = tmp
+
+ tmp = efacNum
+ call getInitValue(initfname,'EWPF.efacNum',tmp,default=tmp)
+ efacNum = tmp
+
+ tmp = freetime
+ call getInitValue(initfname,'EWPF.freetime',tmp,default=tmp)
+ freetime = tmp 
+
+ tmp = nudgefac
+ call getInitValue(initfname,'EWPF.nudgefac',tmp,default=tmp)
+ nudgefac = tmp
+
  call getInitValue(initfname,'EWPF.Qscale',Qscale,default=0.001)
 
  allocate(X(size(xf,1),size(Sf,2)))
@@ -4411,11 +4441,13 @@ subroutine ewpf_analysis(xf,Sf,weight,H,invsqrtR, &
    X(:,i) = xf + Sf(:,i)
  end do
 
- weighta = weight
+ weight_analysis = weight
 
  call equal_weight_step(size(Sf,2),size(xf),size(yo), &
-      weighta,X,yo, &
+      weight_analysis,X,real(yo,8), &
       cb_H, cb_HT, cb_solve_r, cb_solve_hqht_plus_r, cb_Qhalf)
+
+ weighta = weight_analysis 
 
 ! write(6,*) 'X', __LINE__,X(4,:)
  xa = sum(X,2) / size(X,2)
@@ -4489,7 +4521,7 @@ contains
 !    vec_out(:,k) = hqht_plus_r(vec_in(:,k))
 !    write(6,*) 'apply ',k,vec_out(:,k)
 
-    vec_out(:,k) = pcg(hqht_plus_r,vec_in(:,k),relres=relres)
+    vec_out(:,k) = pcg(hqht_plus_r,real(vec_in(:,k)),relres=relres)
 
 !    residual = hqht_plus_r(vec_out(:,k)) - vec_in(:,k)
 

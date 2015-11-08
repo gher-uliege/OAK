@@ -59,10 +59,10 @@ contains
   integer :: i,inum,istat,info,ierr
   logical :: flag
 
+#ifdef MPI  
   comm = mpi_comm_world
   if (present(communicator)) comm = communicator
 
-#ifdef MPI  
   call mpi_initialized(flag, ierr)
   if (.not.flag) call mpi_init(ierr)
 
