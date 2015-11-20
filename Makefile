@@ -167,11 +167,4 @@ ufileformat.o: ufileformat.F90 ppdef.h
 
 match.o: match.c
 
-
-OBJ=toymodel.o  ndgrid.o assimilation.o rrsqrt.o anamorphosis.o date.o parall.o initfile.o user_base.o   matoper.o oak.o  ufileformat.o  random_d.f90 sangoma_base.f90 sangoma_ewpf.o match.o 
-
 oak.o: oak.F90 assimilation.o ndgrid.o
-toymodel.o: toymodel.F90 oak.o
-
-toymodel: $(OBJ) 
-	$(F90C) $(LDFLAGS) -o $@ $+ $(LIBS)
