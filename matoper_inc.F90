@@ -282,6 +282,17 @@ implicit none
 REAL_TYPE, intent(in) :: A(:,:), B(:,:)
 REAL_TYPE :: C(size(A,1),size(B,1))
 
+#ifdef DEBUG
+if (size(A,2) /= size(B,2)) then
+  write(stderr,*) 'mat_mult_matT_TYPE: size not conform: A.xt.B '
+  write(stderr,*) 'shape(A) ',shape(A)
+  write(stderr,*) 'shape(B) ',shape(B)
+  call abort()
+  stop
+end if
+#endif
+
+
 call gemm_TYPE('n','t',size(A,1),size(B,1),size(A,2),real(1.,kind(A)), &
   A, size(A,1), B, size(B,1), &
   real(0.,kind(A)), C, size(A,1))
@@ -320,6 +331,33 @@ end function
 !_______________________________________________________
 !
 
+function vec_mult_ssparsematT_TYPE(A,B) result(C)
+implicit none
+REAL_TYPE, intent(in)       :: A(:)
+type(SparseMatrix), intent(in) :: B
+REAL_TYPE :: C(B%m)
+integer :: k
+
+#ifdef DEBUG
+if (B%n.ne.size(A)) then
+  write(stderr,*) 'vec_mult_ssparsematT: size not conform: A.xt.B '
+  write(stderr,*) 'shape(A) ',shape(A)
+  write(stderr,*) 'shape(B) ',B%m,B%n
+  stop
+end if
+#endif
+
+C = 0
+
+do k=1,B%nz
+    C(B%i(k)) = C(B%i(k)) + A(B%j(k)) * B%s(k)
+end do
+
+end function
+
+!_______________________________________________________
+!
+
 !_______________________________________________________
 !
 
@@ -349,9 +387,48 @@ implicit none
 REAL_TYPE, intent(in) :: A(:,:), B(:,:)
 REAL_TYPE :: C(size(A,2),size(B,2))
 
+#ifdef DEBUG
+if (size(A,1).ne.size(B,1)) then
+  write(stderr,*) 'matT_mult_mat_TYPE: size not conform: A.tx.B '
+  write(stderr,*) 'shape(A) ',shape(A)
+  write(stderr,*) 'shape(B) ',shape(B)
+  call abort()
+  stop
+end if
+#endif
+
 call gemm_TYPE ('t','n',size(A,2),size(B,2),size(A,1),real(1.,kind(A)), &
   A, size(A,1), B, size(B,1), &
   real(0.,kind(A)), C, size(A,2))
+
+end function
+
+!_______________________________________________________
+!
+
+function ssparsematT_mult_mat_TYPE(A,B) result(C)
+implicit none
+type(SparseMatrix), intent(in) :: A
+REAL_TYPE, intent(in)       :: B(:,:)
+REAL_TYPE :: C(A%n,size(B,2))
+integer :: k,l
+
+#ifdef DEBUG
+if (A%m /= size(B,1)) then
+  write(stderr,*) 'smat_mult_ssparsematT: size not conform: A.tx.B '
+  write(stderr,*) 'shape(A) ',A%m,A%n
+  write(stderr,*) 'shape(B) ',shape(B)
+  stop
+end if
+#endif
+
+C = 0
+
+do l=1,size(B,2)
+  do k=1,A%nz
+    C(A%j(k),l) = C(A%j(k),l) + B(A%i(k),l) * A%s(k)
+  end do
+end do
 
 end function
 
@@ -457,7 +534,7 @@ function inv_TYPE(A,det) result(B)
 
  lwork = -1
  call getri_TYPE(size(A,1), B, size(A,1), IPIV, worksize, -1, INFO )
- lwork = worksize+.5
+ lwork = int(worksize+.5)
  allocate(work(lwork))
 
  call getri_TYPE(size(A,1), B, size(A,1), IPIV, work, lwork, INFO )
@@ -502,7 +579,7 @@ end function
 
 
 
-! computes all singular vectors and singular values
+! computes min(size(A,1),size(A,2)) singular vectors and singular values
 
 function svd_TYPE(A,U,V,VT,work,INFO) result(S)
  implicit none
@@ -530,16 +607,16 @@ function svd_TYPE(A,U,V,VT,work,INFO) result(S)
  pVT => dummy
 
  if (present(U)) then
-   jobu = 'a'
+   jobu = 's'
    pU => U
  end if
 
  if (present(VT)) then
-   jobvt = 'a'
+   jobvt = 's'
    pVT => VT 
  else
    if (present(V)) then
-     jobvt = 'a'
+     jobvt = 's'
      pVT => V   
    end if
  end if
@@ -564,7 +641,7 @@ function svd_TYPE(A,U,V,VT,work,INFO) result(S)
 !!$  write(6,*) 'Normalise S ', "GESVD_TYPE"
 !!$  write(6,*) 'Normalise S ', kind(S),kind(copyA),kind(work)
 
-   lwork = rlwork+0.5
+   lwork = int(rlwork+0.5)
    allocate(pwork(lwork))
  end if
 
@@ -724,18 +801,70 @@ copyA = A
 call gesvd_TYPE( JOBU, JOBVT,size(A,1),size(A,2), copyA, size(A,1), &
    S, U,size(U,1), VT,size(VT,1), &
      rlWORK, -1, INFO)
-lwork = rlwork+0.5
+lwork = int(rlwork+0.5)
 allocate(work(lwork))
 
 call gesvd_TYPE( JOBU, JOBVT,size(A,1),size(A,2), copyA, size(A,1), &
    S, U,size(U,1), VT,size(VT,1), &
      WORK, lwork, INFO)
+
 deallocate(work)
+
 #ifdef ALLOCATE_LOCAL_VARS
   deallocate(copyA)
 #endif
 
 end subroutine 
+
+!_______________________________________________________
+!
+
+
+ ! computes the Cholesky factorization of a real symmetric 
+ ! positive definite matrix A.
+
+ function chol_TYPE(A) result(U)
+  REAL_TYPE, intent(in) :: A(:,:)
+  REAL_TYPE :: U(size(A,1),size(A,2))
+
+  integer :: info,i,j
+
+  U = A
+  call spotrf_TYPE('U', size(A,1), U, size(A,1), info)
+  if (info .ne. 0) then
+    write(6,*) 'info ',info, A
+    stop 'chol failed'
+  end if
+
+!  do j = 1,size(A,1)
+!    do i = 1,size(A,1)
+!      print *, 'out ',i,j,U(i,j)
+!    end do
+!  end do
+  
+  do j = 1,size(A,1)
+    do i = j+1,size(A,1)
+      U(i,j) = 0
+    end do
+  end do
+ end function chol_TYPE
+
+
+!_______________________________________________________
+!
+
+ ! computes the principal square root of the matrix A
+ ! It is assumed that A is a real symmetric 
+ ! positive definite matrix.
+
+ function sqrtm_TYPE(A) result(S)
+  REAL_TYPE, intent(in) :: A(:,:)
+  REAL_TYPE :: S(size(A,1),size(A,1)), E(size(A,1))
+
+  call symeig_TYPE(A,E,S)
+  S = (S.xd.sqrt(E)).xt.S
+ end function sqrtm_TYPE
+
 
 
 !_______________________________________________________
@@ -800,7 +929,7 @@ call syevx_TYPE(JOBZ,'I','U',n,copyA,n,real(-1.,kind(A)),real(-1.,kind(A)),ind(1
      2*SLAMCH('S'),idummy,E,pV,n,rlWORK,-1, IWORK,   &
      IFAIL, myINFO )
 
-lwork = rlwork+0.5
+lwork = int(rlwork+0.5)
 allocate(work(lwork))
 
 call syevx_TYPE(JOBZ,'I','U',n,copyA,n,real(-1.,kind(A)),real(-1.,kind(A)),ind(1),ind(2),     &

@@ -12,6 +12,7 @@ ifdef OPENMP
 endif
 
 ifdef DEBUG
+  F90FLAGS += -DDEBUG
   ASSIM_PROG := $(ASSIM_PROG)-debug
 endif
 

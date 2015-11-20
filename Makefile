@@ -52,14 +52,14 @@ include Compilers/libs.mk
 ASSIM_PROG ?= assim
 
 ASSIM_SRCS = anamorphosis.F90 assim.F90 assimilation.F90 date.F90 grids.F90 \
-	initfile.F90 matoper.F90 ndgrid.F90 parall.F90 rrsqrt.F90 \
+	initfile.F90 matoper.F90 covariance.F90 ndgrid.F90 parall.F90 rrsqrt.F90 \
 	ufileformat.F90
 
 ASSIM_OBJS = anamorphosis.o assim.o assimilation.o date.o grids.o initfile.o \
-	matoper.o ndgrid.o parall.o rrsqrt.o ufileformat.o match.o
+	matoper.o covariance.o ndgrid.o parall.o rrsqrt.o ufileformat.o match.o
 
 MODULES = anamorphosis.mod  assimilation.mod  date.mod  grids.mod  initfile.mod  \
-        matoper.mod  ndgrid.mod  parall.mod  rrsqrt.mod  ufileformat.mod
+        matoper.mod covariance.mod  ndgrid.mod  parall.mod  rrsqrt.mod  ufileformat.mod
 
 #-----------------#
 #  Common macros  #
@@ -77,7 +77,7 @@ OBJS = $(ASSIM_OBJS)
 
 
 
-all: $(PROG)
+all: $(PROG) 
 
 clean:
 	rm -f $(PROG) $(OBJS) $(MODULES)
@@ -133,13 +133,15 @@ $(ASSIM_PROG): $(ASSIM_OBJS)
 #----------------#
 
 assim.o: assim.F90 assimilation.o initfile.o matoper.o rrsqrt.o ufileformat.o \
-	ppdef.h
+	ppdef.h 
 
 ndgrid.o: ndgrid.F90 ndgrid_inc.F90 matoper.o ufileformat.o ppdef.h 
 
 parall.o: parall.F90 ppdef.h
 
-matoper.o: matoper.F90 ppdef.h
+matoper.o: matoper.F90 ppdef.h matoper_inc.F90
+
+covariance.o: matoper.o covariance.F90
 
 date.o: date.F90 ppdef.h
 
@@ -152,8 +154,19 @@ initfile.o: initfile.F90 ppdef.h
 rrsqrt.o: rrsqrt.F90 matoper.o parall.o ufileformat.o ppdef.h
 
 assimilation.o: assimilation.F90 anamorphosis.o date.o grids.o initfile.o \
-	matoper.o ndgrid.o parall.o rrsqrt.o ufileformat.o ppdef.h
+	matoper.o ndgrid.o parall.o rrsqrt.o ufileformat.o ppdef.h covariance.o
 
 ufileformat.o: ufileformat.F90 ppdef.h
 
 match.o: match.c
+
+# test
+
+test_locassim: test/test_locassim.F90 matoper.o covariance.o
+	$(F90C) $(F90FLAGS) -o $@ matoper.o covariance.o test/test_locassim.F90  $(LIBS) $(EXTRA_LDFLAGS)
+
+test_cellgrid: test_cellgrid.F90 assimilation.o anamorphosis.o date.o grids.o initfile.o matoper.o ndgrid.o parall.o rrsqrt.o ufileformat.o covariance.o  match.o
+	$(F90C) $(F90FLAGS) -o $@ assimilation.o  anamorphosis.o date.o grids.o initfile.o matoper.o ndgrid.o parall.o rrsqrt.o ufileformat.o covariance.o match.o test_cellgrid.F90  $(LIBS) $(EXTRA_LDFLAGS)
+
+check: test_locassim
+	./test_locassim

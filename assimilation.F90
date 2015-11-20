@@ -56,7 +56,8 @@ module assimilation
  end interface
 
  logical, parameter :: removeLandPoints = .true.
- integer, parameter :: maxLen = 256;
+! logical, parameter :: removeLandPoints = .false.
+ integer, parameter :: maxLen = 256
  
  character(len=maxLen) :: initfname, localInitfname, globalInitfname
 
@@ -110,7 +111,8 @@ module assimilation
  integer :: metrictype
  integer, parameter :: &
       CartesianMetric  = 0, &           
-      SphericalMetric  = 1               ! (default)
+      SphericalMetric  = 1, &                  ! (default)
+      SphericalMetricApprox  = 2 
 
 
  ! value for the _FillValue attribute
@@ -257,6 +259,7 @@ contains
   use parall
 # endif
   use matoper
+  use covariance
   implicit none
   character(len=*), intent(in) :: fname
   integer                      :: v,vmax,n
@@ -266,6 +269,9 @@ contains
   real, pointer                :: maxCorr(:), tmp(:), tmp_hres(:)
   integer                      :: NZones, zi, istat
   
+! for paritioning
+  integer, allocatable :: tmpi(:)
+
   initfname = fname
 
   call getInitValue(initfname,'runtype',runtype,default=AssimRun)
@@ -371,13 +377,19 @@ contains
 
 ! variables for local assimilation
 
-  if (schemetype.eq.LocalScheme) then
+  if (schemetype == LocalScheme .or. schemetype == 2) then
     allocate(tmp(ModML%effsize),partition(ModML%effsize), &
          hCorrLengthToObs(ModML%effsize),hMaxCorrLengthToObs(ModML%effsize))
     call loadVector('Zones.partition',ModML,tmp)
     ! convertion real -> integer
     partition = tmp+.5
     deallocate(tmp)
+
+    ! deal with gaps in partition
+    allocate(tmpi(ModML%effsize))
+    tmpi = partition
+    call unique(tmpi,n,ind2 = partition)
+    deallocate(tmpi)
 
     call loadVector('Zones.corrLength',ModML,hCorrLengthToObs)
     call loadVector('Zones.maxLength',ModML,hMaxCorrLengthToObs)
@@ -414,7 +426,11 @@ contains
 #   endif     
   end if
 
-  ModMLParallel%permute = schemetype.eq.LocalScheme
+  ModMLParallel%permute = schemetype == LocalScheme .or. schemetype == 2
+
+  if (schemetype == 2) then
+     ModML%permute = .true.
+  end if
 
 ! Maximum correction
 
@@ -1588,7 +1604,7 @@ end subroutine fmtIndex
   if (present(packed)) then
     la%removeLandPoints = packed
   else
-    la%removeLandPoints = .true.
+    la%removeLandPoints = removeLandPoints
   end if
 
   mmax = size(filenames)
@@ -1647,7 +1663,13 @@ end subroutine fmtIndex
   end do
 
   la%totsizeSea = count(la%Mask.eq.1)
-  allocate(la%invindex(la%totsizesea))
+  if (la%removeLandPoints) then
+    la%effsize = la%totsizeSea
+  else
+    la%effsize = la%totsize
+  end if
+
+  allocate(la%invindex(la%effsize))
 
   la%SeaIndex = -1
   j=1
@@ -1658,12 +1680,6 @@ end subroutine fmtIndex
       j=j+1
     end if
   end do
-
-  if (la%removeLandPoints) then
-    la%effsize = la%totsizeSea
-  else
-    la%effsize = la%totsize
-  end if
 
   la%distributed = .false.
   la%permute = .false.
@@ -1778,9 +1794,10 @@ end subroutine fmtIndex
   integer :: linindex
 
 
-  if (ML%permute) then
-    write(stderr,*) 'ind2sub: not implemented '
-  end if
+!  if (ML%permute) then
+!    write(stderr,*) 'ind2sub: not implemented '
+!  end if
+! currently: should be "unpermuted" at calling level
 
   linindex = ML%invindex(index)
 
@@ -2896,6 +2913,7 @@ end function
   character(len=256)             :: infix
   character(len=256), pointer    :: obsnames(:)
   real, pointer :: xf(:),xa(:)
+  real, pointer :: modGrid(:,:)
 
   integer :: m,n,k,v,i1,i2,ingrid,error
   integer :: istat
@@ -3056,6 +3074,7 @@ end function
         call loadVector('Obs'//trim(infix)//'gridT',ObsML,obsGridT)
   end if
 
+
     if (presentInitValue(initfname,'Diag'//trim(infix)//'xf')) &
          call saveVector('Diag'//trim(infix)//'xf',ModMLParallel,xf)
 
@@ -3126,7 +3145,14 @@ end function
            call locanalysis(zoneSize,selectObservations, &
                 xf,Hxf,yo,Sf,HSf,invsqrtR, xa,Sa,locAmplitudes)
         end if
-     else
+
+      elseif (schemetype.eq.2) then
+        allocate(modGrid(ModML%effsize,2))
+        call loadVector('Model.gridX',ModML,modGrid(:,1))
+        call loadVector('Model.gridY',ModML,modGrid(:,2))
+
+        call locanalysis2(modGrid,xf,Sf,H,yo,invsqrtR, xa,Sa)
+      else
 !$omp master
         if (biastype.eq.ErrorFractionBias) then
            call biasedanalysis(biasgamma,xf,biasf,Hxf,Hbf,yo,Sf,HSf,invsqrtR, &
@@ -3462,6 +3488,51 @@ end function
  end subroutine report
 
 
+
+ ! distance between point p0 and p1
+ ! p0 and p1 are (/ longitude,latitude,... /)
+
+ real function distance(p0,p1)
+  implicit none
+  real, intent(in) :: p0(:), p1(:)
+  real :: a, b, C
+  real :: coeff
+  real, parameter :: EarthRadius = 6378137 ! m
+  real, parameter :: pi = 3.141592653589793238462643383279502884197
+  real :: d2r = pi/180.
+  
+  if (metrictype == CartesianMetric) then
+    distance = sqrt(sum((p1 - p0)**2))
+    
+  elseif (metrictype == SphericalMetricApprox) then
+
+     coeff = pi*EarthRadius/(180.)     
+     distance = sqrt((coeff * cos((p0(2)+p1(2))* (pi/360.))*(p1(1)-p0(1)))**2 &
+          +(coeff * (p1(2)-p0(2)))**2)
+
+  elseif (metrictype == SphericalMetric) then
+     a = p0(2) * d2r
+     b = p1(2) * d2r
+     C = (p1(1) - p0(1)) * d2r
+     
+     coeff = sin(b) * sin(a) + cos(b) * cos(a) * cos(C)
+     coeff = max(min(coeff,1.),-1.)
+     ! distance in radian
+     distance = acos(coeff)
+
+     ! distance in km
+     distance = EarthRadius * distance
+
+  else
+    write(stderr,*) 'Unsupported metric: ',metrictype
+    write(stderr,*) 'Supported metrics are CartesianMetric (0) and SphericalMetric (1)'
+    ERROR_STOP
+  end if
+
+ end function distance
+
+
+
  !_______________________________________________________
  !
  ! horizontal correlation function used by locanalysis
@@ -3543,56 +3614,187 @@ end function
 
    if (.not.noRelevantObs) weight = exp(- (weight/hCorrLengthToObs(index))**2)
 
-   contains 
-
-    ! distance between point p0 and p1
-    ! p0 and p1 are (/ longitude,latitude,... /)
-
-    real function distance(p0,p1)
-     implicit none
-     real, intent(in) :: p0(:), p1(:)
-     real :: d2r = pi/180.
-     real :: a, b, C
-     real :: coeff
-
-     if (metrictype == CartesianMetric) then
-       distance = sqrt(sum((p1 - p0)**2))
-
-     elseif (metrictype == SphericalMetric) then
-       ! assume sperical metric
-
-!#define DISTANCE_SIMPLE
-#ifdef DISTANCE_SIMPLE
-     coeff = pi*EarthRadius/(180.)     
-     distance = sqrt((coeff * cos((p0(2)+p1(2))* (pi/360.))*(p1(1)-p0(1)))**2 &
-          +(coeff * (p1(2)-p0(2)))**2)
-     
-#else
-
-     a = p0(2) * d2r
-     b = p1(2) * d2r
-     C = (p1(1) - p0(1)) * d2r
-     
-     coeff = sin(b) * sin(a) + cos(b) * cos(a) * cos(C)
-     coeff = max(min(coeff,1.),-1.)
-     ! distance in radian
-     distance = acos(coeff)
-
-     ! distance in km
-     distance = EarthRadius * distance
-#endif
-     else
-       write(stderr,*) 'Unsupported metric: ',metrictype
-       write(stderr,*) 'Supported metrics are CartesianMetric (0) and SphericalMetric (1)'
-       ERROR_STOP
-     end if
-
-    end function distance
-
-
 
 
    end subroutine 
+
+
+   subroutine locanalysis2(modGrid,xf,Sf,H,yo,invsqrtR, xa,Sa)
+    use matoper
+    use covariance
+    use initfile
+    real, intent(in) :: modGrid(:,:), xf(:), yo(:), invsqrtR(:)
+    real, intent(in) :: Sf(:,:)
+    type(SparseMatrix), intent(in) :: H
+    real, intent(out) :: xa(:)
+    real, intent(out), optional :: Sa(:,:)
+
+    class(DiagCovar), allocatable :: Rc
+    real, pointer :: Hc(:,:)
+    real :: len
+    real, pointer :: Sf2(:,:)
+    integer :: leni, lenj
+
+    integer :: indexj(ModML%effsize), nnz, i
+    real :: w(ModML%effsize)
+!#define CELLGRID_SEARCH
+#ifdef CELLGRID_SEARCH
+    ! distance for internal function lpoints_cellgrid
+    real :: dist(ModML%effsize)
+    type(cellgrid) :: cg
+#endif
+
+    allocate(Rc)
+    call Rc%init(1./(invsqrtR**2))
+
+    call getInitValue(initfname,'CLoc.len',len)
+    call getInitValue(initfname,'CLoc.leni',leni)
+    call getInitValue(initfname,'CLoc.lenj',lenj)
+
+    write(6,*) 'len, leni, lenj ',len, leni, lenj,ModML%permute
+    allocate(Hc(ModML%effsize,1))
+!!! 'fix me'
+    Hc = 1
+    ! normalize
+    do i = 1,size(Hc,2)      
+      Hc(:,i) = Hc(:,i) / sqrt(sum(Hc(:,i)**2))
+    end do
+
+    allocate(Sf2(ModML%effsize,size(Sf,2)))
+    Sf2 = Sf
+
+    !    write(6,*) 'test ',modgrid(1:50,1)
+    !    write(6,*) 'test ',modgrid(1:50,2)
+    !    write(6,*) 'test ',modgrid(1:50,3)
+
+    ! should give the same
+    !    do i = 1,100
+    !    call lpoints(i,nnz,indexj,w)
+    !    write(6,*) 'sum(indexj) ',sum(indexj(1:nnz)),sum(w(1:nnz)),nnz
+    !    call locpoints2(i,modgrid,len,nnz,indexj,w)
+    !    write(6,*) 'sum(indexj) ',sum(indexj(1:nnz)),sum(w(1:nnz)),nnz
+    ! end do
+    !      stop
+
+    !    call locensanalysis(xf,Sf2,H,yo,Rc,lpoints,Hc,xa,Sa)
+    ! test
+
+#ifdef CELLGRID_SEARCH
+    cg = setupgrid(modGrid,[leni/10.,lenj/10.])
+    call locensanalysis(xf,Sf2,H,yo,Rc,lpoints_cellgrid,Hc,xa)
+#else
+    call locensanalysis(xf,Sf2,H,yo,Rc,lpoints,Hc,xa)
+#endif
+    Sa = Sf
+
+
+    do i = 1,size(Hc,2)      
+      write(6,*) 'Hc*(xf-xa) ',i, sum(Hc(:,i) * (xf-xa))
+    end do
+
+    deallocate(Rc)
+    deallocate(Hc)
+    deallocate(Sf2)
+
+   contains
+    subroutine lpoints(indexi,nnz,indexj,w,onlyj)
+     integer, intent(in) :: indexi
+     integer, intent(out) :: nnz,indexj(:)
+     real, intent(out) :: w(:)
+     integer, optional, intent(in) :: onlyj(:)  
+
+     integer :: pi,pj,pk,pn,pv,pindexi
+     integer :: i,j,k,n,v
+     integer :: tj
+     logical :: valid
+     real :: tw
+
+     !      call locpoints(indexi,modGrid,len,nnz,indexj,w,onlyj)  
+
+     !pindexi = indexi
+     pindexi = zoneIndex(indexi)
+     call ind2sub(ModML,pindexi,pv,pi,pj,pk,pn)
+     nnz = 0
+     !write(6,*) 'indexi ',indexi,pindexi,pv,pi,pj,pk,pn
+
+     ! state vector is normally permuted for efficiency
+     ! in this case the z-dimension vary the fastest
+     ! therefore it is the most inner-loop
+
+     do v = 1,ModML%nvar
+       do n = 1,1
+         do j = max(pj-lenj, 1), min(pj+lenj, ModML%varshape(2,v))
+           do i = max(pi-leni, 1), min(pi+leni, ModML%varshape(1,v))
+             do k = 1,ModML%varshape(3,v)
+               tj = sub2ind(ModML,v,i,j,k,n,valid)
+               !write(6,*) 'v,i,j,k,n ',v,i,j,k,n,tj
+
+               if (valid) then
+                 tj = invZoneIndex(tj)
+
+                 tw = locfun(distance(modGrid(indexi,:), &
+                      modGrid(tj,:))/len)
+
+                 if (tw /= 0.) then                
+                   nnz = nnz + 1
+                   indexj(nnz) = tj
+                   w(nnz) = tw
+                 end if
+               end if
+             end do
+           end do
+         end do
+       end do
+     end do
+
+     !      write(6,*) 'indexi ',indexi,nnz, maxval(w),minval(w),count(w > 0.5)
+    end subroutine lpoints
+
+
+    subroutine locpoints2(i,x,len,nnz,j,w)
+     integer, intent(in) :: i
+     real, intent(in) :: len, x(:,:)
+     integer, intent(out) :: nnz, j(:)
+     real, intent(out) :: w(:)
+
+     integer :: k
+     real :: dist(size(x,1)), tmp
+
+     do k = 1,size(x,1)
+       dist(k) = distance(x(i,:),x(k,:))
+     end do
+
+     nnz = 0
+
+     do k = 1,size(x,1)
+       tmp = locfun(dist(k)/len)
+
+       if (tmp /= 0.) then
+         nnz = nnz + 1
+         j(nnz) = k
+         w(nnz) = tmp
+       end if
+     end do
+    end subroutine locpoints2
+
+#ifdef CELLGRID_SEARCH
+
+    subroutine lpoints_cellgrid(indexi,nnz,indexj,w,onlyj)
+     integer, intent(in) :: indexi
+     integer, intent(out) :: nnz,indexj(:)
+     real, intent(out) :: w(:)
+     integer, optional, intent(in) :: onlyj(:)  
+
+     integer :: k
+
+     call near(cg,modGrid(indexi,:),modGrid,distance,2*len,indexj,dist,nnz)
+     do k = 1,nnz
+       w(k) = locfun(dist(k)/len)
+     end do
+    end subroutine lpoints_cellgrid
+#endif
+
+   end subroutine locanalysis2
 
  !_______________________________________________________
  !

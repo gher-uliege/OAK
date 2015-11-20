@@ -8,7 +8,7 @@ program test_rrsqrt
  real :: dummy(1,1)
  integer :: info,r,i,j
 
- real :: temp(imax,imax)
+ real :: temp(imax,jmax)
 
 
  do j=1,jmax
