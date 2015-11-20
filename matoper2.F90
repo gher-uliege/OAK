@@ -1,6 +1,6 @@
 !
 !  OAK, Ocean Assimilation Kit
-!  Copyright(c) 2002-2011 Alexander Barth and Luc Vandenblucke
+!  Copyright(c) 2002-2015 Alexander Barth and Luc Vandenblucke
 !
 !  This program is free software; you can redistribute it and/or
 !  modify it under the terms of the GNU General Public License
@@ -443,7 +443,7 @@ end interface
   end function loccovar_smult_mat
 
 
-  ! compute H * P * H' : matmul(matul(this, transpose(H),H)
+  ! compute H * P * H' y : matmul(matul(this, transpose(H),H) y
   ! where H is sparse
 
   function loccovar_project(this,H,y) result (HPHy)
