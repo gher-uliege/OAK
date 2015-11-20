@@ -1,4 +1,12 @@
-function [t0,data,model,Eic,Eforcing, obs, fun, h ] = oak_create_test(testdir,initfile)
+function [t0,data,model,Eic,Eforcing, obs, fun, h] = oak_create_test(testdir,initfile,sz)
+
+
+if nargin == 2
+%  sz = [10 15 3];
+  sz = [10 15 1];
+end
+
+ndim = ndims(ones(sz));
 
 [success,message] = mkdir(testdir);
 [success,message] = mkdir(fullfile(testdir,'Common'));
@@ -9,7 +17,6 @@ function [t0,data,model,Eic,Eforcing, obs, fun, h ] = oak_create_test(testdir,in
 
 init = InitFile(initfile);
 
-sz = [10 15 1];
 [x,y,z] = ndgrid(1:sz(1),1:sz(2),1:sz(3));
 
 xname = get(init,'Model.gridX');
@@ -57,11 +64,16 @@ xobs = prctile(x(:),[40 60]);
 yobs = prctile(y(:),[40 60]);
 zobs = prctile(z(:),[40 60]);
 
-h = @(v) interpn(x,y,reshape(v(1:numel(x)),size(x)),xobs,yobs);
-
 
 v = gread(fullfile(testdir,'Ens001/model.nc#var1'));
-assert(rms(h(E(:,1)),interpn(x,y,v,xobs,yobs)) < 1e-6)
+
+if ndim == 2
+  h = @(v) interpn(x,y,reshape(v(1:numel(x)),size(x)),xobs,yobs);
+  assert(rms(h(E(:,1)),interpn(x,y,v,xobs,yobs)) < 1e-6)
+else
+  h = @(v) interpn(x,y,z,reshape(v(1:numel(x)),size(x)),xobs,yobs,zobs);
+  assert(rms(h(E(:,1)),interpn(x,y,z,v,xobs,yobs,zobs)) < 1e-6)
+end
 
 
 for n=1:length(time)

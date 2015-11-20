@@ -266,9 +266,9 @@ contains
   character(len=MaxFNameLength), pointer   :: filenamesX(:),filenamesY(:),filenamesZ(:),    &
                                               filenamesT(:)
   character(len=MaxFNameLength)            :: path
-  real, pointer                :: maxCorr(:),tmp(:)
+  real, pointer                :: maxCorr(:), tmp(:), tmp_hres(:)
   integer                      :: NZones, zi, istat
-
+  
 ! for paritioning
   integer, allocatable :: tmpi(:)
 
@@ -320,8 +320,6 @@ contains
 ! define model grid
 !
 
-  hres = 0
-
   call getInitValue(initfname,'Model.gridX',filenamesX)
   call getInitValue(initfname,'Model.gridY',filenamesY)
   call getInitValue(initfname,'Model.gridZ',filenamesZ)
@@ -340,6 +338,7 @@ contains
     if (n > 2) then
       call setCoord(ModelGrid(v),3,trim(path)//filenamesZ(v))
 
+      !write(6,*) 'getCoord ',getCoord(ModelGrid(1),(/ 1,1,1 /),out)
 
       if (n > 3) then
         !write(stderr,*) 'The dimension of variable ',trim(ModML%varnames(v)),' is ',n
@@ -354,13 +353,20 @@ contains
     end if
     
 
-!   what to do with hres ?
-!    hres(v) = cx**2
   end do
 
+  ! typical horizontal resolution to prioritize model grids in genObsOperator
+  ! in case of overlapping grids
+  if (presentInitValue(initfname,'Model.hres')) then
+    call getInitValue(initfname,'Model.hres',tmp_hres)
+    hres = tmp_hres
+    deallocate(tmp_hres)
+  else
+    ! grids should not overlap in this case
+    hres = 0
+  end if
+    
   deallocate(filenamesX,filenamesY,filenamesZ)
-
-
 
   call getInitValue(initfname,'ErrorSpace.dimension',ErrorSpaceDim,default=0)
 
@@ -2408,10 +2414,10 @@ end subroutine fmtIndex
   integer              ::  &
        i,j,k,n, &
        v,tv,m,mmax,omaxSea,tn,nz,linindex, &
-       tindexes(4,16), tmpm
+       tindexes(4,16), tmpm, tn_test
   integer :: istat
   real                 :: tc(16), minres
-
+  logical              :: ingrid
 
   !write(prefix,'(A,I3.3,A)') 'Obs',ntime,'.'
   call fmtIndex('Obs',ntime,'.',prefix)
@@ -2473,6 +2479,7 @@ end subroutine fmtIndex
         minres = huge(minres)
         v = -1
         tn = 0
+        ingrid = .false.
 
         do tv=1,size(ModML%varnames)
           if (varNames(m).eq.ModML%varnames(tv).and.minres.ge.hres(tv)) then
@@ -2485,25 +2492,27 @@ end subroutine fmtIndex
 
             if (ModML%ndim(v).eq.2) then
               call cinterp(ModelGrid(v), (/ obsX(linindex),obsY(linindex) /), &
-                   tindexes(1:2,1:4),tc(1:4),tn)
+                   tindexes(1:2,1:4),tc(1:4),tn_test)
             elseif (ModML%ndim(v).eq.3) then
               call cinterp(ModelGrid(v), (/ obsX(linindex),obsY(linindex),obsZ(linindex) /), &
-                   tindexes(1:3,1:8),tc(1:8),tn)
+                   tindexes(1:3,1:8),tc(1:8),tn_test)
             elseif (ModML%ndim(v).eq.4) then
               call cinterp(ModelGrid(v), (/ obsX(linindex),obsY(linindex),obsZ(linindex),obsT(linindex) /), &
-                   tindexes,tc,tn)
+                   tindexes,tc,tn_test)
             else
               write(stderr,*) 'more than 4 dimensions are not supported'
               ERROR_STOP
             end if
 
 
-            if (tn.ne.0) then
+            if (tn_test.ne.0) then
               ! ok variable v is a candidate
               minres = hres(v)
+              tn = tn_test
               tmpHindex(6,nz+1:nz+tn) = v
               tmpHindex(7:10,nz+1:nz+tn) = tindexes(:,1:tn)
               tmpHcoeff(nz+1:nz+tn) = tc(1:tn)
+              ingrid = .true.
             end if
           end if
         end do
@@ -2515,7 +2524,7 @@ end subroutine fmtIndex
           tmpHindex(6,nz+1:nz+tn) = -1
           tmpHindex(7:10,nz+1:nz+tn) = 0
           tmpHcoeff(nz+1:nz+tn) = 0
-        elseif (tn.eq.0) then
+        elseif (.not.ingrid) then
           ! out of domain
           tn=1
           

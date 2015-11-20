@@ -4,11 +4,11 @@ currentdir = pwd;
 initfile = fullfile(currentdir,'test_assim_error_modes.init');
 
 testdir = tempname;
-testdir = '/tmp/oak-temp';
+%testdir = '/tmp/oak-temp';
 
 randn('state',0)
 
-[t0,data,model,Eic,Eforcing, obs, fun, h ] = oak_create_test(testdir,initfile);
+[t0,data,model,Eic,Eforcing, obs, fun, h] = oak_create_test(testdir,initfile);
 
 init = InitFile(initfile);
 
@@ -40,6 +40,8 @@ S = scale * full(Eic);
 Pf = S*S';
 
 I = eye(n,n);
+H = zeros(length(yo),n);
+
 for i=1:n
   H(:,i) = h(I(:,i));
 end

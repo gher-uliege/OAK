@@ -383,7 +383,7 @@ contains
  ! Y(1) first data point located at X(:,1)
  ! X( components, corner points )
 
- subroutine interp_tetrahedron(n,X,xi,out,coeff)
+ subroutine interp_tetrahedron(n,X,xi,out,coeff) 
   use matoper
   implicit none
   integer, intent(in) :: n
@@ -393,29 +393,222 @@ contains
 
   ! better force double precision here
   ! precision of the inverse
-  real(8), parameter :: eps = 1e-8
+  real(8), parameter :: tol = 1e-8
   ! local variables
 
-  real(8) :: M(n+1,n+1), c(n+1)
+  real(8) :: M(n+1,n+1), c(n+1), M2(n+1,n+1), d(n+1), d2(n+1)
   real(8) :: determ
 
+  integer :: i, j, nnz, nuncon, offset(n+1), ind(n+1), tmp
+  integer :: nz(n+1)
+  real(8) :: c2(n), X8(n,n+1), U(n+1,n+1), V(n+1,n+1), S(n+1)
+
+  real(8) :: xc(n), err, best, detM2, testc(n+1)
+  logical :: cinit
+
+  ! look for c which satisfies:
+  !
+  ! 1 = c(1) + c(2) + ... + c(n+1)
+  ! xi(:) = c(1) * X(:,1) + c(2) * X(:,2) + ... + c(n+1) * X(:,n+1)
+
+  ! In matrix form
+  ! 
+  ! [ 1  ]  = M * c
+  ! [ xi ]
+  ! 
+  ! where M
+  !
+  ! M = [  1      1       ...  1      ]
+  !     [  X(:,1) X(:,2)  ... X(:,n+1)]
+  !
+
   M = 1
-  c = 1
+  d = 1
 
-  M(2:n+1,:) = X
-  c(2:n+1) = xi
+  ! average all X and make vectors relative to this location
+  ! for better numerical precision
 
-  c = matmul(inv(M,determ),c)
+  xc = sum(X,2)/(n+1)
+  M(2:n+1,:) = X - spread(xc,2,n+1)
+  d(2:n+1) = xi - xc
 
-  out = .not.all(c.ge.0d0-eps.and.c.le.1d0+eps)
-  coeff = c
+  c = matmul(inv(M,determ),d)
 
-  !write(6,*) 'determ ',determ
-  !write(6,*) 'coeff ',coeff
-  !  stop
-  !if (out) coeff = coeff+(1-sum(coeff))/(n+1)
+  if (abs(determ) > tol) then
+    out = .not.all(0d0-tol <= c .and.c <= 1d0+tol)
+    coeff = c
+    return
+  end if
 
-  !  write(6,*) 'corrected coeff ',coeff,out
+  !write(6,*) 'degenerated case (0)',determ
+  !write(6,*) 'degenerated case (0)',X
+  !write(6,*) 'degenerated case (0)',n
+  !write(6,*) 'degenerated case (0)',xi
+
+  ! degenerated case
+  S = svd(M,U,V)
+
+  ! find all indices of elements in S larger than tol
+  ! number of non-redundant constraints
+  nnz = count(S > tol)
+
+  nz(1:nnz) = pack((/ (i,i=1,n+1) /),S > tol)
+
+
+  ! number of coefficients uncontrained
+  ! nuncon + nnz = n+1
+  nuncon = n+1-nnz
+
+
+  coeff = 0
+  ! is coef initialized with a meanful value?
+  cinit = .false.;
+  best = 0;
+  out = .true.;
+
+  ! offset used to convert linear index i to subscribt
+  ! similar to ind2sub in matlab/octave
+
+  offset(1) = 1
+  do j = 2,nuncon
+    offset(j) = offset(j-1) * (n+1)
+  end do
+
+  ! force one coeff to zero after the other
+
+  do i = 1, (n+1)**nuncon
+
+    ! indices for vertices to test if the corresponding c can be zero
+    ![ind(1),ind(2)] = ind2sub((n+1)*ones(nuncon,1),i);
+
+    ! tmp and ind are here 0-based
+    tmp = i - 1;
+
+    do j = nuncon, 1, -1
+      ! integer devision
+      ind(j) = tmp / offset(j)
+      tmp = tmp - ind(j) * offset(j);
+    end do
+    ! make ind 1-based
+    ind = ind+1;
+
+    M2 = 0
+
+    do j = 1, nuncon
+      M2(j,ind(j)) = 1;
+    end do
+
+    if (any(sum(M2(1:nuncon,:),2) == 0)) then
+      ! all elements of ind must be different
+      ! ignore the present case
+      cycle
+    end if
+
+    ! with S,V
+    ! ! remove redundant contraints
+    !  S * V' * coeff = U' * d
+    !  A*c = 0
+
+    M2(nuncon+1:,:) = matmul(diag(S(nz(1:nnz))), transpose(V(:,nz(1:nnz))))
+
+    d2 = 0
+    d2(nuncon+1:) = matmul(transpose(U(:,nz(1:nnz))), d)
+
+    testc = matmul(inv(M2,detM2), d2);
+
+    if (abs(detM2) < tol) then
+      ! still degenerated, look for other possibilities
+      cycle
+    end if
+
+    if (.not.all(0-tol <= testc .and. testc <= 1+tol)) then
+      ! no, this is a extrapolation!
+      ! go to next iteration
+      cycle
+    end if
+
+    err = maxval(abs(matmul(M,testc) - d));
+
+    ! but, wait check if it is still a solution to our problem
+    ! this is necessary if xi is outside a degenerated X, for example
+    ! xi = [0 1]';
+    ! X = [0    0.5   1; ...
+    !      0      0   0];
+
+    if (err < tol) then
+      ! abs(det(M2)) is an indication of the surface of the
+      ! "triangle", the smaller the better
+      if (abs(detM2) < best  .or. .not.cinit) then
+        ! we have a even better coeff
+        coeff = testc;
+        cinit = .true.;
+        best = abs(detM2);
+        out = .false.;
+      end if
+    end if
+  end  do
+
+
+
+  !   ind = (/(i,i=1,n)/)
+
+  !   X8 = X
+  !   ! check which point X(:,i) is inside the convex hull formed by the other 
+  !   ! points
+  !   ! make interpolation without this point
+
+
+  !   search_redundant_point : do i = 1,n+1
+  !     ! ind is a vector of all integers from 1 to n different from i
+  !     ind(1:i-1) = (/(j,j=1,i-1)/)
+  !     ind(i:n) = (/(j,j=i+1,n+1)/)
+
+  !     c2 = matmul(inv(X8(:,ind),determ), X(:,i))
+  !     if (abs(determ) < tol) then
+  !       write(6,*) 'degenerated case (1), determ',determ
+  !       write(6,*) 'degenerated case (1), i',i
+  !       write(6,*) 'degenerated case (1), X8',X8
+  !       write(6,*) 'degenerated case (1), ind',ind
+  !       write(6,*) 'degenerated case (1), n',n
+  !       write(6,*) 'degenerated case (1), xi',xi
+
+  !       stop
+  !     end if
+
+
+  !     if (all(c2 >= 0d0-tol.and.c2 <= 1d0+tol)) then
+  !       ! X(:,i) is inside X(:,ind)
+
+  !       ! this point is ignored in the interpolation and thus attributed a 
+  !       ! weight equal to zero
+  !       coeff(i) = 0        
+
+  !       ! the weight of other points
+
+  !       coeff(ind) = matmul( &
+  !            inv(matmul(transpose(X8(:,ind)), X8(:,ind)),determ), &
+  !            matmul(transpose(X8(:,ind)), xi))
+
+  !       if (abs(determ) < tol) then
+  !         write(6,*) 'degenerated case (2)'
+  !         stop
+  !       end if
+
+  !       exit search_redundant_point
+  !     end if
+
+  !   end do search_redundant_point
+
+  ! else
+  !   out = .not.all(c.ge.0d0-tol.and.c.le.1d0+tol)
+  !   coeff = c
+  ! end if
+  ! write(6,*) 'determ ',determ
+  ! write(6,*) 'coeff ',coeff
+  ! !  stop
+  ! !if (out) coeff = coeff+(1-sum(coeff))/(n+1)
+
+  ! !  write(6,*) 'corrected coeff ',coeff,out
 
  end subroutine interp_tetrahedron
  !
@@ -949,14 +1142,13 @@ subroutine cinterp(g,xi,indexes,coeff,nbp)
 
  call localizeIt(g,xi,ind,out) 
 
-
  if (.not.out) then
 
    ! compute all corner points of the hypercube: px
 
    do j = 1,twon
      do k=1,g%n
-       if  (btest(j-1,k-1)) then
+       if  (btest(j-1,k-1) .and. g%gshape(k) > 1) then
          indexes(k,j) = ind(k) + 1
        else
          indexes(k,j) = ind(k) 
@@ -968,19 +1160,33 @@ subroutine cinterp(g,xi,indexes,coeff,nbp)
      linindex = sum((indexes(:,j)) * g%ioffset_mask) + 1
      pmasked(j) = g%masked(linindex)
      px(:,j) = getCoord0(g,indexes(:,j))
+
+     !write(6,*) 'point ',px(:,j)
+
    end do
 
    out = any(pmasked)
+   !write(6,*) 'pmasked ',pmasked,px,linindex,g%gshape
+   !write(6,*) 'out ',out
+   
 
    if (.not.out)  then
      call interp_cube(g%n,g%tetrahedron,px,xi,out,coeff)
      nbp = twon
+     !write(6,*) 'coeff ',coeff
+     !write(6,*) 'out ',out
+
    end if
  end if
 
 ! convert zero-based indexes to one-based indexes
 
   indexes = indexes+1
+
+  !do j = 1,twon
+  !  write(6,*) 'indexes [',indexes(:,j),']',coeff(j)
+  !end do
+  
 end subroutine cinterp
 
 ! compute the interpolated value fi at the location xi of a field f defined 
