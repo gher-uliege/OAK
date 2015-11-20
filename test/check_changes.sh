@@ -2,7 +2,7 @@
 while true; do
   change=$(inotifywait -e close_write,moved_to,create *.F90 *.f90)
 
-  if ./toymodel_check; then
+  if ./test_toymodel; then
      echo OK
      notify-send -t 1000 -u low 'OK' 'Compilation OK'
   else

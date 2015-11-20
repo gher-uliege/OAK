@@ -28,4 +28,9 @@ print:
 	echo $(LIBS) $(F90FLAGS) $(PRECISION)
 
 clean:
-	rm -f *.mod *.o
+	rm -f *.mod *.o test_ndgrid toymodel
+	rm -Rf Analysis001 Analysis002 Ens001 Ens002
+
+test: test_ndgrid
+	./test_ndgrid
+	./test_toymodel

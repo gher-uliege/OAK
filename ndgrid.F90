@@ -1062,7 +1062,7 @@ implicit none
 
   do i=1,g%n
     linindex = g%startindex(i) + sum(ind * g%ioffset(:,i))
-    x(i) = g%data( linindex )
+    x(i) = g%data(linindex)
   end do
   
   

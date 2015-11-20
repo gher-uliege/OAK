@@ -18,6 +18,7 @@
 	$(F90C) $(F90FLAGS) -c $<
 
 .SUFFIXES: $(SUFFIXES) .f90 .F90
+.PHONY: test
 
 #-------------------------------#
 #  Platform specific variables  #
@@ -168,3 +169,6 @@ ufileformat.o: ufileformat.F90 ppdef.h
 match.o: match.c
 
 oak.o: oak.F90 assimilation.o ndgrid.o
+
+test:
+	(cd test; make test)
