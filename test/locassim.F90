@@ -79,8 +79,8 @@ program locassim
 
    call fmtIndex('',ntime,'.',infix)
    call MemoryLayout('Obs'//trim(infix),ObsML,rmLPObs)
-  m = ObsML%effsize
-  k = size(Sf,2)
+   m = ObsML%effsize
+   k = size(Sf,2)
 
   allocate(yo(m),invsqrtR(m),Hxf(m),Hxa(m),HSf(m,k),HSa(m,k), &
        yo_Hxf(m), yo_Hxa(m), innov_projection(m), Hshift(m))
@@ -112,6 +112,6 @@ program locassim
  deallocate(xf,xa,Sa,Sf)
 
 
-end program test
+end program locassim
 
 
