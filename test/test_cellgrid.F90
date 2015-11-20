@@ -4,8 +4,10 @@ program test_cellgrid
  ! call test_near([20,20],5.)
  call test_near([1000,1000],20.)
 
+#ifdef LARGE
  ! requires ~/matlab/LocEns/ligurian_sea_loc_assim.init
  call test_large()
+#endif
 
 contains
 
@@ -70,6 +72,7 @@ contains
 
  end subroutine test_near
 
+#ifdef LARGE
  subroutine test_large()
   use matoper
   use rrsqrt
@@ -129,6 +132,6 @@ contains
   print '("Time = ",f9.6," seconds.")',(finish-start)
 
  end subroutine test_large
-
+#endif
 
 end program test_cellgrid
