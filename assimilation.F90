@@ -259,7 +259,7 @@ contains
   use parall
 # endif
   use matoper
-  use matoper2
+  use covariance
   implicit none
   character(len=*), intent(in) :: fname
   integer                      :: v,vmax,n
@@ -3612,7 +3612,7 @@ end function
 
    subroutine locanalysis2(modGrid,xf,Sf,H,yo,invsqrtR, xa,Sa)
     use matoper
-    use matoper2
+    use covariance
     use initfile
     real, intent(in) :: modGrid(:,:), xf(:), yo(:), invsqrtR(:)
     real, intent(in) :: Sf(:,:)

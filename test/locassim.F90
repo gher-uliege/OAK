@@ -22,7 +22,7 @@
 
 program locassim
  use matoper
- use matoper2
+ use covariance
  use rrsqrt
  use ufileformat
  use initfile

@@ -19,7 +19,7 @@
 !
 
 
-module matoper2
+module covariance
 
 use matoper
 
@@ -611,4 +611,4 @@ contains
 
 
 
- end module matoper2
+ end module covariance

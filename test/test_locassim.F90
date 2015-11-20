@@ -18,7 +18,7 @@ contains
 
  subroutine run_test(sz)
   use matoper
-  use matoper2
+  use covariance
 
   integer, intent(in) :: sz(:)
 
@@ -384,7 +384,7 @@ contains
 
 
  subroutine run_test_large(sz,computeSa)
-  use matoper2
+  use covariance
 
   integer, intent(in) :: sz(:)
   logical :: computeSa
@@ -522,7 +522,7 @@ end module test_suite
 
 program test
  use test_suite
- use matoper2
+ use covariance
 
  if (kind(real(1.)) <= 4) then
    write(0,*) 'Error: tests require at least double precision'
