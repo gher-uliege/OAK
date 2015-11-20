@@ -1,6 +1,6 @@
 !
 !  OAK, Ocean Assimilation Kit
-!  Copyright(c) 2002-2011 Alexander Barth and Luc Vandenblucke
+!  Copyright(c) 2002-2015 Alexander Barth and Luc Vandenblucke
 !
 !  This program is free software; you can redistribute it and/or
 !  modify it under the terms of the GNU General Public License
@@ -20,25 +20,27 @@
 ! include the fortran preprocessor definitions
 #include "ppdef.h"
 
-
-program assimtest
+program locassim
  use matoper
+ use covariance
  use rrsqrt
  use ufileformat
  use initfile
  use assimilation
- use parall
 
  implicit none
 
  real, allocatable  :: xf(:), xa(:), &
-      Sf(:,:), Sa(:,:)
+      Sf(:,:), Sa(:,:), &
+      Ef(:,:), Ea(:,:), &
+      Hc(:,:), yo(:)
+ 
+ class(DiagCovar), allocatable :: R
+ type(SparseMatrix) :: H
 
  integer            :: iargc, ntime, enstype
  character(len=124) :: str
  character(len=124) :: ntimeindex
-
-
 
  if (iargc().ne.2) then
    write(stderr,*) 'Usage: assim <init file> <time index> '
@@ -54,8 +56,10 @@ program assimtest
 
  allocate(xf(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel), &
       xa(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel), &
-      Sa(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel,ErrorSpaceDim), &
-      Sf(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel,ErrorSpaceDim))
+      Ea(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel,ErrorSpaceDim), &
+      Ef(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel,ErrorSpaceDim), &
+      Sa(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel,ErrorSpaceDim-1), &
+      Sf(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel,ErrorSpaceDim-1))
 
  !write(ntimeindex,'(I3.3,A)') ntime,'.'
  call fmtIndex('',ntime,'.',ntimeindex)
@@ -66,11 +70,33 @@ program assimtest
    call loadVectorSpace('ErrorSpace.init',ModMLParallel,Sf)
    call loadVector('Forecast'//trim(ntimeindex)//'value',ModMLParallel,xf)
 !$omp parallel
-   call assim(ntime,Sf,Sa,xf,xa)
+!!!   call assim(ntime,Sf,Sa,xf,xa)
 !$omp end parallel
  else
    ! Sf are ensemble members
-   call loadEnsemble('ErrorSpace.init',ModMLParallel,Sf)
+   call loadEnsemble('ErrorSpace.init',ModMLParallel,Ef)
+   call ens2sqrt(Ef,xf,Sf)
+
+   call fmtIndex('',ntime,'.',infix)
+   call MemoryLayout('Obs'//trim(infix),ObsML,rmLPObs)
+  m = ObsML%effsize
+  k = size(Sf,2)
+
+  allocate(yo(m),invsqrtR(m),Hxf(m),Hxa(m),HSf(m,k),HSa(m,k), &
+       yo_Hxf(m), yo_Hxa(m), innov_projection(m), Hshift(m))
+
+  call loadObsTime(ntime,mjd,error)
+  call loadObs(ntime,ObsML,yo,invsqrtR)    
+   
+
+   
+
+   call locensanalysis(xf,Sf,H,yo,R,lpoints,hc,xa,Sa)
+
+
+   
+
+   
 
 !$omp parallel
    call assim(ntime,Sf,Sa)   
@@ -85,8 +111,7 @@ program assimtest
 
  deallocate(xf,xa,Sa,Sf)
 
- contains
 
+end program test
 
-end program assimtest
 

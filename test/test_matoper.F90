@@ -1,7 +1,112 @@
-
 program test_matoper
  use matoper
  implicit none
+
+
+ !call benchmark_matoper
+ call test_pcg
+ call test_chol
+ call test_sqrtm
+ call test_sort
+ call test_unique
+
+ contains
+
+ subroutine test_chol()
+  real :: A(3,3), U(3,3)
+
+  A = reshape([2.,1.,1., 1.,2.,1., 1.,1.,2.],[3,3])
+  U = chol(A)
+  call assert(matmul(transpose(U),U), &
+      A, &
+      1e-6,'Cholesky factorization')
+ end subroutine test_chol
+
+  !_______________________________________________________
+  !
+
+ subroutine test_sqrtm()
+  real :: A(3,3)
+  real :: S(size(A,1),size(A,1))
+
+  A = reshape([2.,1.,1., 1.,2.,1., 1.,1.,2.],[3,3])
+  S = sqrtm(A)
+
+  call assert(matmul(S,S), &
+      A, &
+      1e-6,'sqrtm factorization')
+ end subroutine test_sqrtm
+
+
+  !_______________________________________________________
+  !
+
+  subroutine test_sort
+   implicit none
+   integer, parameter :: n = 10
+   integer :: ind(n)
+   integer, dimension(1:n) :: A = &  
+        (/0, 50, 20, 25, 90, 10, 5, 20, 99, 75/), sortedA
+   
+   sortedA = A
+   call sort(sortedA,ind)
+   call assert(all(sortedA(1:n-1) <= sortedA(2:n)),'quick sort (1)')
+   call assert(all(sortedA == A(ind)),'quick sort (2)')
+  end subroutine test_sort
+
+  !_______________________________________________________
+  !
+
+  subroutine test_unique
+   implicit none
+   integer, parameter :: n = 10
+   integer :: ind(n), ind2(n), i, nu
+   integer, dimension(1:n) :: A = &  
+        (/0, 20, 20, 25, 90, 10, 5, 20, 90, 75/), uA
+   
+   uA = A
+   call unique(uA,nu,ind,ind2)
+
+   ! all elements in A must be one time in uA
+   do i = 1,n
+     if (count(A(i) == uA(1:nu)) /= 1) then
+       write(6,*) 'unique (1): FAILED'
+       stop
+     end if
+   end do
+
+   write(6,*) 'unique (1): OK'
+
+   call assert(all(uA(1:nu) == A(ind(1:nu))),'unique (2)')
+   call assert(all(A == uA(ind2)),'unique (3)')
+
+  end subroutine test_unique
+
+  !_______________________________________________________
+  !
+  
+  function test_fun(x) result(y)
+   implicit none
+   real, intent(in) :: x(:)
+   real :: y(size(x))
+   y = x/2.
+  end function test_fun
+  
+  subroutine test_pcg()
+   implicit none
+   real :: x(3)
+   integer :: nit
+   
+   x = pcg(test_fun,(/ 1.,2.,3. /),nit=nit)
+   call assert(x,(/ 2.,4.,6. /),1e-6,'conjugate gradient')
+  end subroutine test_pcg
+
+  !_______________________________________________________
+  !
+
+  subroutine benchmark_matoper
+   implicit none
+
  integer, parameter :: r = 100, m=100000
  real(8) :: lambda(r), UT(r,r), yo(m), Hxf(m), invsqrtR(m), HSf(m,r)
 
@@ -56,7 +161,7 @@ program test_matoper
 !  write(6,*) 'check sum ',sum(ampl)
   write(6,*) finish-start
 
-
+ end subroutine benchmark_matoper
 
 
 end program test_matoper

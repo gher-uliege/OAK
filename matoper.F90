@@ -1,6 +1,6 @@
 !
 !  OAK, Ocean Assimilation Kit
-!  Copyright(c) 2002-2011 Alexander Barth and Luc Vandenblucke
+!  Copyright(c) 2002-2015 Alexander Barth and Luc Vandenblucke
 !
 !  This program is free software; you can redistribute it and/or
 !  modify it under the terms of the GNU General Public License
@@ -50,6 +50,7 @@ interface operator(.x.)
           dmat_mult_dvec,       &
     ssparsemat_mult_dvec,       &
           dvec_mult_dmat,       &
+          dvec_mult_ssparsemat, &
           dvec_mult_dvec
 end interface
 
@@ -63,10 +64,12 @@ interface operator(.xt.)
 ! single precision
     smat_mult_smatT, &
     smat_mult_ssparsematT, &
+    svec_mult_ssparsematT, &
     svec_mult_svecT, &
 ! double precision
     dmat_mult_dmatT, &
     dmat_mult_ssparsematT, &
+    dvec_mult_ssparsematT, &
     dvec_mult_dvecT
 end interface
 
@@ -148,6 +151,19 @@ interface symeig
 end interface
 
 
+interface chol
+  module procedure &
+    schol, &
+    dchol
+end interface
+
+interface sqrtm
+  module procedure &
+    ssqrtm, &
+    dsqrtm
+end interface
+
+
 interface eye
   module procedure &
 !    seye, &
@@ -166,6 +182,14 @@ interface diag
     ddiag, &
     cdiag    
 end interface
+
+interface assert
+  module procedure assert_bool
+  module procedure assert_scal
+  module procedure assert_vec
+  module procedure assert_mat
+end interface assert
+
 
 contains
 
@@ -370,8 +394,8 @@ S%nz = count(X.ne.0)
 allocate(S%i(S%nz),S%j(S%nz),S%s(S%nz))
 k = 1
 
- do j=1,S%m
-   do i=1,S%n
+ do j=1,S%n
+   do i=1,S%m
      if (X(i,j).ne.0) then
        S%i(k) = i
        S%j(k) = j
@@ -598,6 +622,7 @@ end function ssparsemat_mult_ssparsemat
 #define dot_TYPE sdot
 #define gemm_TYPE sgemm
 #define syevx_TYPE ssyevx
+#define spotrf_TYPE spotrf
 
 #define diag_TYPE sdiag
 #define trace_TYPE strace
@@ -616,6 +641,7 @@ end function ssparsemat_mult_ssparsemat
 
 #define mat_mult_matT_TYPE smat_mult_smatT
 #define mat_mult_ssparsematT_TYPE smat_mult_ssparsematT
+#define vec_mult_ssparsematT_TYPE svec_mult_ssparsematT
 #define vec_mult_vecT_TYPE svec_mult_svecT
 #define matT_mult_mat_TYPE smatT_mult_smat
 #define matT_mult_vec_TYPE smatT_mult_svec
@@ -634,6 +660,8 @@ end function ssparsemat_mult_ssparsemat
 #define ssvd_TYPE ssvd_singleprec
 #define gesvd_f90_TYPE gesvd_sf90 
 #define symeig_TYPE symeig_sf90
+#define chol_TYPE schol
+#define sqrtm_TYPE ssqrtm
 
 #include "matoper_inc.F90"
 
@@ -657,6 +685,7 @@ end function ssparsemat_mult_ssparsemat
 #undef dot_TYPE
 #undef gemm_TYPE
 #undef syevx_TYPE
+#undef spotrf_TYPE
 
 #undef diag_TYPE
 #undef trace_TYPE
@@ -676,6 +705,7 @@ end function ssparsemat_mult_ssparsemat
 
 #undef mat_mult_matT_TYPE
 #undef mat_mult_ssparsematT_TYPE
+#undef vec_mult_ssparsematT_TYPE 
 #undef vec_mult_vecT_TYPE
 #undef matT_mult_mat_TYPE
 #undef matT_mult_vec_TYPE
@@ -694,6 +724,8 @@ end function ssparsemat_mult_ssparsemat
 #undef ssvd_TYPE
 #undef gesvd_f90_TYPE
 #undef symeig_TYPE
+#undef chol_TYPE
+#undef sqrtm_TYPE
 
 
 
@@ -741,6 +773,7 @@ end function ssparsemat_mult_ssparsemat
 #define dot_TYPE ddot
 #define gemm_TYPE dGEMM
 #define syevx_TYPE dsyevx
+#define spotrf_TYPE dpotrf
 
 #define diag_TYPE ddiag
 #define trace_TYPE dtrace
@@ -759,6 +792,7 @@ end function ssparsemat_mult_ssparsemat
 
 #define mat_mult_matT_TYPE dmat_mult_dmatT
 #define mat_mult_ssparsematT_TYPE dmat_mult_ssparsematT
+#define vec_mult_ssparsematT_TYPE dvec_mult_ssparsematT
 #define vec_mult_vecT_TYPE dvec_mult_dvecT
 #define matT_mult_mat_TYPE dmatT_mult_dmat
 #define matT_mult_vec_TYPE dmatT_mult_dvec
@@ -777,10 +811,293 @@ end function ssparsemat_mult_ssparsemat
 #define ssvd_TYPE ssvd_doubleprec
 #define gesvd_f90_TYPE gesvd_df90 
 #define symeig_TYPE symeig_df90
+#define chol_TYPE dchol
+#define sqrtm_TYPE dsqrtm
 
 
 #include "matoper_inc.F90"
 
+
+  !_______________________________________________________
+  !
+
+  subroutine assert_bool(cond,msg)
+    
+    ! Produce an error if the specified condition is no true
+
+    implicit none
+    
+    ! Inputs
+    logical, intent(in) :: cond  ! condition to check   
+    character(len=*) :: msg      ! message to print while checking
+
+    if (cond) then
+       write(6,*) msg, ': OK '
+    else
+       write(6,*) msg, ': FAIL '
+       stop
+    end if
+  end subroutine assert_bool
+
+  !_______________________________________________________
+  !
+
+  subroutine assert_scal(found,expected,tol,msg)
+    
+    ! Produce an error if the scalar found is not the same as expected but
+    ! equality comparison for numeric data uses a tolerance tol.
+
+    implicit none
+    
+    ! Inputs
+    real, intent(in) :: found    ! found value
+    real, intent(in) :: expected ! expected value
+    real, intent(in) :: tol      ! tolerance for comparision
+    character(len=*) :: msg      ! message to print while checking
+
+    ! Local variable
+    real :: maxdiff
+    maxdiff = abs(found - expected)
+
+    if (maxdiff < tol) then
+       write(6,*) msg, ': OK '
+    else
+       write(6,*) msg, ': FAIL ', maxdiff
+       write(6,*) 'found ',found
+       write(6,*) 'expected ',expected
+       stop
+    end if
+
+
+  end subroutine assert_scal
+
+  !_______________________________________________________
+  !
+
+  subroutine assert_vec(found,expected,tol,msg)
+    
+    ! Produce an error if the vector found is not the same as expected but
+    ! equality comparison for numeric data uses a tolerance tol.
+
+    implicit none
+    
+    ! Inputs
+    real, intent(in) :: found(:)    ! vector found 
+    real, intent(in) :: expected(:) ! vector expected
+    real, intent(in) :: tol         ! tolerance for comparision
+    character(len=*) :: msg         ! message to print while checking
+
+    ! Local variable
+    real :: maxdiff
+    maxdiff = maxval(abs(found - expected))
+
+    if (maxdiff < tol) then
+       write(6,*) msg, ': OK '
+    else
+       write(6,*) msg, ': FAIL ', maxdiff
+       write(6,*) 'found ',found
+       write(6,*) 'expected ',expected
+       stop
+    end if
+
+
+  end subroutine assert_vec
+
+  !_______________________________________________________
+  !
+
+  subroutine assert_mat(found,expected,tol,msg)
+    
+    ! Produce an error if the matrix found is not the same as expected but
+    ! equality comparison for numeric data uses a tolerance tol.
+
+    implicit none
+    
+    ! Inputs
+    real, intent(in) :: found(:,:)     ! matrix found
+    real, intent(in) :: expected(:,:)  ! matrix expected
+    real, intent(in) :: tol            ! tolerance for comparision
+    character(len=*) :: msg            ! message to print while checking
+
+    ! Local variable
+    real :: maxdiff
+    maxdiff = maxval(abs(found - expected))
+
+    if (maxdiff < tol) then
+       write(6,*) msg, ': OK '
+    else
+       write(6,*) msg, ': FAIL ', maxdiff
+       ! often too large to print
+       !     write(6,*) 'found ',found
+       !     write(6,*) 'expected ',expected
+       stop
+    end if
+
+
+  end subroutine assert_mat
+
+
+  ! Redefine DATA_TYPE to the type needed for the subroutines sort and unique
+#define DATA_TYPE integer 
+
+  subroutine sort(A,ind)
+    
+    ! Sort all elements of vector A inplace.
+    ! The optional argument ind is the sort index such that
+    ! sortedA = A
+    ! call sort(sortedA,ind)
+    ! A(ind) is the same as sortedA
+
+    implicit none
+    
+    ! Input
+    DATA_TYPE, intent(inout), dimension(:) :: A               ! vector to sort
+    
+    ! Optional output
+    integer, intent(out), dimension(size(A)), optional :: ind ! sort index
+
+    ! Local variable
+    integer :: sort_index(size(A))
+    integer :: i
+
+    sort_index = [(i, i=1,size(A))]
+
+    call sort_(A,sort_index)
+    if (present(ind)) ind = sort_index
+
+  contains
+    recursive subroutine sort_(A,ind)
+      implicit none
+
+      DATA_TYPE, intent(inout), dimension(:) :: A
+      integer, intent(inout), dimension(:) :: ind
+      integer :: iq
+
+      if (size(A) > 1) then
+         call sort_partition(A, ind, iq)
+         call sort_(A(:iq-1),ind(:iq-1))
+         call sort_(A(iq:),ind(iq:))
+      end if
+    end subroutine sort_
+
+    subroutine sort_partition(A, ind, marker)
+      implicit none
+
+      DATA_TYPE, intent(inout), dimension(:) :: A
+      integer, intent(inout), dimension(:) :: ind
+      integer, intent(out) :: marker
+      integer :: i, j, tempind
+      DATA_TYPE :: temp
+      DATA_TYPE :: x      ! pivot point
+
+      x = A(1)
+      i = 0
+      j = size(A) + 1
+
+      do
+         j = j-1
+         do
+            if (A(j) <= x) exit
+            j = j-1
+         end do
+
+         i = i+1
+         do
+            if (A(i) >= x) exit
+            i = i+1
+         end do
+
+
+         if (i < j) then
+            ! exchange A(i) and A(j)
+            temp = A(i)
+            A(i) = A(j)
+            A(j) = temp
+
+            tempind = ind(i)
+            ind(i) = ind(j)
+            ind(j) = tempind        
+         else if (i == j) then
+            marker = i+1
+            return
+         else
+            marker = i
+            return
+         end if
+      end do
+
+    end subroutine sort_partition
+
+  end subroutine sort
+
+  !_______________________________________________________
+  !
+
+  subroutine unique(A,n,ind,ind2)
+    
+    ! Return all unique elements of A (inplace)
+    ! n is the number of unique elements
+
+    implicit none
+
+    ! Input and output
+    DATA_TYPE, intent(inout) :: A(:)   ! vector, output unique elements for A
+
+    ! Output
+    integer, intent(out) :: n           ! number of unique elements
+
+    ! Optional outputs:
+    ! indices such that
+    ! ind is a vector of indices for all unique elements in A
+    ! Anew(1:n) = Aold(ind)
+    ! Aold = Anew(ind2)   
+    integer, intent(out), dimension(size(A)), optional :: ind, ind2
+
+    ! Local variables:
+    integer :: unique_index(size(A)), unique_index2(size(A)), i
+
+    unique_index = [(i, i=1,size(A))]
+
+    call unique_(A,n,unique_index,unique_index2)
+    if (present(ind)) ind = unique_index
+    if (present(ind2)) ind2 = unique_index2
+
+  contains
+    subroutine unique_(A,n,ind,ind2)
+      implicit none
+
+      DATA_TYPE, intent(inout) :: A(:)
+      integer, intent(out) :: n
+      integer, intent(out), dimension(size(A)) :: ind
+      integer, intent(out), dimension(size(A)) :: ind2
+
+      integer :: i
+      integer, dimension(size(A)) :: sort_ind
+
+      ind2 = 1
+      call sort(A,sort_ind)
+
+      n = 1
+      do i = 1,size(A)-1
+         ind2(sort_ind(i)) = n
+
+         A(n) = A(i)
+         ind(n) = sort_ind(i)
+
+         if (A(i) /= A(i+1)) then
+            n = n+1
+         end if
+      end do
+
+      A(n) = A(size(A))
+      ind(n) = sort_ind(size(A))
+      ind2(sort_ind(size(A))) = n
+
+    end subroutine unique_
+  end subroutine unique
+
+  !_______________________________________________________
+  !
 
 
  function pcg(fun,b,x0,tol,maxit,pc,nit,relres) result(x)

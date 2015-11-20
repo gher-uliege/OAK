@@ -57,15 +57,15 @@ ASSIM_PROG ?= assim
 
 ASSIM_SRCS = sangoma_base.f90 \
 	anamorphosis.F90 assim.F90 assimilation.F90 date.F90 grids.F90 \
-	initfile.F90 matoper.F90 ndgrid.F90 parall.F90 rrsqrt.F90 \
-	ufileformat.F90 random_d.f90 sangoma_ewpf.F90 user_base.f90
+	initfile.F90 matoper.F90 covariance.F90 ndgrid.F90 parall.F90 rrsqrt.F90 \
+	ufileformat.F90 random_d.f90 sangoma_ewpf.F90 user_base.f90 oak.F90
 
 ASSIM_OBJS = anamorphosis.o assim.o assimilation.o date.o grids.o initfile.o \
-	matoper.o ndgrid.o parall.o rrsqrt.o ufileformat.o match.o sangoma_ewpf.o \
-	random_d.o user_base.o
+	matoper.o covariance.o ndgrid.o parall.o rrsqrt.o ufileformat.o match.o sangoma_ewpf.o \
+	random_d.o user_base.o oak.o
 
 MODULES = anamorphosis.mod  assimilation.mod  date.mod  grids.mod  initfile.mod  \
-        matoper.mod  ndgrid.mod  parall.mod  rrsqrt.mod  ufileformat.mod
+        matoper.mod covariance.mod  ndgrid.mod  parall.mod  rrsqrt.mod  ufileformat.mod oak.mod
 
 #-----------------#
 #  Common macros  #
@@ -83,7 +83,7 @@ OBJS = $(ASSIM_OBJS)
 
 
 
-all: $(PROG)
+all: $(PROG) lib
 
 clean:
 	rm -f $(PROG) $(OBJS) $(MODULES)
@@ -139,13 +139,15 @@ $(ASSIM_PROG): $(ASSIM_OBJS)
 #----------------#
 
 assim.o: assim.F90 assimilation.o initfile.o matoper.o rrsqrt.o ufileformat.o \
-	ppdef.h
+	ppdef.h 
 
 ndgrid.o: ndgrid.F90 ndgrid_inc.F90 matoper.o ufileformat.o ppdef.h 
 
 parall.o: parall.F90 ppdef.h
 
-matoper.o: matoper.F90 ppdef.h
+matoper.o: matoper.F90 ppdef.h matoper_inc.F90
+
+covariance.o: matoper.o covariance.F90
 
 date.o: date.F90 ppdef.h
 
@@ -162,7 +164,7 @@ sangoma_ewpf.o: random_d.o equal_weights_step.f90 quicksort.f90 gen_random.f90 s
 user_base.o: sangoma_base.o
 
 assimilation.o: assimilation.F90 user_base.o sangoma_base.o sangoma_ewpf.o anamorphosis.o date.o grids.o initfile.o \
-	matoper.o ndgrid.o parall.o rrsqrt.o ufileformat.o ppdef.h
+	matoper.o ndgrid.o parall.o rrsqrt.o ufileformat.o ppdef.h covariance.o
 
 ufileformat.o: ufileformat.F90 ppdef.h
 

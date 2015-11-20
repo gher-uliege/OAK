@@ -24,6 +24,7 @@
 ! module for on-line coupling between model and assimilation routines
 
 module oak
+#ifdef ASSIM_PARALL
  use assimilation
 
  type oakconfig
@@ -517,7 +518,8 @@ contains
   type(MemLayout) :: ObsML
   type(SparseMatrix) :: H
   ! force double precision of time
-  real(8) :: obstime, obstime_next, model_dt
+  real(8) :: obstime, obstime_next
+  real    :: model_dt
   integer :: ntime, obsVec, dt_obs
 
   ! time of the next observation
@@ -636,5 +638,5 @@ contains
     deallocate(Ea,Ef)
   end if
  end subroutine oak_assim
-
+#endif
 end module oak
