@@ -4,6 +4,7 @@ include ../Compilers/libs.mk
 
 
 F90FLAGS += -Wunused-variable -Wall -I..
+
 all: test_locassim test_ndgrid test_cellgrid locassim assimtest2 test_matoper test_rrsqrt
 
 test_locassim: test_locassim.F90 ../matoper.o ../matoper2.o
@@ -32,8 +33,9 @@ print:
 	echo $(LIBS) $(F90FLAGS) $(PRECISION)
 
 clean:
-	rm -f test_locassim test_ndgrid *.o
+	rm -f test_locassim test_ndgrid test_matoper *.o
 
-test: test_locassim
+test: test_locassim test_cellgrid test_matoper
 	./test_locassim
 	./test_cellgrid
+	./test_matoper

@@ -25,7 +25,6 @@ contains
   integer :: n
   real :: len = 3
   integer :: Nens
-  integer :: method
 
   type(LocCovar) :: LC
   type(ConsCovar) :: Pc
@@ -530,13 +529,8 @@ program test
    stop
  end if
 
- call test_sort
- call test_unique
- call test_locfun 
- call test_pcg
  call test_covar
- call test_chol
- call test_sqrtm
+ call test_locfun 
 
 ! same results as matlab code test_locassim_fortran
 ! call run_test([3,2]) ! ok
@@ -546,6 +540,53 @@ program test
  call run_test_large([5,5,10],.false.) ! ok in double precision
 ! call run_test_large([30,30,20],.false.) ! ok
 ! call run_test_large([80,80,30],.false.)
+
+contains
+
+  subroutine test_covar
+  use matoper
+  type(DiagCovar) :: C
+  !class(DiagCovar), allocatable :: C
+  real :: mdiag(2) = (/ 2.,3. /)
+
+  !allocate(C)
+  C = newDiagCovar(mdiag)
+  !C = DiagCovar(mdiag)
+  
+  call innersub(C)
+ end subroutine test_covar
+ 
+ subroutine innersub(B)
+  implicit none
+  class(Covar) :: B
+  real :: C(2,2)
+
+    C = 2. *  eye(2)
+
+    call B%print()
+
+    call assert(B%mulmat(C), &
+       reshape([4.,0.,0.,6.],[2,2]), &
+       1e-7, 'DiagCovar*Matrix (method)')
+
+    call assert(B.x.(C), &
+       reshape([4.,0.,0.,6.],[2,2]), &
+       1e-7, 'DiagCovar*Matrix (.x. operator)')
+
+    call assert(B * (C), &
+       reshape([4.,0.,0.,6.],[2,2]), &
+       1e-7, 'DiagCovar*Matrix (* operator)')
+
+
+   end subroutine innersub
+
+  subroutine test_locfun()   
+   call assert(locfun(0.), 1., 1e-7, 'locfun (1)')
+   call assert(locfun(0.4), 0.783573333333333, 1e-6, 'locfun (2)')
+   call assert(locfun(1.5), 0.0164930555555556, 1e-6, 'locfun (3)')
+   call assert(locfun(2.5), 0., 1e-7, 'locfun (4)')
+  end subroutine test_locfun
+
 end program test
 
 

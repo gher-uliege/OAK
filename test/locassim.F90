@@ -1,6 +1,6 @@
 !
 !  OAK, Ocean Assimilation Kit
-!  Copyright(c) 2002-2011 Alexander Barth and Luc Vandenblucke
+!  Copyright(c) 2002-2015 Alexander Barth and Luc Vandenblucke
 !
 !  This program is free software; you can redistribute it and/or
 !  modify it under the terms of the GNU General Public License
