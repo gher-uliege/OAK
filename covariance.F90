@@ -608,7 +608,4 @@ contains
 
  end subroutine locensanalysis
 
-
-
-
  end module covariance
