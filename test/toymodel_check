@@ -1,6 +1,10 @@
 #!/bin/bash -xe
 
 
+mkdir -p Analysis001 Analysis002 $(seq -f Ens%03g 1 2)
+ncgen -o domain.nc domain.cdl
+ncgen -o obs1.nc obs1.cdl
+
 # F="-fdefault-real-8 /home/abarth/src/sangoma/tools/trunk/Fortran/utilities/sangoma_utils.F90 /home/abarth/src/sangoma/tools/trunk/Fortran/analysis/sangoma_ensemble_analysis.F90"
 
 # echo 'Serial model'
