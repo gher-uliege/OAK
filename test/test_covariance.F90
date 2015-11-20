@@ -532,7 +532,7 @@ program test
  call test_covar
  call test_locfun 
 
-! same results as matlab code test_locassim_fortran
+! same results as matlab code test_covariance_fortran
 ! call run_test([3,2]) ! ok
 
 ! call run_test([5,5])
