@@ -18,9 +18,9 @@ program toymodel
  integer :: j0, j1, k0, k1, nl
  real :: sumx
 
- integer :: rank
+ integer :: rank, nprocs
 #ifdef MODEL_PARALLEL
- integer :: comm, nprocs, ierr, tag
+ integer :: comm, ierr, tag
  integer :: precision = mpi_double_precision
  !integer :: precision = mpi_real
  integer :: status(mpi_status_size)
@@ -36,9 +36,10 @@ program toymodel
 
 #ifdef MODEL_PARALLEL
 
- write(6,*) 'here'
  call mpi_init(ierr)
- write(6,*) 'here',__LINE__
+ if (ierr /= 0) then
+   write(6,*) 'MPI initialization failed'
+ end if
 
 #ifdef OAK
  call oak_init(config,'test_assim.init',mpi_comm_world,comm)
@@ -125,7 +126,9 @@ program toymodel
 ! write(6,*) 'x ',x, 'rank',rank
 ! write(6,*) 'xinit ',xinit, 'rank',rank
 
+#ifndef OAK
  call check_results(x)
+#endif
 
  deallocate(x,xinit)
 

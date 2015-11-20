@@ -80,9 +80,10 @@ contains
 
   call getInitValue(initfname,'ErrorSpace.dimension',config%Nens,default=0)
 
-  call parallInit(communicator=config%comm_all)
+  call parallInit(communicator=comm)
   call init(initfname)
   allocate(config%dom(ModML%effsize))
+
 
   if (present(comm)) then
     ! model uses also MPI, split communicators
@@ -104,7 +105,7 @@ contains
   end if
 
   call mpi_comm_size(config%comm_all, nprocs, ierr)
-
+!  write(6,*) 'nprocs',nprocs,config%comm_all
 
   allocate(config%weightf(config%Nens),config%weighta(config%Nens))
   config%weightf = 1./config%Nens
@@ -317,7 +318,6 @@ contains
       ! ensemble member index (integer division)
       dest_ensmember = dest/config%ndom + 1
 
-
       i1 = startIndexZones(startZIndex(source+1))
       i2 =   endIndexZones(endZIndex(source+1))
 
@@ -524,7 +524,7 @@ contains
   call loadObsTime(config%obsntime,obstime,ierr)    
   if (ierr /= 0) then
     ! no more observations are available
-    write(6,*) 'no more obs',procnum
+    !write(6,*) 'no more obs',procnum
     return
   end if
   
@@ -608,9 +608,9 @@ contains
 
       !Ea = Ef
       ! analysis
-      write(6,*) 'Ef ',Ef
+      !write(6,*) 'Ef ',Ef
       call assim(config%obsntime,Ef,Ea)
-      write(6,*) 'Ea ',Ea
+      !write(6,*) 'Ea ',Ea
       call oak_spread_members(config,Ea,x)
     else
       ! collect at master
