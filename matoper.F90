@@ -79,12 +79,14 @@ interface operator(.tx.)
   module procedure &
 ! single precision
     smatT_mult_smat, &
-    ssparsematT_mult_smat, &
     smatT_mult_svec, &
+    ssparsematT_mult_smat, &
+    ssparsematT_mult_svec, &
 ! double precision
     dmatT_mult_dmat, &
+    dmatT_mult_dvec, &
     dsparsematT_mult_dmat, &
-    dmatT_mult_dvec
+    dsparsematT_mult_dvec
 end interface
 
 ! diag(A) B
@@ -644,6 +646,7 @@ end function ssparsemat_mult_ssparsemat
 #define matT_mult_mat_TYPE smatT_mult_smat
 #define matT_mult_vec_TYPE smatT_mult_svec
 #define ssparsematT_mult_mat_TYPE ssparsematT_mult_smat
+#define ssparsematT_mult_vec_TYPE ssparsematT_mult_svec
 
 #define diag_mult_mat_TYPE sdiag_mult_smat
 #define diag_mult_vec_TYPE sdiag_mult_svec
@@ -707,6 +710,7 @@ end function ssparsemat_mult_ssparsemat
 #undef matT_mult_mat_TYPE
 #undef matT_mult_vec_TYPE
 #undef ssparsematT_mult_mat_TYPE
+#undef ssparsematT_mult_vec_TYPE
 
 #undef diag_mult_mat_TYPE
 #undef diag_mult_vec_TYPE
@@ -793,6 +797,7 @@ end function ssparsemat_mult_ssparsemat
 #define matT_mult_mat_TYPE dmatT_mult_dmat
 #define matT_mult_vec_TYPE dmatT_mult_dvec
 #define ssparsematT_mult_mat_TYPE dsparsematT_mult_dmat
+#define ssparsematT_mult_vec_TYPE dsparsematT_mult_dvec
 
 #define diag_mult_mat_TYPE ddiag_mult_dmat
 #define diag_mult_vec_TYPE ddiag_mult_dvec
@@ -1094,7 +1099,8 @@ end function ssparsemat_mult_ssparsemat
   !_______________________________________________________
   !
 
- function pcg(fun,b,x0,tol,maxit,pc,nit) result(x)
+
+ function pcg(fun,b,x0,tol,maxit,pc,nit,relres) result(x)
 
   interface 
     function fun(x) result(y)
@@ -1118,6 +1124,9 @@ end function ssparsemat_mult_ssparsemat
   real, intent(in), optional :: tol
   integer, intent(in), optional :: maxit
   integer, intent(out), optional :: nit
+  ! relative residual 
+  ! |fun(x) - b| / |b|
+  real, intent(out), optional :: relres
 
   !   class(Covar) :: pc
   real :: tol_, zr_old, zr_new
@@ -1154,6 +1163,7 @@ end function ssparsemat_mult_ssparsemat
   ! quick exit
   if (sum(r**2) < tol2) then
     if (present(nit)) nit = k
+    if (present(relres)) relres = sqrt(sum(r**2)/sum(b**2))
     return
   endif
 
@@ -1227,6 +1237,8 @@ end function ssparsemat_mult_ssparsemat
     zr_old = zr_new
     r_old = r
   enddo
+
+  if (present(relres)) relres = sqrt(sum((fun(x) - b)**2)/sum(b**2))
 
 
  end function pcg

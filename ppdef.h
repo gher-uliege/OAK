@@ -53,3 +53,6 @@
 
 ! no parallel observation operator
 #define EXACT_OBS_OPER
+
+
+#define dbg(var) write(0,*) __FILE__,__LINE__,'var',var

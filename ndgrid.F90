@@ -1060,6 +1060,7 @@ implicit none
   logical, optional, intent(out) :: out
   real :: x(size(ind))
 
+  !dbg(ind)
   if (present(out)) then
     x = getCoord0(g,ind-1,out)
   else
@@ -1080,6 +1081,8 @@ implicit none
 
   integer :: i,linindex
 
+  !dbg(ind)
+  !dbg(g%gshape)
   if (present(out)) then
     out = (any(ind.lt.0).or.any(ind.ge.g%gshape))
     if (out) return
@@ -1087,7 +1090,7 @@ implicit none
 
   do i=1,g%n
     linindex = g%startindex(i) + sum(ind * g%ioffset(:,i))
-    x(i) = g%data( linindex )
+    x(i) = g%data(linindex)
   end do
   
   

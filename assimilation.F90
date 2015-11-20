@@ -1,6 +1,6 @@
 !
 !  OAK, Ocean Assimilation Kit
-!  Copyright(c) 2002-2012 Alexander Barth and Luc Vandenblucke
+!  Copyright(c) 2002-2015 Alexander Barth and Luc Vandenblucke
 !
 !  This program is free software; you can redistribute it and/or
 !  modify it under the terms of the GNU General Public License
@@ -200,7 +200,9 @@ module assimilation
   integer :: schemetype
   integer, parameter :: &
       GlobalScheme  = 0, &           ! (default)
-      LocalScheme   = 1    
+      LocalScheme   = 1, &    
+      CLocalScheme   = 2,  &
+      EWPFScheme   = 3
 
  ! type of localization
  ! 1: horizontal distance (default)
@@ -287,12 +289,12 @@ contains
   call getInitValue(initfname,'loctype',loctype,default=1)
   call getInitValue(initfname,'anamorphosistype',anamorphosistype,default=NoAnamorphosis)
 
-# ifdef ASSIM_PARALLEL
-  if (schemetype /= LocalScheme) then
-    write(stderr,*) 'Error: for parallel version schemetype should be 1 (local assimilation)'
-    ERROR_STOP
-  end if
-# endif
+! # ifdef ASSIM_PARALLEL
+!   if (schemetype /= LocalScheme) then
+!     write(stderr,*) 'Error: for parallel version schemetype should be 1 (local assimilation)'
+!     ERROR_STOP
+!   end if
+! # endif
   
   call initAnamorphosis(fname,stddebug)
 
@@ -326,32 +328,32 @@ contains
 
   do v=1,vmax
     n = ModML%ndim(v)
-  
+
     ! initialisze the model grid structure ModelGrid(v)
     call initgrid(ModelGrid(v),n,ModML%varshape(1:n,v), &
-       ModML%Mask(ModML%StartIndex(v):ModML%EndIndex(v)).eq.0)
+         ModML%Mask(ModML%StartIndex(v):ModML%EndIndex(v)).eq.0)
 
     ! set the coordinates of the model grid
     call setCoord(ModelGrid(v),1,trim(path)//filenamesX(v))
-    call setCoord(ModelGrid(v),2,trim(path)//filenamesY(v))
 
-    if (n > 2) then
-      call setCoord(ModelGrid(v),3,trim(path)//filenamesZ(v))
+    if (n > 1) then
+      call setCoord(ModelGrid(v),2,trim(path)//filenamesY(v))
 
-      !write(6,*) 'getCoord ',getCoord(ModelGrid(1),(/ 1,1,1 /),out)
+      if (n > 2) then
+        call setCoord(ModelGrid(v),3,trim(path)//filenamesZ(v))
 
-      if (n > 3) then
-        !write(stderr,*) 'The dimension of variable ',trim(ModML%varnames(v)),' is ',n
-        !write(stderr,*) 'Error: Only 3-d grids are supported for now. '
+        if (n > 3) then
+          !write(stderr,*) 'The dimension of variable ',trim(ModML%varnames(v)),' is ',n
+          !write(stderr,*) 'Error: Only 3-d grids are supported for now. '
 
-        !ERROR_STOP 
+          !ERROR_STOP 
 
-        call getInitValue(initfname,'Model.gridT',filenamesT)
-        call setCoord(ModelGrid(v),4,trim(path)//filenamesT(v))
-        deallocate(filenamesT)
+          call getInitValue(initfname,'Model.gridT',filenamesT)
+          call setCoord(ModelGrid(v),4,trim(path)//filenamesT(v))
+          deallocate(filenamesT)
+        end if
       end if
     end if
-    
 
   end do
 
@@ -377,7 +379,7 @@ contains
 
 ! variables for local assimilation
 
-  if (schemetype == LocalScheme .or. schemetype == 2) then
+  if (schemetype == LocalScheme .or. schemetype == CLocalScheme) then
     allocate(tmp(ModML%effsize),partition(ModML%effsize), &
          hCorrLengthToObs(ModML%effsize),hMaxCorrLengthToObs(ModML%effsize))
     call loadVector('Zones.partition',ModML,tmp)
@@ -424,11 +426,15 @@ contains
     ModMLParallel%startIndexParallel = 1
     ModMLParallel%endIndexParallel   =  ModMLParallel%effsize
 #   endif     
+  else
+    ! no permutation
+    allocate(invZoneIndex(StateVectorSizeSea))
+    invZoneIndex = [(zi,zi=1,StateVectorSizeSea)]
   end if
 
-  ModMLParallel%permute = schemetype == LocalScheme .or. schemetype == 2
+  ModMLParallel%permute = schemetype == LocalScheme .or. schemetype == CLocalScheme
 
-  if (schemetype == 2) then
+  if (schemetype == CLocalScheme) then
      ModML%permute = .true.
   end if
 
@@ -1632,6 +1638,7 @@ end subroutine fmtIndex
 
       if (la%varshape(3,m).eq.1) la%ndim(m) = 2
     end if
+    !write(6,*) 'la%varshape(:,m), la%ndim(m)',la%varshape(:,m), la%ndim(m)
 
     la%VarSize(m) = product(la%varshape(1:la%ndim(m),m))
     la%EndIndex(m) = la%StartIndex(m) + la%VarSize(m)-1 
@@ -2331,7 +2338,7 @@ end subroutine fmtIndex
   end if
 
 
-  if (schemetype.eq.LocalScheme) then
+  if (schemetype.eq.LocalScheme .and. allocated(invZoneIndex)) then
     ! permute state vector
     do j=1,H%nz
       H%j(j) = invZoneIndex(H%j(j))
@@ -2490,7 +2497,10 @@ end subroutine fmtIndex
             
             tindexes = 1
 
-            if (ModML%ndim(v).eq.2) then
+            if (ModML%ndim(v).eq.1) then
+              call cinterp(ModelGrid(v), (/ obsX(linindex) /), &
+                   tindexes(1:1,1:2),tc(1:2),tn_test)
+            elseif (ModML%ndim(v).eq.2) then
               call cinterp(ModelGrid(v), (/ obsX(linindex),obsY(linindex) /), &
                    tindexes(1:2,1:4),tc(1:4),tn_test)
             elseif (ModML%ndim(v).eq.3) then
@@ -2785,15 +2795,22 @@ end subroutine fmtIndex
   Hx = H.x.xf
 #else
 
-#ifdef EXACT_OBS_OPER
-   if (procnum.eq.1) allocate(xt(H%n))
-  call parallGather(xf,xt,startIndexZones,endIndexZones)
+  if (size(xf) == StateVectorSizeSea) then
+    ! we have already the complete state vector
 
+    Hx = H.x.xf
+    return
+  end if
+
+#ifdef EXACT_OBS_OPER
+  if (procnum.eq.1) allocate(xt(H%n))
+  call parallGather(xf,xt,startIndexZones,endIndexZones)
+  
   if (procnum == 1) then
     Hx = H.x.xt
     deallocate(xt)
   end if
-  call mpi_bcast(Hx,H%m,DEFAULT_REAL,0,mpi_comm_world,ierr)
+  call mpi_bcast(Hx,H%m,DEFAULT_REAL,0,comm,ierr)
 #else
   tmp = 0
 
@@ -2808,7 +2825,7 @@ end subroutine fmtIndex
     end if
   end do
 
-  call mpi_allreduce(tmp, Hx, H%m, DEFAULT_REAL,mpi_sum, mpi_comm_world, ierr)
+  call mpi_allreduce(tmp, Hx, H%m, DEFAULT_REAL,mpi_sum, comm, ierr)
 #endif
 #endif
 
@@ -2892,7 +2909,7 @@ end function
  ! bindex: index of each timed block 
  !
 
- subroutine Assim(ntime,Sf,Sa,xfp,xap,Efanam,Eaanam)
+ subroutine Assim(ntime,Sf,Sa,xfp,xap,Efanam,Eaanam,weightf,weighta)
   use matoper
   use rrsqrt
   use ufileformat
@@ -2906,7 +2923,9 @@ end function
   real, intent(out)              :: Sa(:,:)
   real, intent(inout), optional, target  :: xfp(:)
   real, intent(out),   optional, target  :: xap(:)
-  real, optional, intent(out)    :: Efanam(:,:),Eaanam(:,:)
+  real, intent(out),   optional  :: Efanam(:,:),Eaanam(:,:)
+  real, intent(in),    optional  :: weightf(:)
+  real, intent(out),   optional  :: weighta(:)
 
   ! local variables
   character(len=256)             :: prefix,path, str, str2
@@ -2925,6 +2944,7 @@ end function
        yo_Hxf, yo_Hxa, innov_projection, Hshift, Hbf
   real, allocatable, dimension(:,:) :: HSf, HSa, locAmplitudes
 
+
 !!$  real, pointer, dimension(:) :: yo, Hxf, Hxa, invsqrtR, &
 !!$       yo_Hxf, yo_Hxa, innov_projection, Hshift, Hbf
 !!$  real, pointer, dimension(:,:) :: HSf, HSa
@@ -2939,6 +2959,7 @@ end function
 # endif
 
 
+  real :: valex
 
 
 # ifdef _OPENMP
@@ -3026,9 +3047,6 @@ end function
 
     xf = sum(Sf,2)/size(Sf,2)
     Hxf = sum(HSf,2)/size(Sf,2)
-
-    write(stddebug,*) 'Sf ',shape(Sf),shape(xf),lbound(xf),ubound(xf)
-    write(stddebug,*) 'HSf ',shape(HSf),shape(Hxf),lbound(Hxf),ubound(Hxf)
 
     ! compute errors modes Sf and HSf
     do k=1,size(Sf,2)      
@@ -3145,14 +3163,37 @@ end function
            call locanalysis(zoneSize,selectObservations, &
                 xf,Hxf,yo,Sf,HSf,invsqrtR, xa,Sa,locAmplitudes)
         end if
-
-      elseif (schemetype.eq.2) then
+     elseif (schemetype.eq.CLocalScheme) then
         allocate(modGrid(ModML%effsize,2))
         call loadVector('Model.gridX',ModML,modGrid(:,1))
         call loadVector('Model.gridY',ModML,modGrid(:,2))
 
         call locanalysis2(modGrid,xf,Sf,H,yo,invsqrtR, xa,Sa)
-      else
+     elseif (schemetype.eq.EWPFScheme) then
+       if (.not.present(weightf) .or. .not.present(weighta)) then
+         write(stdout,*) 'Error: the parameters weigthf and weighta not ', &
+              ' specified for EWPFScheme'
+       end if
+         
+       !call getInitValue(initfname,'ErrorSpace.path',path)
+       !call getInitValue(initfname,'ErrorSpace.weight',str)
+       !call uload(trim(path)//str,weight,valex)
+       
+       !allocate(weighta(size(weight,1)))
+       call ewpf_analysis(xf,Sf,weightf,H,invsqrtR,yo,xa,Sa,weighta)
+
+       if (presentInitValue(initfname,'Diag'//trim(infix)//'weightf')) then
+         call getInitValue(initfname,'Diag'//trim(infix)//'path',path)
+         call getInitValue(initfname,'Diag'//trim(infix)//'weightf',str)
+         call usave(trim(path)//str,weightf,9999.)
+       end if
+
+       if (presentInitValue(initfname,'Diag'//trim(infix)//'weighta')) then
+         call getInitValue(initfname,'Diag'//trim(infix)//'path',path)
+         call getInitValue(initfname,'Diag'//trim(infix)//'weighta',str)
+         call usave(trim(path)//str,weighta,9999.)
+       end if
+     else
 !$omp master
         if (biastype.eq.ErrorFractionBias) then
            call biasedanalysis(biasgamma,xf,biasf,Hxf,Hbf,yo,Sf,HSf,invsqrtR, &
@@ -3560,7 +3601,7 @@ end function
 
 ! x,y=longitude and latitude of the element the "index"th component of 
 ! model state vector
-     real x,y,z,t,x4(4),x3(3),x2(2)
+     real x,y,z,t,x4(4),x3(3),x2(2),x1(1)
      logical out
 
      real, parameter :: pi = 3.141592653589793238462643383279502884197
@@ -3574,7 +3615,11 @@ end function
 
      call ind2sub(ModML,index,v,i,j,k,n)
 
-     if (ModML%ndim(v).eq.2) then
+     if (ModML%ndim(v).eq.1) then
+       x1 = getCoord(ModelGrid(v),(/ i /),out)
+       x = x1(1)
+       y = 0
+     elseif (ModML%ndim(v).eq.2) then
        x2 = getCoord(ModelGrid(v),(/ i,j /),out)
        x = x2(1)
        y = x2(2)
@@ -3583,12 +3628,16 @@ end function
        x = x3(1)
        y = x3(2)
        z = x3(3)
-     else
+     elseif (ModML%ndim(v).eq.4) then
        x4 = getCoord(ModelGrid(v),(/ i,j,k,n /),out)
        x = x4(1)
        y = x4(2)
        z = x4(3)
        t = x4(4)
+     else
+       write(stderr,*) __FILE__,__LINE__,'the number of dimensions should be ',&
+            'between 0 and 4 and got ',ModML%ndim(v)
+       ERROR_STOP
      end if
 
 
@@ -4420,6 +4469,307 @@ subroutine ensAnalysisAnamorph2(yo,Ef,HEf,invsqrtR,  &
   end if
 end subroutine anamtransform
 
+
+subroutine ewpf_proposal_step(ntime,obsVec,dt_obs,X,weight,yo,invsqrtR,H)
+ use matoper
+ use sangoma_ewpf
+ use initfile
+ implicit none
+ integer, intent(in) :: ntime                   ! current model timestep
+ integer,intent(in) :: obsVec                     ! model time step at which we have next 
+                                                            ! observations, i.e. next analysis time
+ integer,intent(in) :: dt_obs                     ! model timesteps betwe
+ real, intent(in) :: yo(:)
+ real, intent(inout) :: weight(:),X(:,:)
+ real, intent(in) :: invsqrtR(:)
+ type(SparseMatrix), intent(in)  :: H
+
+! current model timestep
+! integer ::  ntime = 0      
+
+ ! model time step at which we have next 
+ ! observations, i.e. next analysis time 
+ !integer :: obsVec = 10
+
+ ! model timesteps between last and next
+ ! observation setst
+ !integer :: dt_obs = 3
+
+ ! double precision for sangoma tools
+ real(8) :: weight2(size(weight))
+ real(8)  :: X2(size(X,1),size(X,2))
+
+ real :: Qscale
+ call getInitValue(initfname,'EWPF.Qscale',Qscale,default=0.001)
+
+
+ !subroutine proposal_step(Ne,Nx,Ny,weight,x_n,y,ntime,obsVec,dt_obs, &
+ !          cb_H, cb_HT, cb_Qhalf, cb_solve_r) bind(C, name="proposal_step_")
+
+! write(6,*) 'weight ',__LINE__,weight
+ weight2 = weight
+ X2 = X
+
+ call proposal_step(size(X,2),size(X,1),size(yo), &
+      weight2,X2, &
+      real(yo,8), &
+      ntime,obsVec,dt_obs, &
+      cb_H, cb_HT, cb_Qhalf, cb_solve_r)
+
+ weight = weight2
+ X = X2
+! write(6,*) 'weight ',__LINE__,weight
+! dbg(X)
+contains
+
+ subroutine cb_H(Ne,Nx,Ny,vec_in,vec_out) ! bind(C)
+  use, intrinsic :: ISO_C_BINDING
+  use sangoma_base, only: REALPREC, INTPREC
+  implicit none
+  
+  integer(INTPREC), intent(in) :: Nx,Ny,Ne             ! state, observation and ensemble dimensions
+  real(REALPREC), intent(in), dimension(Nx,Ne) :: vec_in      ! input vector in state space to which
+  ! to apply the observation operator h, e.g. h(x)
+  real(REALPREC), intent(inout), dimension(Ny,Ne) :: vec_out  ! resulting vector in observation space
+
+  vec_out = H.x.vec_in
+ end subroutine cb_H
+
+ subroutine cb_HT(Ne,Nx,Ny,vec_in,vec_out) ! bind(C)
+  use, intrinsic :: ISO_C_BINDING
+  use sangoma_base, only: REALPREC, INTPREC
+  implicit none
+  
+  integer(INTPREC), intent(in) :: Nx,Ny,Ne            ! state, observation and ensemble dimensions
+  real(REALPREC), intent(in), dimension(Ny,Ne) :: vec_in     ! input vector in observation space to which
+  ! to apply the observation operator h, e.g. h^T(x)
+  real(REALPREC), intent(inout), dimension(Nx,Ne) :: vec_out ! resulting vector in state space
+
+  vec_out = H.tx.vec_in
+ end subroutine cb_HT
+
+
+ subroutine cb_solve_r(Ne,Ny,vec_in,vec_out) ! bind(C)
+  use, intrinsic :: ISO_C_BINDING
+  use sangoma_base, only: REALPREC, INTPREC
+  implicit none
+  
+  integer(INTPREC), intent(in) :: Ny,Ne               ! observation and ensemble dimensions
+  real(REALPREC), intent(in), dimension(Ny,Ne) :: vec_in     ! input vector in observation space 
+  ! which to apply the inverse observation error
+  ! covariances R, e.g. R^{-1}(d)
+  real(REALPREC), intent(inout), dimension(Ny,Ne) :: vec_out ! resulting vector in observation space
+  integer :: k
+
+  do k = 1,Ne
+    vec_out(:,k) = invsqrtR**2 * vec_in(:,k)
+  end do
+ end subroutine cb_solve_r
+
+ subroutine cb_Qhalf(Ne,Nx,vec_in,vec_out) ! bind(C)
+  use, intrinsic :: ISO_C_BINDING
+  use sangoma_base, only: REALPREC, INTPREC
+  implicit none
+  
+  integer(INTPREC), intent(in) :: Nx,Ne               ! state and ensemble dimensions
+  real(REALPREC), intent(in), dimension(Nx,Ne) :: vec_in     ! vector in state space to which to apply
+                                                                     ! the squarerooted model error covariances 
+                                                                     ! Q^{1/2}, e.g. Q^{1/2}(d)
+  real(REALPREC), intent(inout), dimension(Nx,Ne) :: vec_out ! resulting vector in state space!!!
+
+!  vec_out = sqrtQ.x.vec_in
+  vec_out = sqrt(Qscale) * vec_in
+ end subroutine cb_Qhalf
+
+ 
+end subroutine ewpf_proposal_step
+
+!------------------------------------------------------------------
+
+subroutine ewpf_analysis(xf,Sf,weight,H,invsqrtR, &
+     !sqrtQ, &
+     yo,xa,Sa,weighta)
+ use matoper
+ use initfile
+ use sangoma_ewpf
+ use user_base
+ implicit none
+ real, intent(in) :: xf(:),Sf(:,:),weight(:),invsqrtR(:),yo(:)
+ real, intent(out) :: xa(:),Sa(:,:),weighta(:)
+ type(SparseMatrix), intent(in)  :: H
+! type(SparseMatrix), intent(in)  :: sqrtQ
+
+ real :: Qscale, tmp
+
+ ! double precision for sangoma tools
+ real(8), allocatable :: X(:,:)
+ real(8) :: weight_analysis(size(weight))
+ integer :: i
+
+ ! parameters keep, ... are always in double precision
+ tmp = keep
+ call getInitValue(initfname,'EWPF.keep',tmp,default=tmp)
+ keep = tmp
+
+ tmp = nstd
+ call getInitValue(initfname,'EWPF.nstd',tmp,default=tmp)
+ nstd = tmp
+
+ tmp = nmean
+ call getInitValue(initfname,'EWPF.nmean',tmp,default=tmp)
+ nmean = tmp
+
+ tmp = ufac 
+ call getInitValue(initfname,'EWPF.ufac',tmp,default=tmp)
+ ufac = tmp
+
+ tmp = efacNum
+ call getInitValue(initfname,'EWPF.efacNum',tmp,default=tmp)
+ efacNum = tmp
+
+ tmp = freetime
+ call getInitValue(initfname,'EWPF.freetime',tmp,default=tmp)
+ freetime = tmp 
+
+ tmp = nudgefac
+ call getInitValue(initfname,'EWPF.nudgefac',tmp,default=tmp)
+ nudgefac = tmp
+
+ call getInitValue(initfname,'EWPF.Qscale',Qscale,default=0.001)
+
+ allocate(X(size(xf,1),size(Sf,2)))
+
+ do i=1,size(Sf,2)
+   X(:,i) = xf + Sf(:,i)
+ end do
+
+ weight_analysis = weight
+
+ call equal_weight_step(size(Sf,2),size(xf),size(yo), &
+      weight_analysis,X,real(yo,8), &
+      cb_H, cb_HT, cb_solve_r, cb_solve_hqht_plus_r, cb_Qhalf)
+
+ weighta = weight_analysis 
+
+! write(6,*) 'X', __LINE__,X(4,:)
+ xa = sum(X,2) / size(X,2)
+ do i=1,size(Sf,2)
+   Sa(:,i) = X(:,i) - xa
+ end do
+
+ deallocate(X)
+contains
+
+ subroutine cb_H(Ne,Nx,Ny,vec_in,vec_out) ! bind(C)
+  use, intrinsic :: ISO_C_BINDING
+  use sangoma_base, only: REALPREC, INTPREC
+  implicit none
+  
+  integer(INTPREC), intent(in) :: Nx,Ny,Ne             ! state, observation and ensemble dimensions
+  real(REALPREC), intent(in), dimension(Nx,Ne) :: vec_in      ! input vector in state space to which
+  ! to apply the observation operator h, e.g. h(x)
+  real(REALPREC), intent(inout), dimension(Ny,Ne) :: vec_out  ! resulting vector in observation space
+
+  vec_out = H.x.vec_in
+
+ end subroutine cb_H
+
+ subroutine cb_HT(Ne,Nx,Ny,vec_in,vec_out) ! bind(C)
+  use, intrinsic :: ISO_C_BINDING
+  use sangoma_base, only: REALPREC, INTPREC
+  implicit none
+  
+  integer(INTPREC), intent(in) :: Nx,Ny,Ne            ! state, observation and ensemble dimensions
+  real(REALPREC), intent(in), dimension(Ny,Ne) :: vec_in     ! input vector in observation space to which
+  ! to apply the observation operator h, e.g. h^T(x)
+  real(REALPREC), intent(inout), dimension(Nx,Ne) :: vec_out ! resulting vector in state space
+
+  vec_out = H.tx.vec_in
+ end subroutine cb_HT
+
+ function hqht_plus_r(vec_in) result (vec_out)
+  implicit none
+  real, intent(in) :: vec_in(:)
+  ! e.g. (HQH^T+R) vec_in
+  real :: vec_out(size(vec_in))
+  
+  ! (HQH^T+R) vec_in
+  ! H (Q (H^T * vec_in)) + R * vec_in
+
+  ! R * vec_in
+  vec_out = H.x.(Qscale  * (H.tx.vec_in))
+
+  ! R * vec_in
+  vec_out = vec_out + vec_in / (invsqrtR**2)
+ end function hqht_plus_r
+
+
+ subroutine cb_solve_hqht_plus_r(Ne,Ny,vec_in,vec_out) ! bind(C)
+  use, intrinsic :: ISO_C_BINDING
+  use sangoma_base, only: REALPREC, INTPREC
+  implicit none
+  
+  integer(INTPREC), intent(in) :: Ny,Ne                ! observation and ensemble dimensions
+  real(REALPREC), intent(in), dimension(Ny,Ne) :: vec_in      ! vector in observation space to which to
+  ! apply the observation error covariances R,
+  ! e.g. (HQH^T+R)^{-1}(d)
+  real(REALPREC), intent(inout), dimension(Ny,Ne) :: vec_out  ! resulting vector in observation space
+
+  integer :: k
+  real :: residual(Ny),relres
+
+  do k = 1,Ne
+!    write(6,*) 'start ',k,vec_in(:,k)
+!    vec_out(:,k) = hqht_plus_r(vec_in(:,k))
+!    write(6,*) 'apply ',k,vec_out(:,k)
+
+    vec_out(:,k) = pcg(hqht_plus_r,real(vec_in(:,k)),relres=relres)
+
+!    residual = hqht_plus_r(vec_out(:,k)) - vec_in(:,k)
+
+!    write(6,*) 'residual ', relres
+!    write(6,*) 'residual ', sqrt(sum(residual**2)/sum(vec_in(:,k)**2))
+
+    !write(6,*) 'residual ', (hqht_plus_r(vec_out(:,k)) - vec_in(:,k))
+  end do
+
+ end subroutine cb_solve_hqht_plus_R
+
+ subroutine cb_solve_r(Ne,Ny,vec_in,vec_out) ! bind(C)
+  use, intrinsic :: ISO_C_BINDING
+  use sangoma_base, only: REALPREC, INTPREC
+  implicit none
+  
+  integer(INTPREC), intent(in) :: Ny,Ne               ! observation and ensemble dimensions
+  real(REALPREC), intent(in), dimension(Ny,Ne) :: vec_in     ! input vector in observation space 
+  ! which to apply the inverse observation error
+  ! covariances R, e.g. R^{-1}(d)
+  real(REALPREC), intent(inout), dimension(Ny,Ne) :: vec_out ! resulting vector in observation space
+  integer :: k
+
+  do k = 1,Ne
+    vec_out(:,k) = invsqrtR**2 * vec_in(:,k)
+  end do
+ end subroutine cb_solve_r
+
+ subroutine cb_Qhalf(Ne,Nx,vec_in,vec_out) ! bind(C)
+  use, intrinsic :: ISO_C_BINDING
+  use sangoma_base, only: REALPREC, INTPREC
+  implicit none
+  
+  integer(INTPREC), intent(in) :: Nx,Ne               ! state and ensemble dimensions
+  real(REALPREC), intent(in), dimension(Nx,Ne) :: vec_in     ! vector in state space to which to apply
+                                                                     ! the squarerooted model error covariances 
+                                                                     ! Q^{1/2}, e.g. Q^{1/2}(d)
+  real(REALPREC), intent(inout), dimension(Nx,Ne) :: vec_out ! resulting vector in state space!!!
+
+  vec_out = sqrt(Qscale) * vec_in
+
+ end subroutine cb_Qhalf
+
+
+ 
+end subroutine ewpf_analysis
 
 
 

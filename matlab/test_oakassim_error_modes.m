@@ -40,12 +40,12 @@ S = scale * full(Eic);
 Pf = S*S';
 
 I = eye(n,n);
+yo = obs(1).yo;
 H = zeros(length(yo),n);
 
 for i=1:n
   H(:,i) = h(I(:,i));
 end
-yo = obs(1).yo;
 
 [xa,Pa] = simple_assim(xf,Pf,yo,R,H);
 

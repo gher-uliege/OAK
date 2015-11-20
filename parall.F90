@@ -22,7 +22,7 @@
 
 module parall
 # ifdef MPI  
-  include 'mpif.h'
+  use mpi
 # endif
 # ifdef PVM
   include 'fpvm3.h'
@@ -35,6 +35,8 @@ module parall
  integer, save :: procnum=1, nbprocs=1
  integer, save, allocatable :: procid(:), procSpeed(:), cumulProcSpeed(:)
 
+ ! communicator
+ integer :: comm
 
  ! indices for parallelisation (zones)
  ! vector of nbprocs integer
@@ -48,18 +50,24 @@ contains
 !_______________________________________________________
 
 
- subroutine parallInit(num,nb,speed)
+ subroutine parallInit(num,nb,speed,communicator)
   implicit none
   integer, intent(in), optional :: num,nb
   integer, intent(in), optional :: speed
+  integer, intent(in), optional :: communicator
 
   integer :: i,inum,istat,info,ierr
-
+  logical :: flag
 
 #ifdef MPI  
-  call mpi_init(ierr)
-  call mpi_comm_rank(mpi_comm_world, procnum, ierr)
-  call mpi_comm_size(mpi_comm_world, nbprocs, ierr)
+  comm = mpi_comm_world
+  if (present(communicator)) comm = communicator
+
+  call mpi_initialized(flag, ierr)
+  if (.not.flag) call mpi_init(ierr)
+
+  call mpi_comm_rank(comm, procnum, ierr)
+  call mpi_comm_size(comm, nbprocs, ierr)
 
   procnum = procnum+1
 
@@ -165,8 +173,8 @@ subroutine parallPartion(nzones)
 #ifdef ASSIM_PARALLEL
 
   allocate(startZIndex(nbprocs),endZIndex(nbprocs))
-  startZIndex =(nzones*cumulprocspeed(1:nbprocs))/cumulprocspeed(nbprocs+1) + 1
-  endZIndex =  (nzones*cumulprocspeed(2:nbprocs+1))/cumulprocspeed(nbprocs+1)
+  startZIndex =(nzones*cumulProcSpeed(1:nbprocs))/cumulProcSpeed(nbprocs+1) + 1
+  endZIndex =  (nzones*cumulProcSpeed(2:nbprocs+1))/cumulProcSpeed(nbprocs+1)
 
 # ifdef DEBUG
   write(stdout,*) 'partitioning start',startZIndex

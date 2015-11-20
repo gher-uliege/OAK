@@ -943,6 +943,21 @@ File contains debugging information is the code was compiled with the flag \code
 \hline
 \end{keytabular}
 
+
+\section{Data structures}
+
+The subroutine assim requires as an argument a part of the model state for local assimilation. The way the data is distributed can be explained by the following steps:
+
+\begin{enumerate}
+\item for each variable concatenate the model sub-domains (if the model domain is decomposed into sub-domains)
+\item concatenate all variables
+\item remove masked elements
+\item permute the order of the elements so that all elements belong to the same zone are continuous in memory. The elements are ``sorted'' using numeric labels in the partition vector (the sort is stable, i.e. if two elements have the same partition label, their order is not changed).
+\item each vector is distributed among the available processes
+\end{enumerate}
+
+The actual implements avoid to form a global vector spanning the entire state vector and goes directly from the first step to the last.
+
 \section{Standalone programs}\label{sec_standalone}
 
 \subsection{Program \code{assim}}\label{prog_assim}
