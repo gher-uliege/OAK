@@ -529,6 +529,9 @@ program test
    stop
  end if
 
+ call test_DiagR
+ call test_nonDiagR
+
  call test_covar
  call test_locfun 
 
@@ -580,12 +583,97 @@ contains
 
    end subroutine innersub
 
+!----------------------------------------------------------------------
+
   subroutine test_locfun()   
    call assert(locfun(0.), 1., 1e-7, 'locfun (1)')
    call assert(locfun(0.4), 0.783573333333333, 1e-6, 'locfun (2)')
    call assert(locfun(1.5), 0.0164930555555556, 1e-6, 'locfun (3)')
    call assert(locfun(2.5), 0., 1e-7, 'locfun (4)')
   end subroutine test_locfun
+
+!----------------------------------------------------------------------
+
+
+  subroutine test_DiagR
+   use matoper
+   implicit none
+   integer, parameter :: m = 3, N = 2
+   real :: C(m), y(m), F(m,m), invCy(m), invCy_ref(m)
+   real :: A(m,m), invCA(m,m), invCA_ref(m,m)
+   type(DiagCovar) :: Cov
+   integer :: i
+
+   C = [(mod(i,5)+1., i=1,m)]
+   
+   call DiagCovar_init(Cov,C)
+
+   ! compare full matrix
+
+   F = 0
+   do i = 1,m
+     F(i,i) = F(i,i) + C(i)
+   end do
+   call assert(F,Cov%full(), 1e-7, 'Diag RR (1)')
+   
+   ! solve for a vector
+
+   y = [(mod(i,2)+1., i=1,m)]
+   invCy = Cov%mldivide(y)
+   invCy_ref = matmul(inv(F),y)
+   call assert(invCy,invCy_ref, 1e-7, 'Diag RR (2)')
+
+   ! solve for a matrix
+   
+   A = reshape([(mod(i,10), i=1,m*m)],[m,m])
+   invCA = Cov%mldivide(A)
+   invCA_ref = matmul(inv(F),A)
+   call assert(invCA,invCA_ref, 1e-7, 'Diag RR (3)')
+
+
+  end subroutine 
+
+!----------------------------------------------------------------------
+
+
+  subroutine test_nonDiagR
+   use matoper
+   implicit none
+   integer, parameter :: m = 3, N = 2
+   real :: C(m), B(m,N), y(m), F(m,m), invCy(m), invCy_ref(m)
+   real :: A(m,m), invCA(m,m), invCA_ref(m,m)
+   type(SMWCovar) :: Cov
+   integer :: i
+
+   C = [(mod(i,5)+1., i=1,m)]
+   B = reshape([(mod(i,5)+1., i=1,m*N)],[m,N])
+   
+   call SMWCovar_init(Cov,C,B)
+
+   ! compare full matrix
+
+   F = matmul(B,transpose(B))
+   do i = 1,m
+     F(i,i) = F(i,i) + C(i)
+   end do
+   call assert(F,Cov%full(), 1e-7, 'nonDiagR (1)')
+   
+   ! solve for a vector
+
+   y = [(mod(i,2)+1., i=1,m)]
+   invCy = Cov%mldivide(y)
+   invCy_ref = matmul(inv(F),y)
+   call assert(invCy,invCy_ref, 1e-7, 'nonDiagR (2)')
+
+   ! solve for a matrix
+   
+   A = reshape([(mod(i,10), i=1,m*m)],[m,m])
+   invCA = Cov%mldivide(A)
+   invCA_ref = matmul(inv(F),A)
+   call assert(invCA,invCA_ref, 1e-7, 'nonDiagR (3)')
+
+
+  end subroutine test_nonDiagR
 
 end program test
 

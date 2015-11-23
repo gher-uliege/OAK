@@ -111,6 +111,11 @@ interface operator(.xd.)
      dmat_mult_ddiag
 end interface
 
+interface randn
+  module procedure &
+       randn_vec, &
+       randn_mat
+end interface randn
 
 interface inv
   module procedure &
@@ -260,28 +265,69 @@ contains
   call random_number(E)
  end function 
 
-!_______________________________________________________
-!
-! create a matrix filled with gaussian distributed 
-! random number with 0 mean and 1 standard deviation
-!
-! FIXME: implement the "Box-Muller transformation"
-!
 
- function randn(n,m) result(E)
-  implicit none
-  integer, intent(in) :: n,m
-  real :: E(n,m)
+  !_______________________________________________________
+  !
 
-  integer :: i
+  function randn_mat(n,m) result(E)
 
-  E = rand(n,m);
-  do i=1,11
-    E = E + rand(n,m);
-  end do
+    ! Return a matrix with normally distributed random elements having
+    ! zero mean and variance one.
+    ! Better would be to implement the "Box-Muller transformation".
 
-  E = E-6
- end function 
+    implicit none
+
+    ! Inputs 
+    integer, intent(in) :: n,m ! the size of the random matrix
+
+    ! Output
+    real :: E(n,m)             ! random matrix
+
+    ! Local variable
+    integer :: i
+    real :: tmp(n,m)   
+
+    ! Sum 12 normally distributed random variables and substract 6
+    call random_number(E)
+
+    do i=1,11
+      call random_number(tmp)
+       E = E + tmp
+    end do
+
+    E = E-6
+  end function randn_mat
+
+  !_______________________________________________________
+  !
+
+  function randn_vec(n) result(E)
+
+    ! Return a vector with normally distributed random elements having
+    ! zero mean and variance one.
+    
+    implicit none
+
+    ! Input
+    integer, intent(in) :: n   ! length of the random vector
+
+    ! Output
+    real :: E(n)               ! random vector
+
+    ! Local variable
+    real :: tmp(n)
+
+    ! Local variable
+    integer :: i
+
+    call random_number(E)
+    do i=1,11
+       call random_number(tmp)
+       E = E + tmp;
+    end do
+
+    E = E-6
+  end function randn_vec
 
 !_______________________________________________________
 !

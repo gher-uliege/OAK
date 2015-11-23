@@ -43,9 +43,13 @@ type, extends(Covar) :: DiagCovar
   real, pointer :: diag(:)
    contains
         procedure :: init => DiagCovar_init
+        procedure :: full => DiagCovar_full
         procedure :: print => DiagCovar_print
         procedure :: mulmat => DiagCovar_mulmat
         procedure :: mulvec => DiagCovar_mulvec
+        procedure :: DiagCovar_mldivide_vec, DiagCovar_mldivide_mat
+        generic, public :: mldivide => DiagCovar_mldivide_vec, DiagCovar_mldivide_mat
+
 end type DiagCovar
 
 #ifdef SUPPORT_CON
@@ -90,6 +94,17 @@ type, extends(Covar) :: ConsCovar
         procedure :: mulvec => conscovar_smult_vec
         procedure :: mulmat => conscovar_smult_mat
 end type ConsCovar
+
+type, extends(Covar) :: SMWCovar
+  real, allocatable :: C(:), B(:,:), D(:,:)
+  contains
+        procedure :: initialize => SMWCovar_init
+        procedure :: full => SMWCovar_full
+        procedure :: SMWCovar_mldivide_vec, SMWCovar_mldivide_mat
+
+        generic, public :: mldivide => SMWCovar_mldivide_vec, SMWCovar_mldivide_mat
+
+end type SMWCovar
 
 
 
@@ -179,6 +194,18 @@ end interface
     print *, 'Diag Covar: ', this%n,this%n
    end subroutine DiagCovar_print
 
+!---------------------------------------------------------------------
+ 
+  function DiagCovar_full(self) result(M)
+   implicit none
+   class(DiagCovar) :: self
+   real :: M(size(self%diag),size(self%diag))
+
+   M = diag(self%diag)
+  end function
+
+!---------------------------------------------------------------------
+
   function DiagCovar_mulvec(this,x) result(C)
     class(DiagCovar), intent(in) :: this
     real, intent(in) :: x(:)
@@ -200,6 +227,32 @@ end interface
       end do
     end do
    end function DiagCovar_mulmat
+
+!---------------------------------------------------------------------
+ 
+  function DiagCovar_mldivide_vec(self,v) result(Q)
+   implicit none
+   class(DiagCovar) :: self
+   real, intent(in) :: v(:)
+   real :: Q(size(v))
+
+   Q = v / self%diag
+  end function DiagCovar_mldivide_vec
+
+!---------------------------------------------------------------------
+ 
+  function DiagCovar_mldivide_mat(self,A) result(Q)
+   implicit none
+   class(DiagCovar) :: self
+   real, intent(in) :: A(:,:)
+   real :: Q(size(A,1),size(A,2))
+   integer :: i
+
+   do i = 1,size(A,2)
+     Q(:,i) = DiagCovar_mldivide_vec(self,A(:,i))
+   end do
+  end function DiagCovar_mldivide_mat
+
 
 !---------------------------------
 ! LocCovar
@@ -434,7 +487,72 @@ end interface
    Px = this%C .x. x2
    Px = Px - matmul(this%h,matmul(transpose(this%h),Px))
   end function conscovar_smult_mat
+
+
+!---------------------------------------------------------------------
+
+! Create the covariance matrix CSMW = C +  B*B' than can be inverted efficiently
+! using the Sherman-Morrison-Woodbury formula, if size(B,2) is much smaller than
+! size(C,1):
+!
+! inv(C +  B*B') = inv(C) -  inv(C)*B*inv(B'*inv(C)*B +  I)*B'*inv(C) 
+
+
+  subroutine SMWCovar_init(self,C,B)
+   use matoper
+   implicit none   
+   class(SMWCovar) :: self
+   real, intent(in) :: B(:,:), C(:)
+
+   allocate(self%C(size(C)), &
+        self%B(size(B,1),size(B,2)), &
+        self%D(size(B,2),size(B,2)))
+
+   self%n = size(C)
+   self%C = C
+   self%B = B
+   self%D = inv(matmul(transpose(B), (1/C) .dx. B) + eye(size(B,2)))
+  end subroutine SMWCovar_init
+
+
+!---------------------------------------------------------------------
  
+  function SMWCovar_full(self) result(M)
+   implicit none
+   class(SMWCovar) :: self
+   real :: M(size(self%C),size(self%C))
+
+   M = diag(self%C) + matmul(self%B,transpose(self%B))
+  end function
+  
+!---------------------------------------------------------------------
+ 
+  function SMWCovar_mldivide_vec(self,v) result(Q)
+   implicit none
+   class(SMWCovar) :: self
+   real, intent(in) :: v(:)
+   real :: Q(size(v))
+
+   Q = v / self%C
+
+   Q = Q - matmul(self%B,matmul(self%D,(matmul(transpose(self%B),Q))))/self%C
+  end function SMWCovar_mldivide_vec
+
+!---------------------------------------------------------------------
+ 
+  function SMWCovar_mldivide_mat(self,A) result(Q)
+   implicit none
+   class(SMWCovar) :: self
+   real, intent(in) :: A(:,:)
+   real :: Q(size(A,1),size(A,2))
+   integer :: i
+
+   do i = 1,size(A,2)
+     Q(:,i) = SMWCovar_mldivide_vec(self,A(:,i))
+   end do
+  end function SMWCovar_mldivide_mat
+
+!---------------------------------------------------------------------
 
 ! method: 1 -> SS^T
 ! method: 2 -> Pc
