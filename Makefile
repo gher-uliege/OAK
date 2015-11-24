@@ -196,23 +196,23 @@ test/test_covariance: test/test_covariance.o matoper.o covariance.o
 
 test/test_ndgrid.o: test/test_ndgrid.F90 matoper.o ndgrid.o ufileformat.o
 test/test_ndgrid: test/test_ndgrid.o matoper.o ndgrid.o ufileformat.o
-	$(F90C) $(F90FLAGS) $(LDFLAGS) -o $@ $+ $(LIBS)
+	$(F90C) $(F90FLAGS) $(LDFLAGS) -o $@ $+ $(LIBS) $(EXTRA_LDFLAGS)
 
 test/test_cellgrid.o: test/test_cellgrid.F90 matoper.o ndgrid.o ufileformat.o
 test/test_cellgrid: test/test_cellgrid.o matoper.o ndgrid.o ufileformat.o
-	$(F90C) $(F90FLAGS) $(LDFLAGS) -o $@ $+ $(LIBS)
+	$(F90C) $(F90FLAGS) $(LDFLAGS) -o $@ $+ $(LIBS) $(EXTRA_LDFLAGS)
 
 test/assimtest2.o: test/assimtest2.F90 matoper.o rrsqrt.o
 test/assimtest2: test/assimtest2.o matoper.o rrsqrt.o
-	$(F90C) $(F90FLAGS) $(LDFLAGS) -o $@ $+ $(LIBS)
+	$(F90C) $(F90FLAGS) $(LDFLAGS) -o $@ $+ $(LIBS) $(EXTRA_LDFLAGS)
 
 test/test_matoper.o: test/test_matoper.F90 matoper.o 
 test/test_matoper: test/test_matoper.o matoper.o 
-	$(F90C) $(F90FLAGS) $(LDFLAGS) -o $@ $+ $(LIBS)
+	$(F90C) $(F90FLAGS) $(LDFLAGS) -o $@ $+ $(LIBS) $(EXTRA_LDFLAGS)
 
 test/test_rrsqrt.o: test/test_rrsqrt.F90  matoper.o rrsqrt.o
 test/test_rrsqrt: test/test_rrsqrt.o  matoper.o rrsqrt.o
-	$(F90C) $(F90FLAGS) $(LDFLAGS) -o $@ $+ $(LIBS)
+	$(F90C) $(F90FLAGS) $(LDFLAGS) -o $@ $+ $(LIBS) $(EXTRA_LDFLAGS)
 
 test: test/test_covariance test/test_ndgrid test/test_cellgrid test/assimtest2 test/test_matoper test/test_rrsqrt test/toymodel
 	./test/test_ndgrid
