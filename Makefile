@@ -5,17 +5,17 @@
 #  Rules  #
 #---------#
 
-.f90.o:
-	$(F90C) $(F90FLAGS) -c $<
+# .f90.o:
+# 	$(F90C) $(F90FLAGS) -c $<
 
-.F90.o:
-	$(F90C) $(F90FLAGS) -c $<
+# .F90.o:
+# 	$(F90C) $(F90FLAGS) -c $<
 
 %.o: %.F90
-	$(F90C) $(F90FLAGS) -c $<
+	$(F90C) $(F90FLAGS) -o $@ -c $<
 
-%.o: %.f90
-	$(F90C) $(F90FLAGS) -c $<
+# %.o: %.f90
+# 	$(F90C) $(F90FLAGS) -c $<
 
 .SUFFIXES: $(SUFFIXES) .f90 .F90
 .PHONY: test
@@ -172,8 +172,14 @@ match.o: match.c
 
 oak.o: oak.F90 assimilation.o ndgrid.o
 
+covariance.o: covariance.F90 matoper.o
 
 # Tests
+
+test/test_covariance.o: test/test_covariance.F90 matoper.o covariance.o
+
+test/test_covariance: test/test_covariance.o matoper.o covariance.o
+	$(F90C) $(F90FLAGS)  -o $@ test/test_covariance.o matoper.o covariance.o  $(LIBS) $(EXTRA_LDFLAGS)
 
 
 test:

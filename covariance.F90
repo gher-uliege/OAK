@@ -97,9 +97,8 @@ type, extends(Covar) :: LocCovar
   procedure(locpoints_), pointer, nopass:: lpoints
    contains
         procedure :: init => LocCovar_init
-        procedure :: print => lc_print        
-        procedure :: mtimes_vec => loccovar_smult_vec
-        procedure :: mtimes_max => loccovar_smult_mat
+        procedure :: mtimes_vec => LocCovar_mtimes_vec
+        procedure :: mtimes_max => LocCovar_mtimes_mat
  end type LocCovar
 
 #ifdef SUPPORT_CON
@@ -113,9 +112,9 @@ type, extends(Covar) :: ConsCovar
 !  class(LocCovar), pointer :: C
   class(Covar), pointer :: C
    contains
-        procedure :: initialize => consInitialize
-        procedure :: mtimes_vec => conscovar_smult_vec
-        procedure :: mtimes_mat => conscovar_smult_mat
+        procedure :: initialize => ConsCovar_init
+        procedure :: mtimes_vec => ConsCovar_mtimes_vec
+        procedure :: mtimes_mat => ConsCovar_mtimes_mat
 end type ConsCovar
 
 interface matmul
@@ -354,11 +353,9 @@ end interface
   end function SMWCovar_mldivide_vec
 
 
-!---------------------------------
-! LocCovar
-!  
-
-
+!---------------------------------------------------------------------
+! LocCovar: localized ensemble covariance matrix
+!---------------------------------------------------------------------
 
   function locfun(r) result(fun)
    real :: r,fun
@@ -457,14 +454,8 @@ end interface
    LC%S => S
   end function newLocCovar
 
-  subroutine lc_print(this)
-    class(LocCovar), intent(in) :: this
-    print *, 'lc : r = ', this%n
-   end subroutine lc_print
 
-
-
-  function loccovar_smult_vec(this,x) result (Px)
+  function LocCovar_mtimes_vec(this,x) result (Px)
    class(LocCovar), intent(in) :: this
    real, intent(in) :: x(:)
    real :: Px(size(x,1))
@@ -482,9 +473,9 @@ end interface
 !      if (mod(i,1) == 0) write(6,*) 'i,n,',i,this%n,nnz, Px(i)
 !      if (mod(i,5000) == 0) stop
   end do
- end function loccovar_smult_vec
+ end function LocCovar_mtimes_vec
 
- function loccovar_smult_mat(this,x) result (Px)
+ function LocCovar_mtimes_mat(this,x) result (Px)
    class(LocCovar), intent(in) :: this
    real, intent(in) :: x(:,:)
    real ::  Px(size(x,1),size(x,2))
@@ -506,7 +497,7 @@ end interface
    end do
 
 
-  end function loccovar_smult_mat
+  end function LocCovar_mtimes_mat
 
 
   ! compute H * P * H' y : matmul(matul(this, transpose(H),H) y
@@ -546,7 +537,11 @@ end interface
   end function loccovar_project
 
 
-  subroutine consInitialize(this,C,h)
+!---------------------------------------------------------------------
+! CovarCovar: localized ensemble covariance matrix with global constrains
+!---------------------------------------------------------------------
+
+  subroutine ConsCovar_init(this,C,h)
    class(ConsCovar) :: this
 !   class(LocCovar), pointer :: C
    class(Covar), target :: C
@@ -555,7 +550,9 @@ end interface
    this%n = C%n
    this%C => C
    this%h => h
-  end subroutine consInitialize
+  end subroutine ConsCovar_init
+
+!---------------------------------------------------------------------
 
   function newConsCovar(C, H) result(this)
    type(ConsCovar) :: this
@@ -567,8 +564,9 @@ end interface
    this%h => h
   end function newConsCovar
 
+!---------------------------------------------------------------------
 
-  function conscovar_smult_vec(this,x) result (Px)
+  function ConsCovar_mtimes_vec(this,x) result (Px)
    class(ConsCovar), intent(in) :: this
    real, intent(in) :: x(:)
    real ::  Px(size(x,1)), x2(this%n) 
@@ -576,9 +574,11 @@ end interface
    x2 = x - matmul(this%h,matmul(transpose(this%h),x))
    Px = this%C .x. x2
    Px = Px - matmul(this%h,matmul(transpose(this%h),Px))
-  end function conscovar_smult_vec
+  end function ConsCovar_mtimes_vec
 
-  function conscovar_smult_mat(this,A) result (Px)
+!---------------------------------------------------------------------
+
+  function ConsCovar_mtimes_mat(this,A) result (Px)
    implicit none
    class(ConsCovar), intent(in) :: this
    real, intent(in) :: A(:,:)
@@ -587,7 +587,7 @@ end interface
    x2 = A - matmul(this%h,matmul(transpose(this%h),A))
    Px = this%C .x. x2
    Px = Px - matmul(this%h,matmul(transpose(this%h),Px))
-  end function conscovar_smult_mat
+  end function ConsCovar_mtimes_mat
 
 !---------------------------------------------------------------------
 
@@ -596,6 +596,7 @@ end interface
 
  subroutine locensanalysis(xf,S,Hs,yo,R,lpoints,Hc,xa,Sa,method)
   use matoper
+  implicit none
   real, intent(in) :: xf(:), yo(:)
   class(Covar), intent(in) :: R
   real, pointer, intent(in) :: S(:,:), Hc(:,:)
