@@ -32,17 +32,17 @@ integer, parameter :: locensanalysis_Pc = 2
 type, abstract :: Covar
   ! size of the covariance matrix
   integer         :: n
-   contains
-    procedure(Covar_mtimes_vec), deferred :: mtimes_vec
+ contains
+  procedure(Covar_mtimes_vec), deferred :: mtimes_vec
 
-    procedure :: print => Covar_print
-    procedure :: full => Covar_full
-    procedure :: mtimes_mat => Covar_mtimes_mat
-    procedure :: mldivide_vec => Covar_mldivide_vec
-    procedure :: mldivide_mat => Covar_mldivide_mat
-    
-    generic, public :: mtimes => mtimes_vec, mtimes_mat
-    generic, public :: mldivide => mldivide_vec, mldivide_mat
+  procedure :: print => Covar_print
+  procedure :: full => Covar_full
+  procedure :: mtimes_mat => Covar_mtimes_mat
+  procedure :: mldivide_vec => Covar_mldivide_vec
+  procedure :: mldivide_mat => Covar_mldivide_mat
+
+  generic, public :: mtimes => mtimes_vec, mtimes_mat
+  generic, public :: mldivide => mldivide_vec, mldivide_mat
 end type Covar
 
 abstract interface
