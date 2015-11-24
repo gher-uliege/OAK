@@ -1,6 +1,6 @@
 #!/bin/bash -xe
 
-
+cd test
 mkdir -p Analysis001 Analysis002 $(seq -f Ens%03g 1 2)
 ncgen -o domain.nc domain.cdl
 ncgen -o obs1.nc obs1.cdl
@@ -19,4 +19,5 @@ ncgen -o obs1.nc obs1.cdl
 # echo 'Serial model + Assim'
 # mpif90 -fdefault-real-8 -g -C -DOAK -o toymodel $F ndgrid.F90 oak.F90 toymodel.F90  -llapack -lblas && mpirun -np 4 toymodel
 
-make toymodel && mpirun -np 4 toymodel
+
+mpirun -np 4 toymodel

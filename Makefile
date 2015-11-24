@@ -11,11 +11,12 @@
 # .F90.o:
 # 	$(F90C) $(F90FLAGS) -c $<
 
+# use -o to ensure that the object file is in the same directory that source file
 %.o: %.F90
 	$(F90C) $(F90FLAGS) -o $@ -c $<
 
-# %.o: %.f90
-# 	$(F90C) $(F90FLAGS) -c $<
+%.o: %.f90
+	$(F90C) $(F90FLAGS) -o $@ -c $<
 
 .SUFFIXES: $(SUFFIXES) .f90 .F90
 .PHONY: test
@@ -83,15 +84,15 @@ OBJS = $(ASSIM_OBJS)
 
 
 
-all: $(PROG) lib
+all: $(PROG) $(OAK_LIBNAME)
 
-clean:
+clean: test-clean
 	rm -f $(PROG) $(OBJS) $(MODULES)
 
-lib: $(OBJS)
+$(OAK_LIBNAME): $(OBJS)
 	ar rs $(OAK_LIBNAME) $(OBJS)
 
-dynlib: $(OBJS)
+$(OAK_SONAME): $(OBJS)
 	@if test $$(getconf LONG_BIT) = 64 -a ! "$(PIC)"; then \
 	  echo "Warning: Your system seems to be 64-bit and PIC is not activated. Creating dynamic libraries will probaly fail."; \
 	  echo "Use 'make PIC=on ...' or set PIC=on in config.mk"; \
@@ -174,13 +175,49 @@ oak.o: oak.F90 assimilation.o ndgrid.o
 
 covariance.o: covariance.F90 matoper.o
 
+# We use a single Makefile
+# http://stackoverflow.com/a/1139423/3801401
+
 # Tests
+test-clean:
+	rm -f test/*.mod test/*.o test/test_ndgrid test/toymodel test/test_covariance test/test_matoper
+	rm -Rf test/Analysis001 test/Analysis002 test/Ens001 test/Ens002
+
+
+test/toymodel.o: test/toymodel.F90 oak.o assimilation.o
+test/toymodel: test/toymodel.o matoper.o covariance.o ndgrid.o assimilation.o rrsqrt.o anamorphosis.o \
+               date.o parall.o initfile.o user_base.o  oak.o ufileformat.o random_d.f90 sangoma_base.f90 \
+               sangoma_ewpf.o match.o 
+	$(F90C) $(F90FLAGS) $(LDFLAGS) -o $@ $+ $(LIBS) $(EXTRA_LDFLAGS)
 
 test/test_covariance.o: test/test_covariance.F90 matoper.o covariance.o
-
 test/test_covariance: test/test_covariance.o matoper.o covariance.o
-	$(F90C) $(F90FLAGS)  -o $@ test/test_covariance.o matoper.o covariance.o  $(LIBS) $(EXTRA_LDFLAGS)
+	$(F90C) $(F90FLAGS) $(LDFLAGS) -o $@ $+ $(LIBS) $(EXTRA_LDFLAGS)
 
+test/test_ndgrid.o: test/test_ndgrid.F90 matoper.o ndgrid.o ufileformat.o
+test/test_ndgrid: test/test_ndgrid.o matoper.o ndgrid.o ufileformat.o
+	$(F90C) $(F90FLAGS) $(LDFLAGS) -o $@ $+ $(LIBS)
 
-test:
-	(cd test; make test)
+test/test_cellgrid.o: test/test_cellgrid.F90 matoper.o ndgrid.o ufileformat.o
+test/test_cellgrid: test/test_cellgrid.o matoper.o ndgrid.o ufileformat.o
+	$(F90C) $(F90FLAGS) $(LDFLAGS) -o $@ $+ $(LIBS)
+
+test/assimtest2.o: test/assimtest2.F90 matoper.o rrsqrt.o
+test/assimtest2: test/assimtest2.o matoper.o rrsqrt.o
+	$(F90C) $(F90FLAGS) $(LDFLAGS) -o $@ $+ $(LIBS)
+
+test/test_matoper.o: test/test_matoper.F90 matoper.o 
+test/test_matoper: test/test_matoper.o matoper.o 
+	$(F90C) $(F90FLAGS) $(LDFLAGS) -o $@ $+ $(LIBS)
+
+test/test_rrsqrt.o: test/test_rrsqrt.F90  matoper.o rrsqrt.o
+test/test_rrsqrt: test/test_rrsqrt.o  matoper.o rrsqrt.o
+	$(F90C) $(F90FLAGS) $(LDFLAGS) -o $@ $+ $(LIBS)
+
+test: test/test_covariance test/test_ndgrid test/test_cellgrid test/assimtest2 test/test_matoper test/test_rrsqrt test/toymodel
+	./test/test_ndgrid
+	./test/test_toymodel
+	./test/test_covariance
+	./test/test_cellgrid
+	./test/test_matoper
+
