@@ -98,12 +98,14 @@ contains
  !
 
 
- subroutine analysisIncrement(Hxf,yo,Sf,HSf,invsqrtR, xa_xf, Sa, amplitudes)
+ subroutine analysisIncrement(Hxf,yo,Sf,HSf,R, xa_xf, Sa, amplitudes)
   use ufileformat
   use matoper
+  use covariance
 
   real, intent(in) :: Hxf(:), yo(:), &
-       Sf(:,:), HSf(:,:), invsqrtR(:)
+       Sf(:,:), HSf(:,:)
+  class(covar), intent(in) :: R
   real, intent(out) :: xa_xf(:)
 #ifndef __GFORTRAN__ 
   real, intent(out), optional :: Sa(:,:)
@@ -115,7 +117,7 @@ contains
   real, intent(out), optional :: amplitudes(size(Sf,2))
 
   real :: lambda(size(Sf,2)), sqrt_lambda(size(Sf,2)), UT(size(Sf,2),size(Sf,2)), &
-       ampl(size(Sf,2)), isR(size(invsqrtR))
+       ampl(size(Sf,2))
   real :: dummy(1,1)
   integer :: info,r
 #ifdef ROTATE_ENSEMBLE
@@ -132,13 +134,8 @@ contains
   lambda = 0
 #ifdef ALLOCATE_LOCAL_VARS
   allocate(temp(size(HSf,1),size(HSf,2)))
-  !    temp = invsqrtR.dx.HSf
-
-  do j=1,size(HSf,2)
-    do i=1,size(HSf,1)
-      temp(i,j) = invsqrtR(i)*HSf(i,j)
-    end do
-  end do
+  !... change temp
+  temp = matmul(HSf,R%mldivide(HSf))
 
   call gesvd('n','a',temp,lambda,dummy,UT,info)
 

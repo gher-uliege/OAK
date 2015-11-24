@@ -118,15 +118,19 @@ type, extends(Covar) :: ConsCovar
 end type ConsCovar
 
 interface matmul
-  module procedure              &
-        Covar_matmul_vec,       &
-        Covar_matmul_mat
+  module procedure           &
+        covar_mul_vec,       &
+        covar_mul_mat,       &
+        mat_mul_covar !,       &
+!        vec_mul_covar
 end interface matmul
 
 interface operator(.x.)
-  module procedure              &
-        Covar_matmul_vec,       &
-        Covar_matmul_mat
+  module procedure           &
+        covar_mul_vec,       &
+        covar_mul_mat,       &
+        mat_mul_covar,       &
+        vec_mul_covar
 end interface 
 
 !interface operator(*)
@@ -220,7 +224,7 @@ end interface
   !---------------------------------------------------------------------
   ! for generic function matmul and .x.
 
-  function Covar_matmul_mat(this,x) result (Px)
+  function covar_mul_mat(this,x) result (Px)
    implicit none
    class(Covar), intent(in) :: this
    real, intent(in) :: x(:,:)
@@ -229,7 +233,25 @@ end interface
    Px = this%mtimes(x)
   end function 
 
-  function Covar_matmul_vec(this,x) result (Px)
+  function covar_mul_vec(this,x) result (Px)
+   implicit none
+   class(Covar), intent(in) :: this
+   real, intent(in) :: x(:)
+   real ::  Px(size(x,1))
+
+   Px = this%mtimes(x)
+  end function 
+
+  function mat_mul_covar(x,this) result (Px)
+   implicit none
+   real, intent(in) :: x(:,:)
+   class(Covar), intent(in) :: this
+   real ::  Px(size(x,1),size(x,2))
+
+   Px = transpose(this%mtimes(transpose(x)))
+  end function 
+
+  function vec_mul_covar(x,this) result (Px)
    implicit none
    class(Covar), intent(in) :: this
    real, intent(in) :: x(:)
