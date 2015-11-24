@@ -187,7 +187,7 @@ contains
 !
 
     ! v = U (1 + \mathbf \Lambda)^{1/2} U^T 1 
-    w = 1./sqrt(1.*r)
+    w = 1./sqrt(1.*size(Sf,2))
     v = UT.tx.(sum(UT,2)/sqrt_lambda)
     v = normate(v)
 

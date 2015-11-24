@@ -640,7 +640,9 @@ contains
    ! multiply by a matrix
    
    A = reshape([(mod(i,10), i=1,m*m)],[m,m])
-   D = matmul(A,Cov)
+   !D = mat_mul_covar(A,Cov)
+   !D = matmul(A,Cov)
+   D = A.x.Cov
    D_ref = matmul(A,F)
    call assert(D,D_ref, 1e-7, 'multiply matrix (matmul, 2)')
 

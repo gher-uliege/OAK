@@ -158,7 +158,7 @@ grids.o: grids.F90 ppdef.h
 
 initfile.o: initfile.F90 ppdef.h
 
-rrsqrt.o: rrsqrt.F90 matoper.o parall.o ufileformat.o ppdef.h
+rrsqrt.o: rrsqrt.F90 matoper.o parall.o ufileformat.o ppdef.h covariance.o
 
 sangoma_ewpf.o: random_d.o equal_weights_step.f90 quicksort.f90 gen_random.f90 subroutines_for_EWPF.f90 proposal_step.f90
 

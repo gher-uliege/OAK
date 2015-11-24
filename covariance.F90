@@ -120,8 +120,8 @@ end type ConsCovar
 interface matmul
   module procedure           &
         covar_mul_vec,       &
-        covar_mul_mat,       &
-        mat_mul_covar !,       &
+        covar_mul_mat!,       &
+!        mat_mul_covar !,       &
 !        vec_mul_covar
 end interface matmul
 
