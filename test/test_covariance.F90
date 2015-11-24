@@ -529,10 +529,9 @@ program test
    stop
  end if
 
- call test_DiagR
- call test_nonDiagR
+ call test_DiagCovar
+ call test_SMWCovar
 
- call test_covar
  call test_locfun 
 
 ! same results as matlab code test_covariance_fortran
@@ -546,43 +545,6 @@ program test
 
 contains
 
-  subroutine test_covar
-  use matoper
-  type(DiagCovar) :: C
-  !class(DiagCovar), allocatable :: C
-  real :: mdiag(2) = (/ 2.,3. /)
-
-  !allocate(C)
-  C = newDiagCovar(mdiag)
-  !C = DiagCovar(mdiag)
-  
-  call innersub(C)
- end subroutine test_covar
- 
- subroutine innersub(B)
-  implicit none
-  class(Covar) :: B
-  real :: C(2,2)
-
-    C = 2. *  eye(2)
-
-    call B%print()
-
-    call assert(B%mulmat(C), &
-       reshape([4.,0.,0.,6.],[2,2]), &
-       1e-7, 'DiagCovar*Matrix (method)')
-
-    call assert(B.x.(C), &
-       reshape([4.,0.,0.,6.],[2,2]), &
-       1e-7, 'DiagCovar*Matrix (.x. operator)')
-
-    call assert(B * (C), &
-       reshape([4.,0.,0.,6.],[2,2]), &
-       1e-7, 'DiagCovar*Matrix (* operator)')
-
-
-   end subroutine innersub
-
 !----------------------------------------------------------------------
 
   subroutine test_locfun()   
@@ -595,85 +557,111 @@ contains
 !----------------------------------------------------------------------
 
 
-  subroutine test_DiagR
+  subroutine test_DiagCovar
    use matoper
    implicit none
-   integer, parameter :: m = 3, N = 2
-   real :: C(m), y(m), F(m,m), invCy(m), invCy_ref(m)
-   real :: A(m,m), invCA(m,m), invCA_ref(m,m)
+   integer, parameter :: m = 3
+   real :: C(m), F(m,m)
    type(DiagCovar) :: Cov
    integer :: i
 
+   write(6,*) '# Testing diagonal covariance matrix'
    C = [(mod(i,5)+1., i=1,m)]
-   
+   F = diag(C)
+
    call DiagCovar_init(Cov,C)
 
-   ! compare full matrix
-
-   F = 0
-   do i = 1,m
-     F(i,i) = F(i,i) + C(i)
-   end do
-   call assert(F,Cov%full(), 1e-7, 'Diag RR (1)')
-   
-   ! solve for a vector
-
-   y = [(mod(i,2)+1., i=1,m)]
-   invCy = Cov%mldivide(y)
-   invCy_ref = matmul(inv(F),y)
-   call assert(invCy,invCy_ref, 1e-7, 'Diag RR (2)')
-
-   ! solve for a matrix
-   
-   A = reshape([(mod(i,10), i=1,m*m)],[m,m])
-   invCA = Cov%mldivide(A)
-   invCA_ref = matmul(inv(F),A)
-   call assert(invCA,invCA_ref, 1e-7, 'Diag RR (3)')
+   call test_covariance_matrix(m,F,Cov)
 
 
-  end subroutine 
-
-!----------------------------------------------------------------------
+  end subroutine test_DiagCovar
 
 
-  subroutine test_nonDiagR
+  subroutine test_SMWCovar
    use matoper
    implicit none
    integer, parameter :: m = 3, N = 2
-   real :: C(m), B(m,N), y(m), F(m,m), invCy(m), invCy_ref(m)
-   real :: A(m,m), invCA(m,m), invCA_ref(m,m)
+   real :: C(m), B(m,N), F(m,m)
    type(SMWCovar) :: Cov
    integer :: i
+
+   write(6,*) '# Testing SMWCovar matrix'
 
    C = [(mod(i,5)+1., i=1,m)]
    B = reshape([(mod(i,5)+1., i=1,m*N)],[m,N])
    
    call SMWCovar_init(Cov,C,B)
 
-   ! compare full matrix
-
    F = matmul(B,transpose(B))
    do i = 1,m
      F(i,i) = F(i,i) + C(i)
    end do
-   call assert(F,Cov%full(), 1e-7, 'nonDiagR (1)')
-   
-   ! solve for a vector
+
+   call test_covariance_matrix(m,F,Cov)
+  end subroutine test_SMWCovar
+
+
+  subroutine test_covariance_matrix(m,F,Cov)
+   use matoper
+   implicit none
+   integer, intent(in)        :: m
+   class(Covar), intent(in) :: Cov
+   real, intent(in)           :: F(m,m)
+
+   real :: y(m), z(m), z_ref(m)
+   real :: A(m,m), D(m,m), D_ref(m,m)
+   integer :: i
+
+   ! compare full matrix
+
+   call assert(F,Cov%full(), 1e-7, 'compare to full matrix')
+
+   ! multiply by a vector
 
    y = [(mod(i,2)+1., i=1,m)]
-   invCy = Cov%mldivide(y)
-   invCy_ref = matmul(inv(F),y)
-   call assert(invCy,invCy_ref, 1e-7, 'nonDiagR (2)')
+   z = matmul(Cov,y)
+   z_ref = matmul(F,y)
+   call assert(z,z_ref, 1e-7, 'multiply vector (matmul)')
 
-   ! solve for a matrix
+   ! multiply by a vector
+
+   y = [(mod(i,2)+1., i=1,m)]
+   z = Cov.x.y
+   z_ref = matmul(F,y)
+   call assert(z,z_ref, 1e-7, 'multiply vector (.x.)')
+
+   ! multiply by a matrix
    
    A = reshape([(mod(i,10), i=1,m*m)],[m,m])
-   invCA = Cov%mldivide(A)
-   invCA_ref = matmul(inv(F),A)
-   call assert(invCA,invCA_ref, 1e-7, 'nonDiagR (3)')
+   D = matmul(Cov,A)
+   D_ref = matmul(F,A)
+   call assert(D,D_ref, 1e-7, 'multiply matrix (matmul)')
+
+   ! multiply by a matrix
+   
+   A = reshape([(mod(i,10), i=1,m*m)],[m,m])
+   D = Cov.x.A
+   D_ref = matmul(F,A)
+   call assert(D,D_ref, 1e-7, 'multiply matrix (.x.)')
+
+   ! solve for a vector
 
 
-  end subroutine test_nonDiagR
+   y = [(mod(i,2)+1., i=1,m)]
+   z = Cov%mldivide(y)
+   z_ref = matmul(inv(F),y)
+   call assert(z,z_ref, 1e-7, 'solve for a vector')
+
+   ! solve for a matrix
+
+   A = reshape([(mod(i,10), i=1,m*m)],[m,m])
+   D = Cov%mldivide(A)
+   D_ref = matmul(inv(F),A)
+   call assert(D,D_ref, 1e-7, 'solve for a matrix')
+
+
+  end subroutine test_covariance_matrix
+
 
 end program test
 

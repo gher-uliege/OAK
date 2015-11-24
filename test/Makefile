@@ -22,8 +22,8 @@ toymodel.o: toymodel.F90 ../oak.o ../assimilation.o
 toymodel: $(TOYMODEL_OBJ) 
 	$(F90C) $(F90FLAGS) $(LDFLAGS) -o $@ $+ $(LIBS)
 
-test_covariance: test_covariance.F90 ../matoper.o ../covariance.o
-	$(F90C) $(F90FLAGS)  -o $@ ../matoper.o ../covariance.o test_covariance.F90  $(LIBS) $(EXTRA_LDFLAGS)
+test_covariance: test_covariance.o ../matoper.o ../covariance.o
+	$(F90C) $(F90FLAGS)  -o $@ test_covariance.o ../matoper.o ../covariance.o  $(LIBS) $(EXTRA_LDFLAGS)
 
 locassim: ../anamorphosis.o ../assimilation.o ../date.o ../grids.o ../initfile.o ../matoper.o ../covariance.o ../ndgrid.o ../parall.o ../rrsqrt.o ../ufileformat.o ../match.o test_covariance.F90
 	$(F90C) $(F90FLAGS)  -o $@  locassim.F90  $(LIBS) $(EXTRA_LDFLAGS)
