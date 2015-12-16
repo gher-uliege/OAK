@@ -6,7 +6,7 @@ module spline
    logical, allocatable :: mask(:)
    real, allocatable :: pm(:,:)
    real, allocatable :: x(:,:)
-   
+
    ! computed
    real, allocatable :: spm(:,:,:)
    ! snu(:,i) "diffusion coefficient"  along dimension i including metric, staggered
@@ -17,8 +17,8 @@ module spline
 
 contains
 
-  !_______________________________________________________
-  !
+ !_______________________________________________________
+ !
 
 
  function diff(conf,f,dim) result(df)
@@ -29,7 +29,7 @@ contains
   integer, intent(in) :: dim
   real :: df(conf%n)
 
-  integer :: i,j,l1,l2,subs1(conf%ndim),subs2(conf%ndim)
+  integer :: l1,l2,subs1(conf%ndim),subs2(conf%ndim)
 
   df = 0
 
@@ -37,13 +37,13 @@ contains
     ! get subscripts
     ! sub1 and l1 corresponds to (i,j) if dim = 1
     subs1 = ind2sub(conf%sz,l1)
-    
+
     if (subs1(dim) /= conf%sz(dim)) then
       ! sub2 and l2 corresponds to (i+1,j) if dim = 1
       subs2 = subs1
       subs2(dim) = subs2(dim)+1
       l2 = sub2ind(conf%sz,subs2)
-      
+
       if (conf%mask(l1).and.conf%mask(l2)) then
         df(l1) = (f(l2) - f(l1)) * (conf%pm(l2,1) + conf%pm(l1,1))/2.
       end if
@@ -52,8 +52,55 @@ contains
 
  end function diff
 
-  !_______________________________________________________
-  !
+ !_______________________________________________________
+ !
+
+
+ function diff_op(conf,dim) result(S)
+  use matoper
+  implicit none
+  type(config), intent(in) :: conf
+  integer, intent(in) :: dim
+  type(SparseMatrix) :: S
+
+  integer :: l1,l2,subs1(conf%ndim),subs2(conf%ndim),maxnz
+
+  S%nz = 0
+  S%m = conf%n
+  S%n = conf%n
+  maxnz = 2*conf%n
+  allocate(S%i(maxnz),S%j(maxnz),S%s(maxnz))
+
+  do l1 = 1,conf%n
+    ! get subscripts
+    ! sub1 and l1 corresponds to (i,j) if dim = 1
+    subs1 = ind2sub(conf%sz,l1)
+
+    if (subs1(dim) /= conf%sz(dim)) then
+      ! sub2 and l2 corresponds to (i+1,j) if dim = 1
+      subs2 = subs1
+      subs2(dim) = subs2(dim)+1
+      l2 = sub2ind(conf%sz,subs2)
+
+      if (conf%mask(l1).and.conf%mask(l2)) then
+        S%nz = S%nz+1
+        S%i(S%nz) = l1
+        S%j(S%nz) = l2
+        S%s(S%nz) = (conf%pm(l2,1) + conf%pm(l1,1))/2
+
+        S%nz = S%nz+1
+        S%i(S%nz) = l1
+        S%j(S%nz) = l1
+        S%s(S%nz) = -(conf%pm(l2,1) + conf%pm(l1,1))/2
+      end if
+    end if
+
+  end do
+
+ end function 
+
+ !_______________________________________________________
+ !
 
  function laplacian(conf,f) result(Lf)
   use matoper
@@ -64,7 +111,7 @@ contains
   real :: Lf(conf%n)
 
 
-  integer :: i,j,l1,l2,subs1(conf%ndim),subs2(conf%ndim)
+  integer :: i
   real, dimension(conf%n) :: df, ddf
 
   ! compte laplacian
@@ -85,30 +132,30 @@ contains
 
  end function laplacian
 
-  !_______________________________________________________
-  !
-  ! compute 
-  ! inv(B) * x
-  ! where B is the background covariance matrix in DIVA
+ !_______________________________________________________
+ !
+ ! compute 
+ ! inv(B) * x
+ ! where B is the background covariance matrix in DIVA
 
- function invBx(conf,x,alpha) result(iBx)
-  use matoper
-  implicit none
-  type(config), intent(in) :: conf
-  real, intent(in) :: x(:), alpha(:)
-  real :: iBx(conf%n)
+ ! function invBx(conf,x,alpha) result(iBx)
+ !  use matoper
+ !  implicit none
+ !  type(config), intent(in) :: conf
+ !  real, intent(in) :: x(:), alpha(:)
+ !  real :: iBx(conf%n)
 
-  integer :: i
-  iBx = x
-  
-  do i = 1,conf%ndim
-  end do
-  
+ !  integer :: i
+ !  iBx = x
 
- end function invBx
+ !  do i = 1,conf%ndim
+ !  end do
 
-  !_______________________________________________________
-  !
+
+ ! end function invBx
+
+ !_______________________________________________________
+ !
 
  function stagger_mask(sz,mask,dim) result(smask)
   use matoper
@@ -118,7 +165,7 @@ contains
   logical, intent(in) :: mask(:)
   logical :: smask(size(mask))
 
-  integer :: i,j,l1,l2,subs1(size(sz)),subs2(size(sz))
+  integer :: l1,l2,subs1(size(sz)),subs2(size(sz))
 
   smask = .false.
 
@@ -126,13 +173,13 @@ contains
     ! get subscripts
     ! sub1 and l1 corresponds to (i,j) if dim = 1
     subs1 = ind2sub(sz,l1)
-    
+
     if (subs1(dim) /= sz(dim)) then
       ! sub2 and l2 corresponds to (i+1,j) if dim = 1
       subs2 = subs1
       subs2(dim) = subs2(dim)+1
       l2 = sub2ind(sz,subs2)
-      
+
       smask(l1) = mask(l1).and.mask(l2)
     end if
   end do
@@ -140,8 +187,8 @@ contains
  end function stagger_mask
 
 
-  !_______________________________________________________
-  !
+ !_______________________________________________________
+ !
 
  function stagger(sz,mask,f,dim) result(sf)
   use matoper
@@ -152,7 +199,7 @@ contains
   real, intent(in) :: f(:)
   real :: sf(size(f))
 
-  integer :: i,j,l1,l2,subs1(size(sz)),subs2(size(sz))
+  integer :: l1,l2,subs1(size(sz)),subs2(size(sz))
 
   sf = 0
 
@@ -160,23 +207,23 @@ contains
     ! get subscripts
     ! sub1 and l1 corresponds to (i,j) if dim = 1
     subs1 = ind2sub(sz,l1)
-    
+
     if (subs1(dim) /= sz(dim)) then
       ! sub2 and l2 corresponds to (i+1,j) if dim = 1
       subs2 = subs1
       subs2(dim) = subs2(dim)+1
       l2 = sub2ind(sz,subs2)
-      
+
       if (mask(l1).and.mask(l2)) then
         sf(l1) = (f(l2) + f(l1))/2.
       end if
     end if
   end do
 
- end function 
+ end function stagger
 
-  !_______________________________________________________
-  !
+ !_______________________________________________________
+ !
 
  subroutine initconfig(conf,sz,mask,pm,x)
   implicit none
@@ -184,7 +231,7 @@ contains
   integer, intent(in) :: sz(:)
   logical, intent(in) :: mask(:)
   real, intent(in) :: pm(:,:), x(:,:)
-  
+
   integer :: n,ndim,i,j
 
   ndim = size(sz)
@@ -206,7 +253,7 @@ contains
   do i = 1,ndim
     ! staggered mask
     conf%smask(:,i) = stagger_mask(sz,mask,i)
-  
+
     ! staggered grid metric
     do j = 1,ndim
       conf%spm(:,j,i) = stagger(sz,mask,pm(:,j),i)
@@ -221,23 +268,23 @@ contains
       end if
     end do
   end do
-  
+
  end subroutine initconfig
 
-  !_______________________________________________________
-  !
+ !_______________________________________________________
+ !
 
  subroutine doneconfig(conf)
   implicit none
   type(config) :: conf
-  
+
   deallocate(conf%sz,conf%mask,conf%pm, &
        conf%x, conf%spm, conf%snu, &
        conf%smask)
  end subroutine doneconfig
 
-  !_______________________________________________________
-  !
+ !_______________________________________________________
+ !
 
 
 end module spline
@@ -245,8 +292,8 @@ end module spline
 
 
 
-  !_______________________________________________________
-  !
+!_______________________________________________________
+!
 
 program test_nondiag
  use spline
@@ -281,93 +328,102 @@ contains
   end if
 
  end function grad2d
-   
-   subroutine test_grad2d
-    use matoper
-    implicit none
-    integer, parameter :: sz(2) = [3,4]
-    real :: x(sz(1),sz(2),2), pm(sz(1),sz(2),2)
-    real :: df(sz(1),sz(2))
-    logical :: mask(sz(1),sz(2))
-    
-    integer :: i,j
 
-    do j = 1,sz(2)
-      do i = 1,sz(1)
-        x(i,j,1) = i
-        x(i,j,2) = j
-      end do
+ subroutine test_grad2d
+  use matoper
+  implicit none
+  integer, parameter :: sz(2) = [3,4]
+  real :: x(sz(1),sz(2),2), pm(sz(1),sz(2),2)
+  real :: df(sz(1),sz(2))
+  logical :: mask(sz(1),sz(2))
+
+  integer :: i,j
+
+  do j = 1,sz(2)
+    do i = 1,sz(1)
+      x(i,j,1) = i
+      x(i,j,2) = j
     end do
+  end do
 
-    pm = 1
-    mask = .true.
-    df = grad2d(mask,3*x(:,:,1) + 2*x(:,:,2),pm,1)
+  pm = 1
+  mask = .true.
+  df = grad2d(mask,3*x(:,:,1) + 2*x(:,:,2),pm,1)
 
-    call assert_scal(maxval(abs(df(1:sz(1)-1,:) - 3)),0.,1e-10,'grad x')
-    write(6,*) 'mv',maxval(abs(df(1:sz(1)-1,:) - 3))
-    
-
-   end subroutine test_grad2d
+  call assert_scal(maxval(abs(df(1:sz(1)-1,:) - 3)),0.,1e-10,'grad x')
+  write(6,*) 'mv',maxval(abs(df(1:sz(1)-1,:) - 3))
 
 
-  !_______________________________________________________
-  !
-   
-   subroutine test_diff
-    use matoper
-    implicit none
-    integer, parameter :: sz(2) = [3,4]
-    real :: x(sz(1)*sz(2),2), pm(sz(1)*sz(2),2)
-    real :: df(sz(1)*sz(2)), df2(sz(1),sz(2))
-    logical :: mask(sz(1)*sz(2))
-    type(config) :: conf
-    
-    integer :: i,j,l
+ end subroutine test_grad2d
 
-    l = 1
-    do j = 1,sz(2)
-      do i = 1,sz(1)
-        x(l,1) = i
-        x(l,2) = j
-        l = l+1
-      end do
+
+ !_______________________________________________________
+ !
+
+ subroutine test_diff
+  use matoper
+  implicit none
+  integer, parameter :: sz(2) = [3,4]
+  real :: x(sz(1)*sz(2),2), pm(sz(1)*sz(2),2)
+  real :: df(sz(1)*sz(2)), df2(sz(1),sz(2))
+  logical :: mask(sz(1)*sz(2))
+  type(config) :: conf
+  type(SparseMatrix) :: Sx,Sy
+
+  integer :: i,j,l
+
+  l = 1
+  do j = 1,sz(2)
+    do i = 1,sz(1)
+      x(l,1) = i
+      x(l,2) = j
+      l = l+1
     end do
+  end do
 
-    pm = 1
-    mask = .true.
+  pm = 1
+  mask = .true.
 
-    call initconfig(conf,sz,mask,pm,x)
+  call initconfig(conf,sz,mask,pm,x)
 
-    df = diff(conf,3*x(:,1) + 2*x(:,2),1)
-    df2 = reshape(df,sz)    
-    call assert(maxval(abs(df2(1:sz(1)-1,:) - 3)),0.,1e-10,'gradv x')
+  df = diff(conf,3*x(:,1) + 2*x(:,2),1)
+  df2 = reshape(df,sz)    
+  call assert(maxval(abs(df2(1:sz(1)-1,:) - 3)),0.,1e-10,'gradv x')
 
-    df = diff(conf,3*x(:,1) + 2*x(:,2),2)
-    df2 = reshape(df,sz)    
-    call assert(maxval(abs(df2(:,1:sz(2)-1) - 2)),0.,1e-10,'gradv y')
-
-
-
-    df = laplacian(conf,3*x(:,1) + 2*x(:,2))
-    df2 = reshape(df,sz)    
-    call assert(maxval(abs(df2(1:sz(2)-2,1:sz(2)-2))),0.,1e-10,'laplacian (1)')
+  df = diff(conf,3*x(:,1) + 2*x(:,2),2)
+  df2 = reshape(df,sz)    
+  call assert(maxval(abs(df2(:,1:sz(2)-1) - 2)),0.,1e-10,'gradv y')
 
 
-    df = laplacian(conf,3*x(:,1)**2 + 2*x(:,2))
-    df2 = reshape(df,sz)    
-    call assert(maxval(abs(df2(1:sz(1)-2,1:sz(2)-2) - 6)),0.,1e-10,'laplacian (2)')
-    
-    call doneconfig(conf)
-   end subroutine test_diff
-    
+
+  df = laplacian(conf,3*x(:,1) + 2*x(:,2))
+  df2 = reshape(df,sz)    
+  call assert(maxval(abs(df2(1:sz(2)-2,1:sz(2)-2))),0.,1e-10,'laplacian (1)')
 
 
-   subroutine test_2d
-    implicit none
+  df = laplacian(conf,3*x(:,1)**2 + 2*x(:,2))
+  df2 = reshape(df,sz)    
+  call assert(maxval(abs(df2(1:sz(1)-2,1:sz(2)-2) - 6)),0.,1e-10,'laplacian (2)')
 
-    integer, parameter :: size(2) = [10,11]
-    real :: x(size(1),size(2),2), pm(size(1),size(2),2), pn(size(1),size(2),2)
+  Sx = diff_op(conf,1)
+  df2 = reshape(Sx .x. (3*x(:,1) + 2*x(:,2)) ,sz)    
+  call assert(maxval(abs(df2(1:sz(1)-1,:) - 3)),0.,1e-10,'gradv op x')
 
-   end subroutine test_2d
+  Sy = diff_op(conf,2)
+  df2 = reshape(Sy .x. (3*x(:,1) + 2*x(:,2)) ,sz)    
+  call assert(maxval(abs(df2(:,1:sz(2)-1) - 2)),0.,1e-10,'gradv op x')
 
-  end program test_nondiag
+  call doneconfig(conf)
+ end subroutine test_diff
+
+
+
+ subroutine test_2d
+  implicit none
+
+!  integer, parameter :: size(2) = [10,11]
+!  real :: x(size(1),size(2),2), pm(size(1),size(2),2), pn(size(1),size(2),2)
+
+ end subroutine test_2d
+
+end program test_nondiag
