@@ -469,6 +469,26 @@ end function
 
 !_______________________________________________________
 !
+! transpose a sparse matrix
+!
+
+ function sptranspose(S) result(ST)
+  implicit none
+  type(SparseMatrix), intent(in) :: S
+  type(SparseMatrix) :: ST
+
+  ST%m = S%n
+  ST%n = S%m
+  ST%nz = ST%nz
+  allocate(ST%i(S%nz),ST%j(S%nz),ST%s(S%nz))
+
+  ST%i = S%j
+  ST%j = S%i
+  ST%s = S%s
+ end function sptranspose
+
+!_______________________________________________________
+!
 ! S = SPARSE(X) converts a full matrix to sparse form by
 !    squeezing out any zero elements.
 
