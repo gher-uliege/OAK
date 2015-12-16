@@ -142,19 +142,13 @@ contains
  !_______________________________________________________
  !
 
- function laplacian_op(conf,f) result(Lf)
+ function laplacian_op(conf) result(Lap)
   use matoper
   implicit none
   type(config), intent(in) :: conf
-  real, intent(in) :: f(:)
   type(SparseMatrix) :: Lap,S
   real :: Lf(conf%n)
-
-
   integer :: i
-  real, dimension(conf%n) :: df, ddf
-
-
 
   ! compute laplacian
 
@@ -162,23 +156,17 @@ contains
 
   Lf = 0
   do i = 1,conf%ndim
-    df = diff(conf%sz,conf%mask,conf%pm,f,i)
     S = diff_op(conf%sz,conf%mask,conf%pm,i)
-
-    df = conf%snu(:,i) * df
     S = spdiag(conf%snu(:,i)) .x. S
- 
-    ddf = diff(conf%sz,conf%smask(:,i),conf%spm(:,:,i),df,i)
-
     S = diff_op(conf%sz,conf%smask(:,i),conf%spm(:,:,i),i) .x. S
-    write(6,*) 'err4',maxval( (S.x.f) - ddf)
     
-    Lf = Lf + ddf
+    ! add sparse matrices
+    Lap = Lap + S
   end do
 
   ! product(pm,2) is the inverse of the volume of a grid cell
-  Lf = Lf * product(conf%pm,2)
 
+  Lap = spdiag(product(conf%pm,2)) .x. Lap
  end function 
 
  !_______________________________________________________
@@ -424,7 +412,7 @@ contains
   real :: df(sz(1)*sz(2)), df2(sz(1),sz(2))
   logical :: mask(sz(1)*sz(2))
   type(config) :: conf
-  type(SparseMatrix) :: Sx,Sy
+  type(SparseMatrix) :: Sx,Sy,Lap
 
   integer :: i,j,l
 
@@ -469,13 +457,9 @@ contains
   df2 = reshape(Sy .x. (3*x(:,1) + 2*x(:,2)) ,sz)    
   call assert(maxval(abs(df2(:,1:sz(2)-1) - 2)),0.,1e-10,'gradv op x')
 
-  df = laplacian_op(conf,3*x(:,1)**2 + 2*x(:,2))
-  df2 = reshape(df,sz)    
+  Lap = laplacian_op(conf)
+  df2 = reshape(Lap .x. (3*x(:,1)**2 + 2*x(:,2)) ,sz)    
   call assert(maxval(abs(df2(1:sz(1)-2,1:sz(2)-2) - 6)),0.,1e-10,'laplacian op (1)')
-
-!  Lap = laplacian_op(conf)
-!  df2 = reshape(Lap .x. (3*x(:,1)**2 + 2*x(:,2)) ,sz)    
-!  call assert(maxval(abs(df2(1:sz(1)-2,1:sz(2)-2) - 6)),0.,1e-10,'laplacian op (1)')
 
   call doneconfig(conf)
  end subroutine test_diff

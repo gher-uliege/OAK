@@ -111,6 +111,12 @@ interface operator(.xd.)
      dmat_mult_ddiag
 end interface
 
+interface operator(+)
+  module procedure           &
+       ssparsemat_add_ssparsemat
+end interface 
+
+
 interface randn
   module procedure &
        randn_vec, &
