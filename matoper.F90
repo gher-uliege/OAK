@@ -423,6 +423,30 @@ end function
 
 !_______________________________________________________
 !
+! create a real diagonal sparse
+!
+
+ function spdiag(d) result(S)
+  implicit none
+  real, intent(in) :: d(:)
+  integer :: i
+  type(SparseMatrix) :: S
+
+  S%m = size(d,1)
+  S%n = size(d,1)
+  S%nz = size(d,1)
+  allocate(S%i(S%nz),S%j(S%nz),S%s(S%nz))
+
+  do i=1,S%m
+    S%i(i) = i
+    S%j(i) = i
+    S%s(i) = d(i)
+  end do
+  
+ end function spdiag
+
+!_______________________________________________________
+!
 ! S = SPARSE(X) converts a full matrix to sparse form by
 !    squeezing out any zero elements.
 
@@ -506,14 +530,14 @@ function ssparsemat_mult_ssparsemat(A,B) result(C)
 
  ! borne sup.
  nz = A%nz+B%nz
- nz = 2714888
- write(6,*) 'nz ',nz
+! nz = 2714888
+! write(6,*) 'nz ',nz
  allocate(C%i(nz),C%j(nz),C%s(nz))
  nz=0
 
  if (all(B%i(2:B%nz).ge.B%i(:B%nz-1))) then
    ! optimized version
-  write(stdout,*) 'optimised version.'
+   !write(stdout,*) 'optimised version.'
 
    search: do k=1,A%nz
      l1 = 1
