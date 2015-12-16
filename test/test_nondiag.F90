@@ -156,24 +156,17 @@ contains
 
 
 
-  ! compte laplacian
+  ! compute laplacian
+
+  Lap = spzero(conf%n,conf%n)
 
   Lf = 0
   do i = 1,conf%ndim
     df = diff(conf%sz,conf%mask,conf%pm,f,i)
     S = diff_op(conf%sz,conf%mask,conf%pm,i)
-!    write(6,*) 'err1',S%s(1:S%nz)
-    write(6,*) 'err',i,maxval(abs((S.x.f) - df))
 
-    !where (smask(:,i)) df = snu(:,i) * df
     df = conf%snu(:,i) * df
-
-!    write(6,*) 'err1',S%s(1:S%nz)
-!    write(6,*) 'err2',conf%snu(:,i)
-!    write(6,*) 'smask',conf%smask(:,i)
-    write(6,*) 'err3',maxval(( conf%snu(:,i) * (S.x.f)) - df)
     S = spdiag(conf%snu(:,i)) .x. S
-    write(6,*) 'err4',maxval( (S.x.f) - df)
  
     ddf = diff(conf%sz,conf%smask(:,i),conf%spm(:,:,i),df,i)
 

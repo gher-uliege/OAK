@@ -447,6 +447,22 @@ end function
 
 !_______________________________________________________
 !
+! zero sparse matrix
+!
+
+ function spzero(m,n) result(S)
+  implicit none
+  integer, intent(in) :: m,n
+  type(SparseMatrix) :: S
+
+  S%m = m
+  S%n = n
+  S%nz = 0
+  allocate(S%i(S%nz),S%j(S%nz),S%s(S%nz))
+ end function spzero
+
+!_______________________________________________________
+!
 ! S = SPARSE(X) converts a full matrix to sparse form by
 !    squeezing out any zero elements.
 
