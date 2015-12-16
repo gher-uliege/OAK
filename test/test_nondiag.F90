@@ -70,21 +70,26 @@ contains
   integer, intent(in) :: dim,sz(:)
   real :: df(size(f,1))
 
-  integer :: i,j,l1,l2,subs(size(sz))
+  integer :: i,j,l1,l2,subs1(size(sz)),subs2(size(sz))
 
   df = 0
-  if (dim == 1) then
-    do j = 1,sz(2)
-      do i = 1,sz(1)-1
-        l1 = sub2ind(sz,[i,j])
-        l2 = sub2ind(sz,[i+1,j])
-        
-        if (mask(l1).and.mask(l2)) then
-          df(l1) = (f(l2) - f(l1)) * (pm(l2,1) + pm(l1,1))/2.
-        end if
-      end do
-    end do
-  end if
+
+  do l1 = 1,product(sz)
+    ! get subscripts
+    ! sub1 and l1 corresponds to (i,j) if dim = 1
+    subs1 = ind2sub(sz,l1)
+    
+    if (subs1(dim) /= sz(dim)) then
+      ! sub2 and l2 corresponds to (i+1,j) if dim = 1
+      subs2 = subs1
+      subs2(dim) = subs2(dim)+1
+      l2 = sub2ind(sz,subs2)
+      
+      if (mask(l1).and.mask(l2)) then
+        df(l1) = (f(l2) - f(l1)) * (pm(l2,1) + pm(l1,1))/2.
+      end if
+    end if
+  end do
 
  end function grad2dv
    
