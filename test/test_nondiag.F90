@@ -61,7 +61,7 @@ contains
   !
 
 
- function diff(sz,mask,f,pm,dim) result(df)
+ function diff(sz,mask,pm,f,dim) result(df)
   use matoper
   implicit none
 
@@ -96,7 +96,7 @@ contains
   !_______________________________________________________
   !
 
- function laplacian(sz,mask,f,pm) result(Lf)
+ function laplacian(sz,mask,pm,f) result(Lf)
   use matoper
   implicit none
 
@@ -137,12 +137,12 @@ contains
 
   Lf = 0
   do i = 1,n
-    df = diff(sz,mask,f,pm,i)
+    df = diff(sz,mask,pm,f,i)
 
     !where (smask(:,i)) df = snu(:,i) * df
     df = snu(:,i) * df
 
-    ddf = diff(sz,smask(:,i),df,pm,i)
+    ddf = diff(sz,smask(:,i),pm,df,i)
     Lf = Lf + ddf
   end do
 
@@ -244,22 +244,22 @@ contains
 
     pm = 1
     mask = .true.
-    df = diff(sz,mask,3*x(:,1) + 2*x(:,2),pm,1)
+    df = diff(sz,mask,pm,3*x(:,1) + 2*x(:,2),1)
     df2 = reshape(df,sz)    
     call assert(maxval(abs(df2(1:sz(1)-1,:) - 3)),0.,1e-10,'gradv x')
 
-    df = diff(sz,mask,3*x(:,1) + 2*x(:,2),pm,2)
+    df = diff(sz,mask,pm,3*x(:,1) + 2*x(:,2),2)
     df2 = reshape(df,sz)    
     call assert(maxval(abs(df2(:,1:sz(2)-1) - 2)),0.,1e-10,'gradv y')
 
 
 
-    df = laplacian(sz,mask,3*x(:,1) + 2*x(:,2),pm)
+    df = laplacian(sz,mask,pm,3*x(:,1) + 2*x(:,2))
     df2 = reshape(df,sz)    
     call assert(maxval(abs(df2(1:sz(2)-2,1:sz(2)-2))),0.,1e-10,'laplacian (1)')
 
 
-    df = laplacian(sz,mask,3*x(:,1)**2 + 2*x(:,2),pm)
+    df = laplacian(sz,mask,pm,3*x(:,1)**2 + 2*x(:,2))
     df2 = reshape(df,sz)    
     call assert(maxval(abs(df2(1:sz(1)-2,1:sz(2)-2) - 6)),0.,1e-10,'laplacian (2)')
     
