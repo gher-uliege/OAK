@@ -350,7 +350,7 @@ contains
   mask = .true.
   df = grad2d(mask,3*x(:,:,1) + 2*x(:,:,2),pm,1)
 
-  call assert_scal(maxval(abs(df(1:sz(1)-1,:) - 3)),0.,1e-10,'grad x')
+  call assert(maxval(abs(df(1:sz(1)-1,:) - 3)),0.,1e-10,'grad x')
   write(6,*) 'mv',maxval(abs(df(1:sz(1)-1,:) - 3))
 
 
