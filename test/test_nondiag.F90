@@ -3,7 +3,7 @@ program test_nondiag
 
  call test_2d()
  call test_grad2d()
- call test_grad2dv()
+ call test_diff()
 contains
 
  function grad2d(mask,f,pm,dim) result(df)
@@ -61,7 +61,7 @@ contains
   !
 
 
- function grad2dv(sz,mask,f,pm,dim) result(df)
+ function diff(sz,mask,f,pm,dim) result(df)
   use matoper
   implicit none
 
@@ -91,9 +91,9 @@ contains
     end if
   end do
 
- end function grad2dv
+ end function diff
    
-   subroutine test_grad2dv
+   subroutine test_diff
     use matoper
     integer, parameter :: sz(2) = [3,4]
     real :: x(sz(1)*sz(2),2), pm(sz(1)*sz(2),2)
@@ -113,13 +113,16 @@ contains
 
     pm = 1
     mask = .true.
-    df = grad2dv(sz,mask,3*x(:,1) + 2*x(:,2),pm,1)
-    df2 = reshape(df,sz)
-    
+    df = diff(sz,mask,3*x(:,1) + 2*x(:,2),pm,1)
+    df2 = reshape(df,sz)    
     call assert(maxval(abs(df2(1:sz(1)-1,:) - 3)),0.,1e-10,'gradv x')
+
+    df = diff(sz,mask,3*x(:,1) + 2*x(:,2),pm,2)
+    df2 = reshape(df,sz)    
+    call assert(maxval(abs(df2(:,1:sz(2)-1) - 2)),0.,1e-10,'gradv y')
     
 
-   end subroutine test_grad2dv
+   end subroutine test_diff
     
 
 
