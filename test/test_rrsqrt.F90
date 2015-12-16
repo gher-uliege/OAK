@@ -91,6 +91,9 @@ contains
   
   ! check results
   call assert(xa,xa_check,tol,'analysis ensemble mean')
+
+!  write(6,*) 'xa',xa
+!  write(6,*) 'xa',xa_check
   
   call assert(matmul(Sa,transpose(Sa)),Pa_check, tol, &
        'analysis ensemble variance')

@@ -1,6 +1,6 @@
 !
 !  OAK, Ocean Assimilation Kit
-!  Copyright(c) 2002-2011 Alexander Barth and Luc Vandenblucke
+!  Copyright(c) 2002-2015 Alexander Barth and Luc Vandenblucke
 !
 !  This program is free software; you can redistribute it and/or
 !  modify it under the terms of the GNU General Public License
@@ -98,14 +98,14 @@ contains
  !
 
 
- subroutine analysisIncrement(Hxf,yo,Sf,HSf,R, xa_xf, Sa, amplitudes)
+ subroutine analysisIncrement(Hxf,yo,Sf,HSf,invsqrtR, xa_xf, Sa, amplitudes)
   use ufileformat
   use matoper
   use covariance
 
   real, intent(in) :: Hxf(:), yo(:), &
        Sf(:,:), HSf(:,:)
-  class(covar), intent(in) :: R
+  real, intent(in) :: invsqrtR(:)
   real, intent(out) :: xa_xf(:)
 #ifndef __GFORTRAN__ 
   real, intent(out), optional :: Sa(:,:)
@@ -116,10 +116,10 @@ contains
 #endif
   real, intent(out), optional :: amplitudes(size(Sf,2))
 
-  real :: lambda(size(Sf,2)), sqrt_lambda(size(Sf,2)), UT(size(Sf,2),size(Sf,2)), &
+  real :: lambda(size(Sf,2)), sqrt_lambda(size(Sf,2)), U(size(Sf,2),size(Sf,2)), &
        ampl(size(Sf,2))
   real :: dummy(1,1)
-  integer :: info,r
+  integer :: info
 #ifdef ROTATE_ENSEMBLE
   real, dimension(size(Sf,2)) :: v,w
   real :: rotationMatrix(size(Sf,2),size(Sf,2))
@@ -130,27 +130,23 @@ contains
   integer :: i,j
 #endif
 
-  r = size(Sf,2)
+  type(DiagCovar) :: R
+  real :: diagR(size(invsqrtR))
+
+  diagR = 1./invsqrtR**2
+  call DiagCovar_init(R,diagR)
+
   lambda = 0
-#ifdef ALLOCATE_LOCAL_VARS
-  allocate(temp(size(HSf,1),size(HSf,2)))
-  !... change temp
-  temp = matmul(HSf,R%mldivide(HSf))
 
-  call gesvd('n','a',temp,lambda,dummy,UT,info)
-
-! decomposition satisfies:
-! temp.tx.temp = UT.tx.(diag(lambda**2).x.UT)
-
-  deallocate(temp)
-#else
-  call gesvd('n','a',invsqrtR.dx.HSf,lambda,dummy,UT,info)
-#endif
+  allocate(temp(size(HSf,2),size(HSf,2)))
+  temp = HSf .tx. (R%mldivide(HSf))
+  call symeig(temp,lambda,U)
+  where (lambda < 0) lambda = 0
 
   ! lambda  = (1 + \mathbf \Lambda)^{-1} in OAK documentation
-  lambda = (1+lambda**2)**(-1)
+  lambda = (1+lambda)**(-1)
 
-  ampl = (UT.tx.(lambda.dx.(UT.x.(HSf.tx.(invsqrtR**2*(yo-Hxf))))))
+  ampl = (U.x.(lambda.dx.(U.tx.(HSf.tx.(R%mldivide(yo-Hxf))))))
 
 ! check if any element of ampl is NaN
   if (any(ampl /= ampl)) then
@@ -166,14 +162,14 @@ contains
 ! PGI compiler need a intermediate variable with the square root of lambda
 ! otherwise it produced an error
 ! PGF90-F-0000-Internal compiler error. fill_argt: dimensionality doesn't match       1
-! on lines like: Sa = Sf.x.(UT.tx.(sqrt(lambda).dx.UT))
+! on lines like: Sa = Sf.x.(U.x.(sqrt(lambda).dx.transpose(U)))
 !
 
   ! sqrt_lambda  = (1 + \mathbf \Lambda)^{-1/2} in OAK documentation
     sqrt_lambda = sqrt(lambda)
 
 #   ifndef ROTATE_ENSEMBLE
-    Sa = Sf.x.(UT.tx.(sqrt_lambda.dx.UT))
+    Sa = Sf.x.(U.x.(sqrt_lambda.dx.transpose(U)))
 #   else
 
 !
@@ -188,12 +184,12 @@ contains
 
     ! v = U (1 + \mathbf \Lambda)^{1/2} U^T 1 
     w = 1./sqrt(1.*size(Sf,2))
-    v = UT.tx.(sum(UT,2)/sqrt_lambda)
+    v = U.x.(sum(U,1)/sqrt_lambda)
     v = normate(v)
 
 ! RotateVector(w,v) is generally the identity matrix
 
-    Sa = Sf.x.(UT.tx.(sqrt_lambda.dx.(UT.x.RotateVector(w,v))))
+    Sa = Sf.x.(U.x.(sqrt_lambda.dx.(U.tx.RotateVector(w,v))))
 #   endif
   end if
 
