@@ -21,31 +21,33 @@ contains
  !
 
 
- function diff(conf,f,dim) result(df)
+ function diff(sz,mask,pm,f,dim) result(df)
   use matoper
   implicit none
-  type(config), intent(in) :: conf
+  integer, intent(in) :: sz(:)
+  logical, intent(in) :: mask(:)
+  real, intent(in) :: pm(:,:)
   real, intent(in) :: f(:)
   integer, intent(in) :: dim
-  real :: df(conf%n)
+  real :: df(size(mask))
 
-  integer :: l1,l2,subs1(conf%ndim),subs2(conf%ndim)
+  integer :: l1,l2,subs1(size(sz)),subs2(size(sz))
 
   df = 0
 
-  do l1 = 1,conf%n
+  do l1 = 1,product(sz)
     ! get subscripts
     ! sub1 and l1 corresponds to (i,j) if dim = 1
-    subs1 = ind2sub(conf%sz,l1)
+    subs1 = ind2sub(sz,l1)
 
-    if (subs1(dim) /= conf%sz(dim)) then
+    if (subs1(dim) /= sz(dim)) then
       ! sub2 and l2 corresponds to (i+1,j) if dim = 1
       subs2 = subs1
       subs2(dim) = subs2(dim)+1
-      l2 = sub2ind(conf%sz,subs2)
+      l2 = sub2ind(sz,subs2)
 
-      if (conf%mask(l1).and.conf%mask(l2)) then
-        df(l1) = (f(l2) - f(l1)) * (conf%pm(l2,1) + conf%pm(l1,1))/2.
+      if (mask(l1).and.mask(l2)) then
+        df(l1) = (f(l2) - f(l1)) * (pm(l2,1) + pm(l1,1))/2.
       end if
     end if
   end do
@@ -56,47 +58,52 @@ contains
  !
 
 
- function diff_op(conf,dim) result(S)
+ function diff_op(sz,mask,pm,dim) result(S)
   use matoper
   implicit none
-  type(config), intent(in) :: conf
+  integer, intent(in) :: sz(:)
+  logical, intent(in) :: mask(:)
+  real, intent(in) :: pm(:,:)
   integer, intent(in) :: dim
   type(SparseMatrix) :: S
 
-  integer :: l1,l2,subs1(conf%ndim),subs2(conf%ndim),maxnz
+  integer :: l1,l2,subs1(size(sz)),subs2(size(sz)),maxnz,n
 
+  n = product(sz)
   S%nz = 0
-  S%m = conf%n
-  S%n = conf%n
-  maxnz = 2*conf%n
+  S%m = n
+  S%n = n
+  maxnz = 2*n
   allocate(S%i(maxnz),S%j(maxnz),S%s(maxnz))
+  S%s = 0
 
-  do l1 = 1,conf%n
+  do l1 = 1,n    
     ! get subscripts
     ! sub1 and l1 corresponds to (i,j) if dim = 1
-    subs1 = ind2sub(conf%sz,l1)
+    subs1 = ind2sub(sz,l1)
 
-    if (subs1(dim) /= conf%sz(dim)) then
+    if (subs1(dim) /= sz(dim)) then
       ! sub2 and l2 corresponds to (i+1,j) if dim = 1
       subs2 = subs1
       subs2(dim) = subs2(dim)+1
-      l2 = sub2ind(conf%sz,subs2)
+      l2 = sub2ind(sz,subs2)
 
-      if (conf%mask(l1).and.conf%mask(l2)) then
+      if (mask(l1).and.mask(l2)) then
         S%nz = S%nz+1
         S%i(S%nz) = l1
         S%j(S%nz) = l2
-        S%s(S%nz) = (conf%pm(l2,1) + conf%pm(l1,1))/2
+        S%s(S%nz) = (pm(l2,1) + pm(l1,1))/2
 
         S%nz = S%nz+1
         S%i(S%nz) = l1
         S%j(S%nz) = l1
-        S%s(S%nz) = -(conf%pm(l2,1) + conf%pm(l1,1))/2
+        S%s(S%nz) = -(pm(l2,1) + pm(l1,1))/2
       end if
     end if
 
   end do
 
+!  write(6,*) 'S%s',S%s(1:S%nz)
  end function 
 
  !_______________________________________________________
@@ -118,12 +125,12 @@ contains
 
   Lf = 0
   do i = 1,conf%ndim
-    df = diff(conf,f,i)
+    df = diff(conf%sz,conf%mask,conf%pm,f,i)
 
     !where (smask(:,i)) df = snu(:,i) * df
     df = conf%snu(:,i) * df
 
-    ddf = diff(conf,df,i)
+    ddf = diff(conf%sz,conf%smask(:,i),conf%spm(:,:,i),df,i)
     Lf = Lf + ddf
   end do
 
@@ -131,6 +138,52 @@ contains
   Lf = Lf * product(conf%pm,2)
 
  end function laplacian
+
+ !_______________________________________________________
+ !
+
+ function laplacian_op(conf,f) result(Lf)
+  use matoper
+  implicit none
+  type(config), intent(in) :: conf
+  real, intent(in) :: f(:)
+  type(SparseMatrix) :: Lap,S
+  real :: Lf(conf%n)
+
+
+  integer :: i
+  real, dimension(conf%n) :: df, ddf
+
+
+
+  ! compte laplacian
+
+  Lf = 0
+  do i = 1,conf%ndim
+    df = diff(conf%sz,conf%mask,conf%pm,f,i)
+    S = diff_op(conf%sz,conf%mask,conf%pm,i)
+!    write(6,*) 'err1',S%s(1:S%nz)
+!    write(6,*) 'err',i,maxval(abs((S.x.f) - df))
+
+    !where (smask(:,i)) df = snu(:,i) * df
+    df = conf%snu(:,i) * df
+
+    S%s(1:S%nz) = S%s(1:S%nz) * conf%snu(:,i)
+
+!    write(6,*) 'err1',S%s(1:S%nz)
+    write(6,*) 'err2',conf%snu(:,i)
+    write(6,*) 'smask',conf%smask(:,i)
+!    write(6,*) 'err3',maxval((S.x.f) - df)
+
+    ddf = diff(conf%sz,conf%smask(:,i),conf%spm(:,:,i),df,i)
+    
+    Lf = Lf + ddf
+  end do
+
+  ! product(pm,2) is the inverse of the volume of a grid cell
+  Lf = Lf * product(conf%pm,2)
+
+ end function 
 
  !_______________________________________________________
  !
@@ -261,13 +314,20 @@ contains
 
     ! coefficient for laplacian
     do j = 1,ndim
-      if (j==i) then
+      if (j == i) then
         conf%snu(:,i) = conf%snu(:,i) * conf%spm(:,j,i)
       else
         conf%snu(:,i) = conf%snu(:,i) / conf%spm(:,j,i)
       end if
     end do
+
+!    write(6,*) 'conf%snu(:,i)',pack(conf%snu(:,i),.not.conf%smask(:,i))
   end do
+
+  where (.not.conf%smask)
+    conf%snu = 0
+  end where
+!  write(6,*) 'conf%snu(:,i)',conf%snu
 
  end subroutine initconfig
 
@@ -386,11 +446,11 @@ contains
 
   call initconfig(conf,sz,mask,pm,x)
 
-  df = diff(conf,3*x(:,1) + 2*x(:,2),1)
+  df = diff(sz,mask,pm,3*x(:,1) + 2*x(:,2),1)
   df2 = reshape(df,sz)    
   call assert(maxval(abs(df2(1:sz(1)-1,:) - 3)),0.,1e-10,'gradv x')
 
-  df = diff(conf,3*x(:,1) + 2*x(:,2),2)
+  df = diff(sz,mask,pm,3*x(:,1) + 2*x(:,2),2)
   df2 = reshape(df,sz)    
   call assert(maxval(abs(df2(:,1:sz(2)-1) - 2)),0.,1e-10,'gradv y')
 
@@ -405,13 +465,21 @@ contains
   df2 = reshape(df,sz)    
   call assert(maxval(abs(df2(1:sz(1)-2,1:sz(2)-2) - 6)),0.,1e-10,'laplacian (2)')
 
-  Sx = diff_op(conf,1)
+  Sx = diff_op(sz,mask,pm,1)
   df2 = reshape(Sx .x. (3*x(:,1) + 2*x(:,2)) ,sz)    
   call assert(maxval(abs(df2(1:sz(1)-1,:) - 3)),0.,1e-10,'gradv op x')
 
-  Sy = diff_op(conf,2)
+  Sy = diff_op(sz,mask,pm,2)
   df2 = reshape(Sy .x. (3*x(:,1) + 2*x(:,2)) ,sz)    
   call assert(maxval(abs(df2(:,1:sz(2)-1) - 2)),0.,1e-10,'gradv op x')
+
+  df = laplacian_op(conf,3*x(:,1)**2 + 2*x(:,2))
+  df2 = reshape(df,sz)    
+  call assert(maxval(abs(df2(1:sz(1)-2,1:sz(2)-2) - 6)),0.,1e-10,'laplacian op (1)')
+
+!  Lap = laplacian_op(conf)
+!  df2 = reshape(Lap .x. (3*x(:,1)**2 + 2*x(:,2)) ,sz)    
+!  call assert(maxval(abs(df2(1:sz(1)-2,1:sz(2)-2) - 6)),0.,1e-10,'laplacian op (1)')
 
   call doneconfig(conf)
  end subroutine test_diff

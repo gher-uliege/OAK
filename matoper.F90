@@ -599,6 +599,35 @@ function ssparsemat_mult_ssparsemat(A,B) result(C)
 
 end function ssparsemat_mult_ssparsemat
 
+
+!_______________________________________________________
+!
+
+function ssparsemat_add_ssparsemat(A,B) result(C)
+ implicit none
+ type(SparseMatrix), intent(in) :: A
+ type(SparseMatrix), intent(in) :: B
+ type(SparseMatrix) :: C
+ integer :: k,l,nz,l1,l2,llower,lupper
+
+ if (A%m /= B%m .or. A%n /= B%n) then
+   write(stderr,*) 'ssparsemat_add_ssparsemat: size not conform: A + B '
+   write(stderr,*) 'shape(A) ',A%m,A%n
+   write(stderr,*) 'shape(B) ',B%m,B%n
+   stop
+ end if
+
+ C%m = A%m
+ C%n = A%n
+ C%nz = A%nz + B%nz
+ allocate(C%i(C%nz),C%j(C%nz),C%s(C%nz))
+ ! could be optimized
+ C%i = [A%i(1:A%nz), B%i(1:B%nz)]
+ C%j = [A%j(1:A%nz), B%j(1:B%nz)]
+ C%s = [A%s(1:A%nz), B%s(1:B%nz)]
+
+end function ssparsemat_add_ssparsemat
+
 !--------------------------------------------
  
 
