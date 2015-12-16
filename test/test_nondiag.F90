@@ -87,8 +87,28 @@ contains
 
   !_______________________________________________________
   !
+  ! compute 
+  ! inv(B) * x
+  ! where B is the background covariance matrix in DIVA
 
+ function invBx(conf,x,alpha) result(iBx)
+  use matoper
+  implicit none
+  type(config), intent(in) :: conf
+  real, intent(in) :: x(:), alpha(:)
+  real :: iBx(conf%n)
 
+  integer :: i
+  iBx = x
+  
+  do i = 1,conf%ndim
+  end do
+  
+
+ end function invBx
+
+  !_______________________________________________________
+  !
 
  function stagger_mask(sz,mask,dim) result(smask)
   use matoper
@@ -155,6 +175,8 @@ contains
 
  end function 
 
+  !_______________________________________________________
+  !
 
  subroutine initconfig(conf,sz,mask,pm,x)
   implicit none
@@ -201,8 +223,30 @@ contains
   end do
   
  end subroutine initconfig
+
+  !_______________________________________________________
+  !
+
+ subroutine doneconfig(conf)
+  implicit none
+  type(config) :: conf
+  
+  deallocate(conf%sz,conf%mask,conf%pm, &
+       conf%x, conf%spm, conf%snu, &
+       conf%smask)
+ end subroutine doneconfig
+
+  !_______________________________________________________
+  !
+
+
 end module spline
 
+
+
+
+  !_______________________________________________________
+  !
 
 program test_nondiag
  use spline
@@ -240,6 +284,7 @@ contains
    
    subroutine test_grad2d
     use matoper
+    implicit none
     integer, parameter :: sz(2) = [3,4]
     real :: x(sz(1),sz(2),2), pm(sz(1),sz(2),2)
     real :: df(sz(1),sz(2))
@@ -270,6 +315,7 @@ contains
    
    subroutine test_diff
     use matoper
+    implicit none
     integer, parameter :: sz(2) = [3,4]
     real :: x(sz(1)*sz(2),2), pm(sz(1)*sz(2),2)
     real :: df(sz(1)*sz(2)), df2(sz(1),sz(2))
@@ -311,7 +357,7 @@ contains
     df2 = reshape(df,sz)    
     call assert(maxval(abs(df2(1:sz(1)-2,1:sz(2)-2) - 6)),0.,1e-10,'laplacian (2)')
     
-
+    call doneconfig(conf)
    end subroutine test_diff
     
 

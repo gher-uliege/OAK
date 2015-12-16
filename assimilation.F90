@@ -1504,7 +1504,7 @@ end subroutine fmtIndex
     do i=1,size(valid1)
       if (.not.valid1(i)) then
         k=k+1
-        call ind2sub(ML1,i,Hindex(1,k),Hindex(2,k),Hindex(3,k),Hindex(4,k),Hindex(5,k))
+        call ind2submv(ML1,i,Hindex(1,k),Hindex(2,k),Hindex(3,k),Hindex(4,k),Hindex(5,k))
         Hindex(6:10,k) = -1
         Hcoeff(k) = 0.
       end if
@@ -1516,7 +1516,7 @@ end subroutine fmtIndex
       if (.not.valid2(i)) then
         k=k+1
         Hindex(1:5,k) = -1
-        call ind2sub(ML2,i,Hindex(6,k),Hindex(7,k),Hindex(8,k),Hindex(9,k),Hindex(10,k))
+        call ind2submv(ML2,i,Hindex(6,k),Hindex(7,k),Hindex(8,k),Hindex(9,k),Hindex(10,k))
         Hcoeff(k) = 0.
       end if
     end do
@@ -1752,7 +1752,7 @@ end subroutine fmtIndex
  !_______________________________________________________
  !
 
- function sub2ind(ML,v,i,j,k,n,valid) result(index)
+ function sub2indmv(ML,v,i,j,k,n,valid) result(index)
   implicit none
   type(MemLayout) :: ML
   integer :: index
@@ -1785,7 +1785,7 @@ end subroutine fmtIndex
 
   if (present(valid)) valid=val
 
- end function sub2ind
+ end function sub2indmv
 
  !_______________________________________________________
  !
@@ -1793,7 +1793,7 @@ end subroutine fmtIndex
  ! Fix me:
  ! make it work for distributed and permuted vectors
 
- subroutine ind2sub(ML,index,v,i,j,k,n)
+ subroutine ind2submv(ML,index,v,i,j,k,n)
   implicit none
   type(MemLayout) :: ML
   integer, intent(in) :: index
@@ -1802,7 +1802,7 @@ end subroutine fmtIndex
 
 
 !  if (ML%permute) then
-!    write(stderr,*) 'ind2sub: not implemented '
+!    write(stderr,*) 'ind2submv: not implemented '
 !  end if
 ! currently: should be "unpermuted" at calling level
 
@@ -1829,7 +1829,7 @@ end subroutine fmtIndex
     end if
   end do
   v = -1
- end subroutine ind2sub
+ end subroutine ind2submv
 
 
  !_______________________________________________________
@@ -2481,7 +2481,7 @@ end subroutine fmtIndex
 
     ! loop over all observation (only non-masked) in the mth observation
     do linindex = ObsML%StartIndexSea(m),ObsML%EndIndexSea(m)
-        call ind2sub(ObsML,linindex,tmpm,i,j,k,n)
+        call ind2submv(ObsML,linindex,tmpm,i,j,k,n)
 
         minres = huge(minres)
         v = -1
@@ -3613,7 +3613,7 @@ end function
      ! is state vector permuted ? yes -> in local analysis
      index = zoneIndex(ind)
 
-     call ind2sub(ModML,index,v,i,j,k,n)
+     call ind2submv(ModML,index,v,i,j,k,n)
 
      if (ModML%ndim(v).eq.1) then
        x1 = getCoord(ModelGrid(v),(/ i /),out)
@@ -3762,7 +3762,7 @@ end function
 
      !pindexi = indexi
      pindexi = zoneIndex(indexi)
-     call ind2sub(ModML,pindexi,pv,pi,pj,pk,pn)
+     call ind2submv(ModML,pindexi,pv,pi,pj,pk,pn)
      nnz = 0
      !write(6,*) 'indexi ',indexi,pindexi,pv,pi,pj,pk,pn
 
@@ -3775,7 +3775,7 @@ end function
          do j = max(pj-lenj, 1), min(pj+lenj, ModML%varshape(2,v))
            do i = max(pi-leni, 1), min(pi+leni, ModML%varshape(1,v))
              do k = 1,ModML%varshape(3,v)
-               tj = sub2ind(ModML,v,i,j,k,n,valid)
+               tj = sub2indmv(ModML,v,i,j,k,n,valid)
                !write(6,*) 'v,i,j,k,n ',v,i,j,k,n,tj
 
                if (valid) then
@@ -4045,13 +4045,13 @@ end function
     ! transform [Hindex(1,i) Hindex(2,i) Hindex(3,i) Hindex(4,i)] into the
     ! linear index linindex1 and trapp error in variable val1
 
-    linindex1 = sub2ind(ML1,Hindex(1,i),Hindex(2,i),Hindex(3,i),Hindex(4,i),Hindex(5,i),val1)
+    linindex1 = sub2indmv(ML1,Hindex(1,i),Hindex(2,i),Hindex(3,i),Hindex(4,i),Hindex(5,i),val1)
 
     ! space 2: origin
     ! transform [Hindex(6,i) Hindex(7,i) Hindex(8,i) Hindex(9,i)] into the
     ! linear index linindex2 and trapp error in variable val2
 
-    linindex2 = sub2ind(ML2,Hindex(6,i),Hindex(7,i),Hindex(8,i),Hindex(9,i),Hindex(10,i),val2)
+    linindex2 = sub2indmv(ML2,Hindex(6,i),Hindex(7,i),Hindex(8,i),Hindex(9,i),Hindex(10,i),val2)
 
     ! return the valid flags is desiered
 
@@ -4110,8 +4110,8 @@ end function
   integer nz 
 
   do nz=1,H%nz
-    call ind2sub(ML1,H%i(nz),Hindex(1,nz),Hindex(2,nz),Hindex(3,nz),Hindex(4,nz),Hindex(5,nz))
-    call ind2sub(ML2,H%j(nz),Hindex(6,nz),Hindex(7,nz),Hindex(8,nz),Hindex(9,nz),Hindex(10,nz))
+    call ind2submv(ML1,H%i(nz),Hindex(1,nz),Hindex(2,nz),Hindex(3,nz),Hindex(4,nz),Hindex(5,nz))
+    call ind2submv(ML2,H%j(nz),Hindex(6,nz),Hindex(7,nz),Hindex(8,nz),Hindex(9,nz),Hindex(10,nz))
     Hcoeff(nz) = H%s(nz) 
   end do
 
@@ -4427,7 +4427,7 @@ subroutine ensAnalysisAnamorph2(yo,Ef,HEf,invsqrtR,  &
   ! loop over all elements
   do l=1,size(x)    
     ! get variable index v for element l
-    call ind2sub(ML,l,v,i,j,k,n)
+    call ind2submv(ML,l,v,i,j,k,n)
 
     !write(0,*) 'init ',x(l),AnamTrans%anam(v)%type,foreward
 
