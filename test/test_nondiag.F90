@@ -1,0 +1,70 @@
+program test_nondiag
+ implicit none
+
+ call test_2d()
+ call test_grad2d()
+contains
+
+ function grad2d(mask,f,pm,dim) result(df)
+  implicit none
+
+  logical, intent(in) :: mask(:,:)
+  real, intent(in) :: f(:,:),pm(:,:,:)
+  integer, intent(in) :: dim
+  real :: df(size(f,1),size(f,2))
+
+  integer :: i,j
+
+  df = 0
+  if (dim == 1) then
+    do j = 1,size(df,2)
+      do i = 1,size(df,1)-1
+        if (mask(i+1,j).and.mask(i,j)) then
+
+
+          df(i,j) = (f(i+1,j) - f(i,j)) * (pm(i+1,j,1) + pm(i,j,1))/2.
+        end if
+      end do
+    end do
+  end if
+
+ end function grad2d
+   
+   subroutine test_grad2d
+    use matoper
+    integer, parameter :: sz(2) = [3,4]
+    real :: x(sz(1),sz(2),2), pm(sz(1),sz(2),2)
+    real :: f(sz(1),sz(2),2)
+    real :: df(sz(1),sz(2))
+    logical :: mask(sz(1),sz(2))
+    
+    integer :: i,j
+
+    do j = 1,sz(2)
+      do i = 1,sz(1)
+        x(i,j,1) = i
+        x(i,j,2) = j
+      end do
+    end do
+
+    pm = 1
+    mask = .true.
+    df = grad2d(mask,3*x(:,:,1) + 2*x(:,:,2),pm,1)
+
+    call assert_scal(maxval(abs(df(1:sz(1)-1,:) - 3)),0.,1e-10,'grad x')
+    write(6,*) 'mv',maxval(abs(df(1:sz(1)-1,:) - 3))
+    
+
+   end subroutine test_grad2d
+    
+
+
+   subroutine test_2d
+    implicit none
+
+    integer, parameter :: size(2) = [10,11]
+    real :: x(size(1),size(2),2), pm(size(1),size(2),2), pn(size(1),size(2),2)
+
+   end subroutine test_2d
+
+  end program test_nondiag

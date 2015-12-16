@@ -214,10 +214,14 @@ test/test_rrsqrt.o: test/test_rrsqrt.F90  matoper.o covariance.o rrsqrt.o
 test/test_rrsqrt: test/test_rrsqrt.o  matoper.o covariance.o rrsqrt.o
 	$(F90C) $(F90FLAGS) $(LDFLAGS) -o $@ $+ $(LIBS) $(EXTRA_LDFLAGS)
 
+test/test_nondiag.o: test/test_nondiag.F90 matoper.o rrsqrt.o covariance.o
+test/test_nondiag: test/test_nondiag.o matoper.o rrsqrt.o covariance.o
+	$(F90C) $(F90FLAGS) $(LDFLAGS) -o $@ $+ $(LIBS) $(EXTRA_LDFLAGS)
+
 test: test/test_covariance test/test_ndgrid test/test_cellgrid test/assimtest2 test/test_matoper test/test_rrsqrt test/toymodel
 	./test/test_ndgrid
 	./test/test_toymodel
 	./test/test_covariance
 	./test/test_cellgrid
 	./test/test_matoper
-
+	./test/test_nondiag
