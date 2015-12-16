@@ -1289,6 +1289,80 @@ end function ssparsemat_mult_ssparsemat
 
  end function pcg
 
+
+  !_______________________________________________________
+  !
+
+  function ind2sub(dims,ind) result(sub)
+    
+    ! Create subscripts sub(1), sub(2), ... from a linear index ind.
+    ! The linear index is interpreted in column-major order. All indices are 1-based.
+    ! https://en.wikipedia.org/wiki/Row-major_order
+    ! This function is the same as ind2sub in matlab/octave.
+
+    implicit none
+
+    ! Input
+    integer, intent(in) :: dims(:)  ! size of an array
+    integer, intent(in) :: ind      ! global linear index
+
+    ! Output
+    integer :: sub(size(dims))      ! subscript
+
+    ! Local variables
+    integer :: j,tmp,offset(size(dims))
+
+    offset(1) = 1
+    do j = 2,size(dims)
+       offset(j) = offset(j-1) * dims(j-1)
+    end do
+
+    ! tmp is here 0-based
+    tmp = ind - 1
+
+    do j = size(dims), 1, -1
+       ! integer division
+       sub(j) = tmp / offset(j)
+       tmp = tmp - sub(j) * offset(j)
+    end do
+
+    ! make sub 1-based
+    sub = sub+1
+  end function ind2sub
+
+  !_______________________________________________________
+  !
+
+  function sub2ind(dims,sub) result(ind)
+    
+    ! Create a linear index ind from subscripts sub(1), sub(2), ....
+    ! The linear index is interpreted in column-major order. All indices are 1-based.
+    ! https://en.wikipedia.org/wiki/Row-major_order
+    ! This function is the same as ind2sub in matlab/octave.
+
+    implicit none
+
+    ! Input
+    integer, intent(in) :: dims(:)  ! size of an array
+    integer, intent(in) :: sub(size(dims))      ! subscript
+
+    ! Output
+    integer             :: ind      ! global linear index
+
+    ! Local variables
+    integer :: j,offset(size(dims))
+
+    ind = 0
+    offset(1) = 1
+    do j = 2,size(dims)
+       offset(j) = offset(j-1) * dims(j-1)
+    end do
+
+    ind = sum((sub-1) * offset)+1
+  end function 
+
+
+
 !!$
 !!$!_______________________________________________________
 !!$!

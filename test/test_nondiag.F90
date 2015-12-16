@@ -62,6 +62,7 @@ contains
 
 
  function grad2dv(sz,mask,f,pm,dim) result(df)
+  use matoper
   implicit none
 
   logical, intent(in) :: mask(:)
@@ -77,7 +78,9 @@ contains
       do i = 1,sz(1)
         l1 = i-1 + (j-1)*sz(1) +1 ! (i,j)
         l2 = i   + (j-1)*sz(1) +1 ! (i+1,j)
-
+        l1 = sub2ind(sz,[i,j])
+        l2 = sub2ind(sz,[i+1,j])
+        
         if (mask(l1).and.mask(l2)) then
           df(l1) = (f(l2) - f(l1)) * (pm(l2,1) + pm(l1,1))/2.
         end if
