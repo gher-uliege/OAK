@@ -70,14 +70,12 @@ contains
   integer, intent(in) :: dim,sz(:)
   real :: df(size(f,1))
 
-  integer :: i,j,l1,l2
+  integer :: i,j,l1,l2,subs(size(sz))
 
   df = 0
   if (dim == 1) then
     do j = 1,sz(2)
-      do i = 1,sz(1)
-        l1 = i-1 + (j-1)*sz(1) +1 ! (i,j)
-        l2 = i   + (j-1)*sz(1) +1 ! (i+1,j)
+      do i = 1,sz(1)-1
         l1 = sub2ind(sz,[i,j])
         l2 = sub2ind(sz,[i+1,j])
         
