@@ -30,6 +30,82 @@ contains
 
  !_______________________________________________________
  !
+ ! shift the field by 1 grid point in the direction dim
+
+ function shift(sz,mask,f,dim) result(sf)
+  use matoper
+  implicit none
+  integer, intent(in) :: sz(:)
+  logical, intent(in) :: mask(:)
+  real, intent(in) :: f(:)
+  integer, intent(in) :: dim
+  real :: sf(size(mask))
+
+  integer :: l1,l2,subs1(size(sz)),subs2(size(sz))
+
+  sf = 0
+
+  do l1 = 1,product(sz)
+    ! get subscripts
+    ! sub1 and l1 corresponds to (i,j) if dim = 1
+    subs1 = ind2sub(sz,l1)
+
+    if (subs1(dim) /= 1) then
+      ! sub2 and l2 corresponds to (i-1,j) if dim = 1
+      subs2 = subs1
+      subs2(dim) = subs2(dim)-1
+      l2 = sub2ind(sz,subs2)
+
+      sf(l1) = f(l2)
+    end if
+  end do
+
+ end function 
+
+ !_______________________________________________________
+ !
+
+ function shift_op(sz,mask,dim) result(S)
+  use matoper
+  implicit none
+  integer, intent(in) :: sz(:)
+  logical, intent(in) :: mask(:)
+  integer, intent(in) :: dim
+  type(SparseMatrix) :: S
+
+  integer :: l1,l2,subs1(size(sz)),subs2(size(sz)),maxnz,n
+
+  n = product(sz)
+  S%nz = 0
+  S%m = n
+  S%n = n
+  maxnz = n
+  allocate(S%i(maxnz),S%j(maxnz),S%s(maxnz))
+  S%s = 0
+
+  do l1 = 1,n    
+    ! get subscripts
+    ! sub1 and l1 corresponds to (i,j) if dim = 1
+    subs1 = ind2sub(sz,l1)
+
+    if (subs1(dim) /= 1) then
+      ! sub2 and l2 corresponds to (i-1,j) if dim = 1
+      subs2 = subs1
+      subs2(dim) = subs2(dim)-1
+      l2 = sub2ind(sz,subs2)
+
+      S%nz = S%nz+1
+      S%i(S%nz) = l1
+      S%j(S%nz) = l2
+      S%s(S%nz) = 1.
+    end if
+  end do
+
+!  write(6,*) 'S%s',S%s(1:S%nz)
+ end function shift_op
+
+ !_______________________________________________________
+ !
 
 
  function diff(sz,mask,pm,f,dim) result(df)
@@ -67,7 +143,6 @@ contains
 
  !_______________________________________________________
  !
-
 
  function diff_op(sz,mask,pm,dim) result(S)
   use matoper
@@ -175,7 +250,7 @@ contains
     df = conf%snu(:,i) * df
 
     ddf = diff(conf%sz,conf%smask(:,i),conf%spm(:,:,i),df,i)
-    Lf = Lf + ddf
+    Lf = Lf + shift(conf%sz,conf%mask,ddf,i)
   end do
 
   ! product(pm,2) is the inverse of the volume of a grid cell
@@ -190,7 +265,7 @@ contains
   use matoper
   implicit none
   type(config), intent(in) :: conf
-  type(SparseMatrix) :: Lap,S
+  type(SparseMatrix) :: Lap,S,D2,Sh
   real :: Lf(conf%n)
   integer :: i
 
@@ -202,10 +277,10 @@ contains
   do i = 1,conf%ndim
     S = diff_op(conf%sz,conf%mask,conf%pm,i)
     S = spdiag(conf%snu(:,i)) .x. S
-    S = diff_op(conf%sz,conf%smask(:,i),conf%spm(:,:,i),i) .x. S
+    D2 = diff_op(conf%sz,conf%smask(:,i),conf%spm(:,:,i),i) .x. S
     
     ! add sparse matrices
-    Lap = Lap + S
+    Lap = Lap + (shift_op(conf%sz,conf%mask,i) .x. D2)
   end do
 
   ! product(pm,2) is the inverse of the volume of a grid cell
@@ -469,6 +544,7 @@ program test_nondiag
  use matoper
  implicit none
  type(SparseMatrix) :: iB
+ real :: tol = 1e-7
 
  call test_diff()
  call test_2d()
@@ -570,12 +646,11 @@ contains
 
   df = laplacian(conf,3*x(:,1) + 2*x(:,2))
   df2 = reshape(df,sz)    
-  call assert(maxval(abs(df2(1:sz(2)-2,1:sz(2)-2))),0.,1e-10,'laplacian (1)')
-
+  call assert(maxval(abs(df2(2:sz(1)-1,2:sz(2)-1))),0.,1e-10,'laplacian (1)')
 
   df = laplacian(conf,3*x(:,1)**2 + 2*x(:,2))
   df2 = reshape(df,sz)    
-  call assert(maxval(abs(df2(1:sz(1)-2,1:sz(2)-2) - 6)),0.,1e-10,'laplacian (2)')
+  call assert(maxval(abs(df2(2:sz(1)-1,2:sz(2)-1) - 6)),0.,1e-10,'laplacian (2)')
 
   Sx = grad_op(sz,mask,pm,1)
   df2 = reshape(Sx .x. (3*x(:,1) + 2*x(:,2)) ,sz)    
@@ -587,7 +662,7 @@ contains
 
   Lap = laplacian_op(conf)
   df2 = reshape(Lap .x. (3*x(:,1)**2 + 2*x(:,2)) ,sz)    
-  call assert(maxval(abs(df2(1:sz(1)-2,1:sz(2)-2) - 6)),0.,1e-10,'laplacian op (1)')
+  call assert(maxval(abs(df2(2:sz(1)-1,2:sz(2)-1) - 6)),0.,1e-10,'laplacian op (1)')
 
   Lap2 = Lap.x.Lap
   call assert(full(Lap2),matmul(full(Lap),full(Lap)),1e-10,'laplacian op (2)')
@@ -614,29 +689,55 @@ contains
  !_______________________________________________________
  ! 
 
+   subroutine test_symmetry(fi)
+    use matoper
+    implicit none
+    real, intent(in) :: fi(:,:)
+    integer :: sz(2) 
+
+    sz = shape(fi)
+
+    call assert(fi,fi(sz(1):1:-1,:),tol,'check symmetry - invert x')
+    call assert(fi,fi(:,sz(2):1:-1),tol,'check symmetry - invert y')
+    call assert(fi,transpose(fi),tol,'check symmetry - x <-> y')
+    
+   end subroutine test_symmetry
+ !_______________________________________________________
+ ! 
+
    subroutine test_2d
   use matoper
+  use ufileformat
   implicit none
   integer, parameter :: sz(2) = [11,11]
   real, parameter :: x0(2) = [-1.,-1.], x1(2) = [1.,1.]
   real, parameter :: alpha(3) = [1,0,1]
   type(config) :: conf
   real :: x(product(sz)), Bx(product(sz)), fi(sz(1),sz(2))
-  real :: tol = 1e-7
   integer :: maxit = 10000, nit
   real :: relres, xiBx
-
+  type(SparseMatrix) :: Lap
   integer :: i,j,l
 
   call initconfig_rectdom(conf,sz,x0,x1)
   x = 0
-  x((size(x)+1)/2) = 1
+  !x((size(x)+1)/2) = 1
+  x(sub2ind(sz,[6,6])) = 1
+
+!  call test_symmetry(reshape(x,sz))
+
+  fi = reshape(laplacian(conf,x),sz)
+!  write(6,*) 'fi ',fi
+  call test_symmetry(fi(2:sz(1)-1,2:sz(1)-1))
 
   iB = invB_op(conf,alpha,x)
+
+  call test_symmetry(reshape(iB.x.x,sz))
+
+
   xiBx = invB(conf,alpha,x)
   call assert(xiBx,x.x.(iB.x.x),tol,'check invB')
 
-!  stop
   Bx = pcg(fun,x,x,tol=tol,maxit=maxit,nit=nit,relres=relres)
 
   call assert(iB.x.Bx,x,tol,'check inv(B)*x')
@@ -646,9 +747,9 @@ contains
 
 
   fi = reshape(Bx,sz)
-  call assert(fi,fi(sz(1):1:-1,:),tol,'check symmetry - invert x')
-  call assert(fi,fi(:,sz(2):1:-1),tol,'check symmetry - invert y')
-  call assert(fi,transpose(fi),tol,'check symmetry - x <-> y')
+  call test_symmetry(fi)
+
+  call usave('fi.dat',fi,-9999.)
 
   ! check symetry
 
