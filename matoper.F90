@@ -479,7 +479,7 @@ end function
 
   ST%m = S%n
   ST%n = S%m
-  ST%nz = ST%nz
+  ST%nz = S%nz
   allocate(ST%i(S%nz),ST%j(S%nz),ST%s(S%nz))
 
   ST%i = S%j
@@ -930,6 +930,7 @@ end function ssparsemat_add_ssparsemat
 #define ssparsemat_mult_mat_TYPE ssparsemat_mult_dmat
 #define mat_mult_ssparsemat_TYPE dmat_mult_ssparsemat
 #define vec_mult_ssparsemat_TYPE dvec_mult_ssparsemat
+#define scal_mult_ssparsemat_TYPE dscal_mult_ssparsemat
 
 #define mat_mult_matT_TYPE dmat_mult_dmatT
 #define mat_mult_ssparsematT_TYPE dmat_mult_ssparsematT

@@ -140,6 +140,23 @@ end function
 !_______________________________________________________
 !
 
+function scal_mult_ssparsemat_TYPE(alpha,S) result(alphaS)
+implicit none
+REAL_TYPE                      :: alpha
+type(SparseMatrix), intent(in) :: S
+type(SparseMatrix)             :: alphaS
+
+alphaS%m = S%n
+alphaS%n = S%m
+alphaS%nz = S%nz
+allocate(alphaS%i(S%nz),alphaS%j(S%nz),alphaS%s(S%nz))
+
+alphaS%i = S%i
+alphaS%j = S%j
+alphaS%s = alpha*S%s
+
+end function
+
 
 !_______________________________________________________
 !

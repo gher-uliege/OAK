@@ -372,7 +372,7 @@ contains
   end if
 
  end function grad2d
-
+ 
  subroutine test_grad2d
   use matoper
   implicit none
