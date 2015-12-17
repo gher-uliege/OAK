@@ -3,9 +3,18 @@
 module spline
 
  type config
+   ! ndim number of dimensions (e.g. 2 for lon/lat)
+   ! n number of grid points
    integer :: ndim, n
+
+   ! size of the domain
    integer, allocatable :: sz(:)
+   
+   ! mask is true for "within domain"/"sea" grid points and false 
+   ! for "outside the domain"/"land"
    logical, allocatable :: mask(:)
+
+   ! inverse of local resolution
    real, allocatable :: pm(:,:)
    real, allocatable :: x(:,:)
 
@@ -49,7 +58,7 @@ contains
       l2 = sub2ind(sz,subs2)
 
       if (mask(l1).and.mask(l2)) then
-        df(l1) = (f(l2) - f(l1)) * (pm(l2,1) + pm(l1,1))/2.
+        df(l1) = f(l2) - f(l1)
       end if
     end if
   end do
@@ -94,18 +103,51 @@ contains
         S%nz = S%nz+1
         S%i(S%nz) = l1
         S%j(S%nz) = l2
-        S%s(S%nz) = (pm(l2,1) + pm(l1,1))/2
+        S%s(S%nz) = 1.
 
         S%nz = S%nz+1
         S%i(S%nz) = l1
         S%j(S%nz) = l1
-        S%s(S%nz) = -(pm(l2,1) + pm(l1,1))/2
+        S%s(S%nz) = -1.
       end if
     end if
 
   end do
 
 !  write(6,*) 'S%s',S%s(1:S%nz)
+ end function diff_op
+
+
+ !_______________________________________________________
+ !
+
+ function grad(sz,mask,pm,f,dim) result(df)
+  use matoper
+  implicit none
+  integer, intent(in) :: sz(:)
+  logical, intent(in) :: mask(:)
+  real, intent(in) :: pm(:,:)
+  real, intent(in) :: f(:)
+  integer, intent(in) :: dim
+  real :: df(size(mask))
+
+  df = stagger(sz,mask,pm(:,dim),dim) * diff(sz,mask,pm,f,dim)
+ end function grad
+
+ !_______________________________________________________
+ !
+
+
+ function grad_op(sz,mask,pm,dim) result(S)
+  use matoper
+  implicit none
+  integer, intent(in) :: sz(:)
+  logical, intent(in) :: mask(:)
+  real, intent(in) :: pm(:,:)
+  integer, intent(in) :: dim
+  type(SparseMatrix) :: S
+
+  S = spdiag(stagger(sz,mask,pm(:,dim),dim)) .x. diff_op(sz,mask,pm,dim)
  end function 
 
  !_______________________________________________________
@@ -182,7 +224,7 @@ contains
   implicit none
   type(config), intent(in) :: conf
   real, intent(in) :: alpha(:), x(:)
-  type(SparseMatrix) :: iB,Lap,grad
+  type(SparseMatrix) :: iB,Lap,gradient
 
   integer :: i
 
@@ -195,8 +237,8 @@ contains
 
   ! contrain on gradient
   do i = 1,conf%ndim
-    grad = diff_op(conf%sz,conf%mask,conf%pm,i)
-    iB = iB + (alpha(2) .x. (sptranspose(grad).x.grad))
+    gradient = grad_op(conf%sz,conf%mask,conf%pm,i)
+    iB = iB + (alpha(2) .x. (sptranspose(gradient).x.gradient))
   end do
 
   ! contrain on laplacian
@@ -218,7 +260,6 @@ contains
   type(config), intent(in) :: conf
   real, intent(in) :: alpha(:), x(:)
   real :: xiBx, tmp(conf%n)
-  type(SparseMatrix) :: iB,Lap,grad
 
   integer :: i
 
@@ -226,14 +267,12 @@ contains
     write(6,*) 'error alpha to small', alpha
   end if
 
-  xiBx = alpha(1) * sum(x**2)
-
   ! contrain on value
-  iB = spdiag([(alpha(1),i=1,conf%n)])
+  xiBx = alpha(1) * sum(x**2)
 
   ! contrain on gradient
   do i = 1,conf%ndim
-    tmp = diff(conf%sz,conf%mask,conf%pm,x,i)
+    tmp = grad(conf%sz,conf%mask,conf%pm,x,i)
     xiBx = xiBx + alpha(2) * sum(tmp**2)
   end do
 
@@ -391,9 +430,9 @@ contains
     subs = ind2sub(sz,j)
     x(j,:) = x0 + (x1-x0) * (subs-1.)/ (sz-1.) 
   end do
-
+  
   do i = 1,ndim
-    pm(:,i) = (x1(i)-x0(i)) / (sz(i)-1.) 
+    pm(:,i) = (sz(i)-1.) / (x1(i)-x0(i)) 
   end do
 
   call initconfig(conf,sz,mask,pm,x)
@@ -451,8 +490,6 @@ contains
     do j = 1,size(df,2)
       do i = 1,size(df,1)-1
         if (mask(i+1,j).and.mask(i,j)) then
-
-
           df(i,j) = (f(i+1,j) - f(i,j)) * (pm(i+1,j,1) + pm(i,j,1))/2.
         end if
       end do
@@ -506,25 +543,25 @@ contains
   l = 1
   do j = 1,sz(2)
     do i = 1,sz(1)
-      x(l,1) = i
-      x(l,2) = j
+      x(l,1) = 2.*i
+      x(l,2) = 2.*j
       l = l+1
     end do
   end do
 
-  pm = 1
+  pm = 1./2.
   mask = .true.
 
   !call initconfig(conf,sz,mask,pm,x)
-  call initconfig_rectdom(conf,sz,[1.,1.],real(sz))
+  call initconfig_rectdom(conf,sz,[2.,2.],2*real(sz))
   call assert(conf%x,x,1e-10,'rectdom x')
   call assert(conf%pm,pm,1e-10,'rectdom pm')
 
-  df = diff(sz,mask,pm,3*x(:,1) + 2*x(:,2),1)
+  df = grad(sz,mask,pm,3*x(:,1) + 2*x(:,2),1)
   df2 = reshape(df,sz)    
   call assert(maxval(abs(df2(1:sz(1)-1,:) - 3)),0.,1e-10,'gradv x')
 
-  df = diff(sz,mask,pm,3*x(:,1) + 2*x(:,2),2)
+  df = grad(sz,mask,pm,3*x(:,1) + 2*x(:,2),2)
   df2 = reshape(df,sz)    
   call assert(maxval(abs(df2(:,1:sz(2)-1) - 2)),0.,1e-10,'gradv y')
 
@@ -539,11 +576,11 @@ contains
   df2 = reshape(df,sz)    
   call assert(maxval(abs(df2(1:sz(1)-2,1:sz(2)-2) - 6)),0.,1e-10,'laplacian (2)')
 
-  Sx = diff_op(sz,mask,pm,1)
+  Sx = grad_op(sz,mask,pm,1)
   df2 = reshape(Sx .x. (3*x(:,1) + 2*x(:,2)) ,sz)    
   call assert(maxval(abs(df2(1:sz(1)-1,:) - 3)),0.,1e-10,'gradv op x')
 
-  Sy = diff_op(sz,mask,pm,2)
+  Sy = grad_op(sz,mask,pm,2)
   df2 = reshape(Sy .x. (3*x(:,1) + 2*x(:,2)) ,sz)    
   call assert(maxval(abs(df2(:,1:sz(2)-1) - 2)),0.,1e-10,'gradv op x')
 
@@ -603,8 +640,8 @@ contains
 
   call assert(iB.x.Bx,x,tol,'check inv(B)*x')
 !  write(6,*) 'x',x
-  write(6,*) 'nit,relres',nit,relres
-  write(6,*) 'Bx',Bx
+!  write(6,*) 'nit,relres',nit,relres
+!  write(6,*) 'Bx',Bx
  end subroutine 
 
 end program test_nondiag
