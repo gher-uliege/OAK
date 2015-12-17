@@ -527,7 +527,7 @@ contains
   real, parameter :: x0(2) = [-1.,-1.], x1(2) = [1.,1.]
   real, parameter :: alpha(3) = [1,2,1]
   type(config) :: conf
-  real :: x(product(sz))
+  real :: x(product(sz)), Bx(product(sz))
   type(SparseMatrix) :: iB
 
   integer :: i,j,l
@@ -535,7 +535,20 @@ contains
   call initconfig_rectdom(conf,sz,x0,x1)
   iB = invB(conf,alpha)
   
+  x = 0
+  x(size(x)/2) = 1
 
+  Bx = pcg(fun,x)
+
+
+  contains
+   function fun(x) result(iBx)
+    implicit none
+    real, intent(in) :: x(:)
+    real :: iBx(size(x))
+
+    iBx = iB.x.x
+   end function fun
  end subroutine 
 
 end program test_nondiag
