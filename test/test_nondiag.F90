@@ -238,12 +238,12 @@ contains
   ! contrain on gradient
   do i = 1,conf%ndim
     gradient = grad_op(conf%sz,conf%mask,conf%pm,i)
-    iB = iB + (alpha(2) .x. (sptranspose(gradient).x.gradient))
+    iB = iB + (alpha(2) .x. (transpose(gradient).x.gradient))
   end do
 
   ! contrain on laplacian
   Lap = laplacian_op(conf)
-  iB = iB + (alpha(3) .x. (sptranspose(Lap).x.Lap))
+  iB = iB + (alpha(3) .x. (transpose(Lap).x.Lap))
 
 
  end function invB_op
@@ -592,7 +592,7 @@ contains
   Lap2 = Lap.x.Lap
   call assert(full(Lap2),matmul(full(Lap),full(Lap)),1e-10,'laplacian op (2)')
 
-  Lap2 = sptranspose(Lap).x.Lap
+  Lap2 = transpose(Lap).x.Lap
   call assert(full(Lap2),matmul(transpose(full(Lap)),full(Lap)),1e-10,'laplacian op (3)')
 
   call doneconfig(conf)
@@ -619,9 +619,9 @@ contains
   implicit none
   integer, parameter :: sz(2) = [11,11]
   real, parameter :: x0(2) = [-1.,-1.], x1(2) = [1.,1.]
-  real, parameter :: alpha(3) = [1,2,1]
+  real, parameter :: alpha(3) = [1,0,1]
   type(config) :: conf
-  real :: x(product(sz)), Bx(product(sz))
+  real :: x(product(sz)), Bx(product(sz)), fi(sz(1),sz(2))
   real :: tol = 1e-7
   integer :: maxit = 10000, nit
   real :: relres, xiBx
@@ -630,7 +630,7 @@ contains
 
   call initconfig_rectdom(conf,sz,x0,x1)
   x = 0
-  x(size(x)/2) = 1
+  x((size(x)+1)/2) = 1
 
   iB = invB_op(conf,alpha,x)
   xiBx = invB(conf,alpha,x)
@@ -643,6 +643,15 @@ contains
 !  write(6,*) 'x',x
 !  write(6,*) 'nit,relres',nit,relres
 !  write(6,*) 'Bx',Bx
+
+
+  fi = reshape(Bx,sz)
+  call assert(fi,fi(sz(1):1:-1,:),tol,'check symmetry - invert x')
+  call assert(fi,fi(:,sz(2):1:-1),tol,'check symmetry - invert y')
+  call assert(fi,transpose(fi),tol,'check symmetry - x <-> y')
+
+  ! check symetry
+
  end subroutine 
 
 end program test_nondiag
