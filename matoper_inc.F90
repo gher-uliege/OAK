@@ -139,21 +139,22 @@ end function
 
 !_______________________________________________________
 !
+! mulitply scalar and a sparse matrix
 
 function scal_mult_ssparsemat_TYPE(alpha,S) result(alphaS)
 implicit none
-REAL_TYPE                      :: alpha
+REAL_TYPE, intent(in)          :: alpha
 type(SparseMatrix), intent(in) :: S
 type(SparseMatrix)             :: alphaS
 
-alphaS%m = S%n
-alphaS%n = S%m
+alphaS%m = S%m
+alphaS%n = S%n
 alphaS%nz = S%nz
 allocate(alphaS%i(S%nz),alphaS%j(S%nz),alphaS%s(S%nz))
 
-alphaS%i = S%i
-alphaS%j = S%j
-alphaS%s = alpha*S%s
+alphaS%i = S%i(1:S%nz)
+alphaS%j = S%j(1:S%nz)
+alphaS%s = alpha*S%s(1:S%nz)
 
 end function
 

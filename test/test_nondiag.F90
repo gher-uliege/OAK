@@ -1,3 +1,5 @@
+! cd /home/abarth/Assim/OAK-nonDiagR &&  make test/test_nondiag && test/test_nondiag
+
 module spline
 
  type config
@@ -175,21 +177,32 @@ contains
  ! inv(B) * x
  ! where B is the background covariance matrix in DIVA
 
- ! function invBx(conf,x,alpha) result(iBx)
- !  use matoper
- !  implicit none
- !  type(config), intent(in) :: conf
- !  real, intent(in) :: x(:), alpha(:)
- !  real :: iBx(conf%n)
+ function invB(conf,alpha) result(iB)
+  use matoper
+  implicit none
+  type(config), intent(in) :: conf
+  real, intent(in) :: alpha(:)
+  type(SparseMatrix) :: iB,Lap,grad
 
- !  integer :: i
- !  iBx = x
+  integer :: i
 
- !  do i = 1,conf%ndim
- !  end do
+  if (size(alpha) /= 3) then
+    write(6,*) 'error alpha to small', alpha
+  end if
 
+  ! contrain on value
+  iB = spdiag([(alpha(1),i=1,conf%n)])
 
- ! end function invBx
+  ! contrain on gradient
+  do i = 1,conf%ndim
+    grad = diff_op(conf%sz,conf%mask,conf%pm,i)
+    iB = iB + (alpha(2) .x. (sptranspose(grad).x.grad))
+  end do
+
+  ! contrain on laplacian
+  Lap = laplacian_op(conf)
+  iB = iB + (alpha(3) .x. (sptranspose(Lap).x.Lap))
+ end function invB
 
  !_______________________________________________________
  !
@@ -315,6 +328,41 @@ contains
 
  end subroutine initconfig
 
+
+ !_______________________________________________________
+ !
+
+ subroutine initconfig_rectdom(conf,sz,x0,x1)
+  use matoper
+  implicit none
+  type(config) :: conf
+  real, intent(in) :: x0(:), x1(:) ! start and end points
+  integer, intent(in) :: sz(:)
+
+  real, allocatable :: pm(:,:), x(:,:)
+  logical, allocatable :: mask(:)
+  
+  integer :: i,j,n, ndim, subs(size(sz))
+  ndim = size(sz)
+  n = product(sz)
+
+  allocate(mask(n),x(n,ndim),pm(n,ndim))
+
+  mask = .true.
+  do j = 1,n
+    subs = ind2sub(sz,j)
+    x(j,:) = x0 + (x1-x0) * (subs-1.)/ (sz-1.) 
+  end do
+
+  do i = 1,ndim
+    pm(:,i) = (x1(i)-x0(i)) / (sz(i)-1.) 
+  end do
+
+  call initconfig(conf,sz,mask,pm,x)
+  
+  deallocate(mask,x,pm)
+  
+ end subroutine initconfig_rectdom
  !_______________________________________________________
  !
 
@@ -428,7 +476,10 @@ contains
   pm = 1
   mask = .true.
 
-  call initconfig(conf,sz,mask,pm,x)
+  !call initconfig(conf,sz,mask,pm,x)
+  call initconfig_rectdom(conf,sz,[1.,1.],real(sz))
+  call assert(conf%x,x,1e-10,'rectdom x')
+  call assert(conf%pm,pm,1e-10,'rectdom pm')
 
   df = diff(sz,mask,pm,3*x(:,1) + 2*x(:,2),1)
   df2 = reshape(df,sz)    
@@ -466,12 +517,25 @@ contains
 
 
 
+ !_______________________________________________________
+ !
+
  subroutine test_2d
+  use matoper
   implicit none
+  integer, parameter :: sz(2) = [10,10]
+  real, parameter :: x0(2) = [-1.,-1.], x1(2) = [1.,1.]
+  real, parameter :: alpha(3) = [1,2,1]
+  type(config) :: conf
+  real :: x(product(sz))
+  type(SparseMatrix) :: iB
 
-!  integer, parameter :: size(2) = [10,11]
-!  real :: x(size(1),size(2),2), pm(size(1),size(2),2), pn(size(1),size(2),2)
+  integer :: i,j,l
 
- end subroutine test_2d
+  call initconfig_rectdom(conf,sz,x0,x1)
+  iB = invB(conf,alpha)
+  
+
+ end subroutine 
 
 end program test_nondiag

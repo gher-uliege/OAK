@@ -51,7 +51,8 @@ interface operator(.x.)
     ssparsemat_mult_dvec,       &
           dvec_mult_dmat,       &
           dvec_mult_ssparsemat, &
-          dvec_mult_dvec
+          dvec_mult_dvec,       &
+         dscal_mult_ssparsemat
 end interface
 
 
@@ -134,6 +135,11 @@ interface det
     sdet, &
     ddet
 end interface
+
+interface transpose
+  module procedure &
+       sptranspose
+end interface transpose
 
 ! gesvd obsolet singular value decomposition interface, use svd
 interface gesvd
@@ -482,9 +488,9 @@ end function
   ST%nz = S%nz
   allocate(ST%i(S%nz),ST%j(S%nz),ST%s(S%nz))
 
-  ST%i = S%j
-  ST%j = S%i
-  ST%s = S%s
+  ST%i = S%j(S%nz)
+  ST%j = S%i(S%nz)
+  ST%s = S%s(S%nz)
  end function sptranspose
 
 !_______________________________________________________
@@ -571,13 +577,14 @@ function ssparsemat_mult_ssparsemat(A,B) result(C)
 !!$  end do
 
  ! borne sup.
- nz = A%nz+B%nz
+ nz = 10*(A%nz+B%nz)
 ! nz = 2714888
 ! write(6,*) 'nz ',nz
  allocate(C%i(nz),C%j(nz),C%s(nz))
  nz=0
 
- if (all(B%i(2:B%nz).ge.B%i(:B%nz-1))) then
+! if (all(B%i(2:B%nz).ge.B%i(:B%nz-1))) then
+ if (.false.) then
    ! optimized version
    !write(stdout,*) 'optimised version.'
 
@@ -638,9 +645,9 @@ function ssparsemat_mult_ssparsemat(A,B) result(C)
        C%s(nz) = A%s(k)*B%s(l)
      end do
 
-         if (mod(k,100).eq.0) then
-           write(stderr,*) 'nz ',k,A%nz
-         end if
+!         if (mod(k,100).eq.0) then
+!           write(stderr,*) 'nz ',k,A%nz
+!         end if
 
    end do search
 
