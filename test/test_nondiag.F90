@@ -544,16 +544,17 @@ contains
   do j = 1,sz(2)
     do i = 1,sz(1)
       x(l,1) = 2.*i
-      x(l,2) = 2.*j
+      x(l,2) = 3.*j
       l = l+1
     end do
   end do
 
-  pm = 1./2.
+  pm(:,1) = 1./2.
+  pm(:,2) = 1./3.
   mask = .true.
 
   !call initconfig(conf,sz,mask,pm,x)
-  call initconfig_rectdom(conf,sz,[2.,2.],2*real(sz))
+  call initconfig_rectdom(conf,sz,[2.,3.],[2.*sz(1), 3.*sz(2)])
   call assert(conf%x,x,1e-10,'rectdom x')
   call assert(conf%pm,pm,1e-10,'rectdom pm')
 
