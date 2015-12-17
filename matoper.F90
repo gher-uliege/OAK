@@ -488,9 +488,9 @@ end function
   ST%nz = S%nz
   allocate(ST%i(S%nz),ST%j(S%nz),ST%s(S%nz))
 
-  ST%i = S%j(S%nz)
-  ST%j = S%i(S%nz)
-  ST%s = S%s(S%nz)
+  ST%i = S%j(1:S%nz)
+  ST%j = S%i(1:S%nz)
+  ST%s = S%s(1:S%nz)
  end function sptranspose
 
 !_______________________________________________________
@@ -537,7 +537,7 @@ function full(S) result(X)
  X = 0
 
  do k=1,S%nz
-   X(S%i(k),S%j(k)) = S%s(k)
+   X(S%i(k),S%j(k)) = X(S%i(k),S%j(k)) + S%s(k)
  end do
 end function full
 
@@ -652,18 +652,26 @@ function ssparsemat_mult_ssparsemat(A,B) result(C)
    end do search
 
  else
-   ! general version: take a cofe
-   write(stdout,*) 'Warning: unoptimised version.'
+   ! general version: take a coffee
+  ! write(stdout,*) 'Warning: unoptimised version.'
    do k=1,A%nz
      do l=1,B%nz
        if (A%j(k).eq.B%i(l)) then
+
+         if (nz == size(C%s)) then
+           write(stderr,*) 'Error: sorry buffer to small'
+           stop
+         end if
+
          nz = nz+1
          C%i(nz) = A%i(k)
          C%j(nz) = B%j(l)
          C%s(nz) = A%s(k)*B%s(l)
-         if (mod(nz,100).eq.0) then
-           write(stderr,*) 'nz ',nz
-         end if
+
+
+         !if (mod(nz,100).eq.0) then
+         !  write(stderr,*) 'nz ',nz
+         !end if
        end if
      end do
    end do

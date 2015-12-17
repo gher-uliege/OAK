@@ -174,14 +174,14 @@ contains
  !_______________________________________________________
  !
  ! compute 
- ! inv(B) * x
+ ! inv(B)
  ! where B is the background covariance matrix in DIVA
 
- function invB(conf,alpha) result(iB)
+ function invB_op(conf,alpha,x) result(iB)
   use matoper
   implicit none
   type(config), intent(in) :: conf
-  real, intent(in) :: alpha(:)
+  real, intent(in) :: alpha(:), x(:)
   type(SparseMatrix) :: iB,Lap,grad
 
   integer :: i
@@ -202,6 +202,44 @@ contains
   ! contrain on laplacian
   Lap = laplacian_op(conf)
   iB = iB + (alpha(3) .x. (sptranspose(Lap).x.Lap))
+
+
+ end function invB_op
+
+ !_______________________________________________________
+ !
+ ! compute 
+ ! x' inv(B) x
+ ! where B is the background covariance matrix in DIVA
+
+ function invB(conf,alpha,x) result(xiBx)
+  use matoper
+  implicit none
+  type(config), intent(in) :: conf
+  real, intent(in) :: alpha(:), x(:)
+  real :: xiBx, tmp(conf%n)
+  type(SparseMatrix) :: iB,Lap,grad
+
+  integer :: i
+
+  if (size(alpha) /= 3) then
+    write(6,*) 'error alpha to small', alpha
+  end if
+
+  xiBx = alpha(1) * sum(x**2)
+
+  ! contrain on value
+  iB = spdiag([(alpha(1),i=1,conf%n)])
+
+  ! contrain on gradient
+  do i = 1,conf%ndim
+    tmp = diff(conf%sz,conf%mask,conf%pm,x,i)
+    xiBx = xiBx + alpha(2) * sum(tmp**2)
+  end do
+
+  ! contrain on laplacian
+  tmp = laplacian(conf,x)
+  xiBx = xiBx + alpha(3) * sum(tmp**2)
  end function invB
 
  !_______________________________________________________
@@ -389,11 +427,13 @@ end module spline
 
 program test_nondiag
  use spline
+ use matoper
  implicit none
+ type(SparseMatrix) :: iB
 
+ call test_diff()
  call test_2d()
  call test_grad2d()
- call test_diff()
 contains
 
  function grad2d(mask,f,pm,dim) result(df)
@@ -443,7 +483,6 @@ contains
   df = grad2d(mask,3*x(:,:,1) + 2*x(:,:,2),pm,1)
 
   call assert(maxval(abs(df(1:sz(1)-1,:) - 3)),0.,1e-10,'grad x')
-  write(6,*) 'mv',maxval(abs(df(1:sz(1)-1,:) - 3))
 
 
  end subroutine test_grad2d
@@ -460,7 +499,7 @@ contains
   real :: df(sz(1)*sz(2)), df2(sz(1),sz(2))
   logical :: mask(sz(1)*sz(2))
   type(config) :: conf
-  type(SparseMatrix) :: Sx,Sy,Lap
+  type(SparseMatrix) :: Sx,Sy,Lap,Lap2
 
   integer :: i,j,l
 
@@ -512,6 +551,12 @@ contains
   df2 = reshape(Lap .x. (3*x(:,1)**2 + 2*x(:,2)) ,sz)    
   call assert(maxval(abs(df2(1:sz(1)-2,1:sz(2)-2) - 6)),0.,1e-10,'laplacian op (1)')
 
+  Lap2 = Lap.x.Lap
+  call assert(full(Lap2),matmul(full(Lap),full(Lap)),1e-10,'laplacian op (2)')
+
+  Lap2 = sptranspose(Lap).x.Lap
+  call assert(full(Lap2),matmul(transpose(full(Lap)),full(Lap)),1e-10,'laplacian op (3)')
+
   call doneconfig(conf)
  end subroutine test_diff
 
@@ -520,28 +565,6 @@ contains
  !_______________________________________________________
  !
 
- subroutine test_2d
-  use matoper
-  implicit none
-  integer, parameter :: sz(2) = [10,10]
-  real, parameter :: x0(2) = [-1.,-1.], x1(2) = [1.,1.]
-  real, parameter :: alpha(3) = [1,2,1]
-  type(config) :: conf
-  real :: x(product(sz)), Bx(product(sz))
-  type(SparseMatrix) :: iB
-
-  integer :: i,j,l
-
-  call initconfig_rectdom(conf,sz,x0,x1)
-  iB = invB(conf,alpha)
-  
-  x = 0
-  x(size(x)/2) = 1
-
-  Bx = pcg(fun,x)
-
-
-  contains
    function fun(x) result(iBx)
     implicit none
     real, intent(in) :: x(:)
@@ -549,6 +572,39 @@ contains
 
     iBx = iB.x.x
    end function fun
+
+ !_______________________________________________________
+ ! 
+
+   subroutine test_2d
+  use matoper
+  implicit none
+  integer, parameter :: sz(2) = [11,11]
+  real, parameter :: x0(2) = [-1.,-1.], x1(2) = [1.,1.]
+  real, parameter :: alpha(3) = [1,2,1]
+  type(config) :: conf
+  real :: x(product(sz)), Bx(product(sz))
+  real :: tol = 1e-7
+  integer :: maxit = 10000, nit
+  real :: relres, xiBx
+
+  integer :: i,j,l
+
+  call initconfig_rectdom(conf,sz,x0,x1)
+  x = 0
+  x(size(x)/2) = 1
+
+  iB = invB_op(conf,alpha,x)
+  xiBx = invB(conf,alpha,x)
+  call assert(xiBx,x.x.(iB.x.x),tol,'check invB')
+
+!  stop
+  Bx = pcg(fun,x,x,tol=tol,maxit=maxit,nit=nit,relres=relres)
+
+  call assert(iB.x.Bx,x,tol,'check inv(B)*x')
+!  write(6,*) 'x',x
+  write(6,*) 'nit,relres',nit,relres
+  write(6,*) 'Bx',Bx
  end subroutine 
 
 end program test_nondiag
