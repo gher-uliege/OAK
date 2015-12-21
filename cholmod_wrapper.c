@@ -25,11 +25,19 @@ Simple wrapper for CHOLMOD
 #include "cholmod.h"
 #define INDEX size_t
 
-// solves A x = b for x where A is a symetric positive defined matrix
-// n: size of A
-// Si: i-index of non-zeros elements in A (upper part)
-// Sj: j-index of non-zeros elements in A (upper part)
-// Ss: values of non-zeros elements in A (upper part)
+/*
+solves A x = b for x where A is a symetric positive defined matrix
+
+Input
+n: size of A
+Si: i-index of non-zeros elements in A (upper part)
+Sj: j-index of non-zeros elements in A (upper part)
+Ss: values of non-zeros elements in A (upper part)
+bb: vector b
+
+Output:
+xx: vector x
+*/
 
 int solve(INDEX n,INDEX nz, int* Si, int* Sj,double* Ss, double* bb, double* xx) {
     cholmod_sparse *A;

@@ -84,11 +84,53 @@ contains
  end subroutine sparse_diag_test
 
 
+ function symsolve(S,b,status) result(x)
+  implicit none
+  type(SparseMatrix), intent(in) :: S
+  integer, intent(out), optional :: status ! negative if error, otherwise 0
+  real, intent(in) :: b(:)
+  real :: x(size(b))
+
+  ! variables for c wrapper
+  integer(c_size_t) :: n, nz
+  integer(c_int), target, allocatable :: Si(:), Sj(:)
+  real(c_double), target, allocatable :: Ss(:), bb(:), xx(:)
+  integer(c_int) :: cstatus
+
+  integer :: l
+
+  nz = 0
+  allocate(Si(S%nz),Sj(S%nz),Ss(S%nz))
+  allocate(bb(size(b)),xx(size(b)))
+
+  do l = 1,size(Ss)   
+    ! only upper part
+    if (S%j(l) >= S%i(l)) then
+      nz = nz+1
+      Si(nz) = S%i(l)-1
+      Sj(nz) = S%j(l)-1
+      Ss(nz) = S%s(l)
+    end if
+  end do
+
+
+  bb = b
+  n = S%m
+
+  cstatus = solve_cholmod(n,nz,c_loc(Si),c_loc(Sj),c_loc(Ss),c_loc(bb),c_loc(xx))
+  x = xx
+
+  deallocate(Si,Sj,Ss)
+  deallocate(bb,xx)
+
+  if (present(status)) status = cstatus
+ end function symsolve
+
  subroutine sparse_test()
   implicit none
   integer, parameter :: m = 4
   type(SparseMatrix) :: S
-  real :: b(m)
+  real :: b(m), x(m)
 
   integer(c_size_t) :: n, nz
   integer(c_int), target, allocatable :: Si(:), Sj(:)
@@ -108,36 +150,33 @@ contains
 
   b = 1
 
-  nz = 0
-  allocate(Si(S%nz),Sj(S%nz),Ss(S%nz))
-  allocate(bb(m),xx(m))
-!  allocate(Si(5),Sj(5),Ss(5))
-!  allocate(Si(4),Sj(4),Ss(4))
+  ! nz = 0
+  ! allocate(Si(S%nz),Sj(S%nz),Ss(S%nz))
+  ! allocate(bb(m),xx(m))
 
-  do l = 1,size(Ss)   
-!  do l = 1,4
-    ! only upper part
-    if (S%j(l) >= S%i(l)) then
-      nz = nz+1
-      Si(nz) = S%i(l)-1
-      Sj(nz) = S%j(l)-1
-      Ss(nz) = S%s(l)
-    end if
-  end do
+  ! do l = 1,size(Ss)   
+  !   ! only upper part
+  !   if (S%j(l) >= S%i(l)) then
+  !     nz = nz+1
+  !     Si(nz) = S%i(l)-1
+  !     Sj(nz) = S%j(l)-1
+  !     Ss(nz) = S%s(l)
+  !   end if
+  ! end do
 
-  write(6,*) 'nz',nz
-  bb = b
+  ! bb = b
+  ! n = S%m
 
-  n = S%m
+  ! status = solve_cholmod(n,nz,c_loc(Si),c_loc(Sj),c_loc(Ss),c_loc(bb),c_loc(xx))
+  
+  x = symsolve(S,b)
+ 
+  call assert(x,[0.909090909090909,0.909090909090909,1.,1.],tol,'sparse type cholmod test')
 
-  status = solve_cholmod(n,nz,c_loc(Si),c_loc(Sj),c_loc(Ss),c_loc(bb),c_loc(xx))
+  call assert(b,S.x.x,tol,'sparse type cholmod test')
 
-  write(6,*) 'xx',xx
-
-  call assert(xx,[0.909090909090909,0.909090909090909,1.,1.],tol,'sparse type cholmod test')
-
-  deallocate(Si,Sj,Ss)
-
+!  deallocate(Si,Sj,Ss)
+!  deallocate(bb,xx)
  end subroutine sparse_test
 
 end program test_cholmod
