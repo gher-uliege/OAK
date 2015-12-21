@@ -1084,9 +1084,16 @@ implicit none
 !  dbg(ind)
 !  dbg(g%gshape)
   if (present(out)) then
-    out = (any(ind.lt.0).or.any(ind.ge.g%gshape))
+    out = any(ind < 0).or.any(ind >= g%gshape)
     if (out) return
   end if
+
+#ifdef DEBUG
+  if (any(ind < 0).or.any(ind >= g%gshape)) then
+    write(6,*) 'index (0-based) out of bound ',ind,' shape ',g%gshape
+    call abort()
+  end if
+#endif
 
   do i=1,g%n
     linindex = g%startindex(i) + sum(ind * g%ioffset(:,i))
@@ -1103,7 +1110,7 @@ implicit none
   integer, intent(out) :: ind(size(x))
   logical, intent(out) :: out
 
-  call locate_databox_G(g%db,g%n,g%ioffset_mask,g%tetrahedron,g,x,ind,out)
+  call locate_databox_G(g%db,g%n,g%gshape,g%ioffset_mask,g%tetrahedron,g,x,ind,out)
 
 
 end subroutine
