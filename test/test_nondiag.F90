@@ -709,9 +709,9 @@ contains
   use matoper
   use ufileformat
   implicit none
-  integer, parameter :: sz(2) = [11,11]
-  real, parameter :: x0(2) = [-1.,-1.], x1(2) = [1.,1.]
-  real, parameter :: alpha(3) = [1,0,1]
+  integer, parameter :: sz(2) = [41,41]
+  real, parameter :: x0(2) = [-3.,-3.], x1(2) = [3.,3.]
+  real, parameter :: alpha(3) = [1,2,1]
   type(config) :: conf
   real :: x(product(sz)), Bx(product(sz)), fi(sz(1),sz(2))
   integer :: maxit = 10000, nit
@@ -722,7 +722,8 @@ contains
   call initconfig_rectdom(conf,sz,x0,x1)
   x = 0
   !x((size(x)+1)/2) = 1
-  x(sub2ind(sz,[6,6])) = 1
+  ! middle of domain
+  x(sub2ind(sz,(sz+1)/2)) = 1
 
 !  call test_symmetry(reshape(x,sz))
 
