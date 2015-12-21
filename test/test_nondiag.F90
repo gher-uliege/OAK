@@ -709,7 +709,7 @@ contains
   use matoper
   use ufileformat
   implicit none
-  integer, parameter :: sz(2) = [41,41]
+  integer, parameter :: sz(2) = [81,81]
   real, parameter :: x0(2) = [-3.,-3.], x1(2) = [3.,3.]
   real, parameter :: alpha(3) = [1,2,1]
   type(config) :: conf
@@ -739,7 +739,8 @@ contains
   xiBx = invB(conf,alpha,x)
   call assert(xiBx,x.x.(iB.x.x),tol,'check invB')
 
-  Bx = pcg(fun,x,x,tol=tol,maxit=maxit,nit=nit,relres=relres)
+!  Bx = pcg(fun,x,x,tol=tol,maxit=maxit,nit=nit,relres=relres)
+  Bx = symsolve(iB,x)
 
   call assert(iB.x.Bx,x,tol,'check inv(B)*x')
 !  write(6,*) 'x',x
@@ -751,6 +752,8 @@ contains
   call test_symmetry(fi)
 
   call usave('fi.dat',fi,-9999.)
+
+
 
   ! check symetry
 
