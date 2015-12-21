@@ -1081,8 +1081,8 @@ implicit none
 
   integer :: i,linindex
 
-  !dbg(ind)
-  !dbg(g%gshape)
+!  dbg(ind)
+!  dbg(g%gshape)
   if (present(out)) then
     out = (any(ind.lt.0).or.any(ind.ge.g%gshape))
     if (out) return

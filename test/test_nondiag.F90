@@ -9,7 +9,7 @@ module spline
 
    ! size of the domain
    integer, allocatable :: sz(:)
-   
+
    ! mask is true for "within domain"/"sea" grid points and false 
    ! for "outside the domain"/"land"
    logical, allocatable :: mask(:)
@@ -60,7 +60,7 @@ contains
     end if
   end do
 
- end function 
+ end function shift
 
  !_______________________________________________________
  !
@@ -101,7 +101,7 @@ contains
     end if
   end do
 
-!  write(6,*) 'S%s',S%s(1:S%nz)
+  !  write(6,*) 'S%s',S%s(1:S%nz)
  end function shift_op
 
  !_______________________________________________________
@@ -189,7 +189,7 @@ contains
 
   end do
 
-!  write(6,*) 'S%s',S%s(1:S%nz)
+  !  write(6,*) 'S%s',S%s(1:S%nz)
  end function diff_op
 
 
@@ -223,7 +223,7 @@ contains
   type(SparseMatrix) :: S
 
   S = spdiag(stagger(sz,mask,pm(:,dim),dim)) .x. diff_op(sz,mask,pm,dim)
- end function 
+ end function grad_op
 
  !_______________________________________________________
  !
@@ -278,7 +278,7 @@ contains
     S = diff_op(conf%sz,conf%mask,conf%pm,i)
     S = spdiag(conf%snu(:,i)) .x. S
     D2 = diff_op(conf%sz,conf%smask(:,i),conf%spm(:,:,i),i) .x. S
-    
+
     ! add sparse matrices
     Lap = Lap + (shift_op(conf%sz,conf%mask,i) .x. D2)
   end do
@@ -286,7 +286,7 @@ contains
   ! product(pm,2) is the inverse of the volume of a grid cell
 
   Lap = spdiag(product(conf%pm,2)) .x. Lap
- end function 
+ end function laplacian_op
 
  !_______________________________________________________
  !
@@ -470,13 +470,13 @@ contains
       end if
     end do
 
-!    write(6,*) 'conf%snu(:,i)',pack(conf%snu(:,i),.not.conf%smask(:,i))
+    !    write(6,*) 'conf%snu(:,i)',pack(conf%snu(:,i),.not.conf%smask(:,i))
   end do
 
   where (.not.conf%smask)
     conf%snu = 0
   end where
-!  write(6,*) 'conf%snu(:,i)',conf%snu
+  !  write(6,*) 'conf%snu(:,i)',conf%snu
 
  end subroutine initconfig
 
@@ -493,7 +493,7 @@ contains
 
   real, allocatable :: pm(:,:), x(:,:)
   logical, allocatable :: mask(:)
-  
+
   integer :: i,j,n, ndim, subs(size(sz))
   ndim = size(sz)
   n = product(sz)
@@ -505,15 +505,15 @@ contains
     subs = ind2sub(sz,j)
     x(j,:) = x0 + (x1-x0) * (subs-1.)/ (sz-1.) 
   end do
-  
+
   do i = 1,ndim
     pm(:,i) = (sz(i)-1.) / (x1(i)-x0(i)) 
   end do
 
   call initconfig(conf,sz,mask,pm,x)
-  
+
   deallocate(mask,x,pm)
-  
+
  end subroutine initconfig_rectdom
  !_______________________________________________________
  !
@@ -573,7 +573,7 @@ contains
   end if
 
  end function grad2d
- 
+
  subroutine test_grad2d
   use matoper
   implicit none
@@ -678,34 +678,34 @@ contains
  !_______________________________________________________
  !
 
-   function fun(x) result(iBx)
-    implicit none
-    real, intent(in) :: x(:)
-    real :: iBx(size(x))
+ function fun(x) result(iBx)
+  implicit none
+  real, intent(in) :: x(:)
+  real :: iBx(size(x))
 
-    iBx = iB.x.x
-   end function fun
+  iBx = iB.x.x
+ end function fun
 
  !_______________________________________________________
  ! 
 
-   subroutine test_symmetry(fi)
-    use matoper
-    implicit none
-    real, intent(in) :: fi(:,:)
-    integer :: sz(2) 
+ subroutine test_symmetry(fi)
+  use matoper
+  implicit none
+  real, intent(in) :: fi(:,:)
+  integer :: sz(2) 
 
-    sz = shape(fi)
+  sz = shape(fi)
 
-    call assert(fi,fi(sz(1):1:-1,:),tol,'check symmetry - invert x')
-    call assert(fi,fi(:,sz(2):1:-1),tol,'check symmetry - invert y')
-    call assert(fi,transpose(fi),tol,'check symmetry - x <-> y')
-    
-   end subroutine test_symmetry
+  call assert(fi,fi(sz(1):1:-1,:),tol,'check symmetry - invert x')
+  call assert(fi,fi(:,sz(2):1:-1),tol,'check symmetry - invert y')
+  call assert(fi,transpose(fi),tol,'check symmetry - x <-> y')
+
+ end subroutine test_symmetry
  !_______________________________________________________
  ! 
 
-   subroutine test_2d
+ subroutine test_2d
   use matoper
   use ufileformat
   implicit none
@@ -725,10 +725,10 @@ contains
   ! middle of domain
   x(sub2ind(sz,(sz+1)/2)) = 1
 
-!  call test_symmetry(reshape(x,sz))
+  !  call test_symmetry(reshape(x,sz))
 
   fi = reshape(laplacian(conf,x),sz)
-!  write(6,*) 'fi ',fi
+  !  write(6,*) 'fi ',fi
   call test_symmetry(fi(2:sz(1)-1,2:sz(1)-1))
 
   iB = invB_op(conf,alpha,x)
@@ -739,13 +739,13 @@ contains
   xiBx = invB(conf,alpha,x)
   call assert(xiBx,x.x.(iB.x.x),tol,'check invB')
 
-!  Bx = pcg(fun,x,x,tol=tol,maxit=maxit,nit=nit,relres=relres)
+  !  Bx = pcg(fun,x,x,tol=tol,maxit=maxit,nit=nit,relres=relres)
   Bx = symsolve(iB,x)
 
   call assert(iB.x.Bx,x,tol,'check inv(B)*x')
-!  write(6,*) 'x',x
-!  write(6,*) 'nit,relres',nit,relres
-!  write(6,*) 'Bx',Bx
+  !  write(6,*) 'x',x
+  !  write(6,*) 'nit,relres',nit,relres
+  !  write(6,*) 'Bx',Bx
 
 
   fi = reshape(Bx,sz)
@@ -754,9 +754,6 @@ contains
   call usave('fi.dat',fi,-9999.)
 
 
-
-  ! check symetry
-
- end subroutine 
+ end subroutine test_2d
 
 end program test_nondiag
