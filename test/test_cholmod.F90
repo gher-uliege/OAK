@@ -21,9 +21,9 @@ integer(c_size_t), parameter :: n = 4, nz = 4
 type(SparseMatrix) :: S
 real :: b(n)
 
-real(c_double), target :: Ss(nz) = [1,2,3,4]
-integer(c_int), target :: Si(nz) = [1,2,3,4]
-integer(c_int), target :: Sj(nz) = [1,2,3,4]
+integer(c_int), target :: Si(nz) = [1,2,3,4]-1
+integer(c_int), target :: Sj(nz) = [1,2,3,4]-1
+real(c_double), target :: Ss(nz) = [2,2,2,2]
 integer(c_int) :: status
 
 real(c_double), target :: bb(n) = [1,2,3,4]
