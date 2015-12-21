@@ -552,7 +552,7 @@ end function full
 !_______________________________________________________
 !
 
-function ssparsemat_mult_ssparsemat(A,B) result(C)
+function ssparsemat_mult_ssparsemat_old(A,B) result(C)
  implicit none
  type(SparseMatrix), intent(in) :: A
  type(SparseMatrix), intent(in) :: B
@@ -671,6 +671,148 @@ function ssparsemat_mult_ssparsemat(A,B) result(C)
 
 
          !if (mod(nz,100).eq.0) then
+         !  write(stderr,*) 'nz ',nz
+         !end if
+       end if
+     end do
+   end do
+ end if
+ C%nz = nz
+
+end function 
+
+
+!_______________________________________________________
+!
+
+function ssparsemat_mult_ssparsemat(A,B) result(C)
+ implicit none
+ type(SparseMatrix), intent(in) :: A
+ type(SparseMatrix), intent(in) :: B
+ type(SparseMatrix) :: C
+ integer :: k,l,nz,l1,l2,llower,lupper
+
+ integer :: Bi(B%nz),Bj(B%nz), Bindex(B%nz)
+ real :: Bs(B%nz)
+
+ if (A%n /= B%m) then
+   write(stderr,*) 'ssparsemat_mult_ssparsemat: size not conform: A.x.B '
+   write(stderr,*) 'shape(A) ',A%m,A%n
+   write(stderr,*) 'shape(B) ',B%m,B%n
+   stop
+ end if
+
+ C%m = A%m
+ C%n = B%n
+
+ ! count
+!!$  nz = 0
+!!$  do k=1,A%nz
+!!$    do l=1,B%nz
+!!$      if (A%j(k).eq.B%i(l)) nz = nz+1
+!!$    end do
+!!$  end do
+
+ ! borne sup.
+ nz = 10*(A%nz+B%nz)
+! nz = 2714888
+! write(6,*) 'nz ',nz
+ allocate(C%i(nz),C%j(nz),C%s(nz))
+ nz=0
+
+ Bi = B%i(1:B%nz)
+ call sort(Bi,Bindex)
+ Bj = B%j(Bindex(1:B%nz))
+ Bs = B%s(Bindex(1:B%nz))
+ 
+! if (all(Bi(2:B%nz).ge.Bi(:B%nz-1))) then
+ if (.false.) then
+
+   ! optimized version
+   !write(stdout,*) 'optimised version.'
+
+   search: do k=1,A%nz
+     l1 = 1
+     l2 = B%nz
+     ! quick cycle if possible
+     if (A%j(k) < Bi(l1).or.A%j(k) > Bi(l2)) cycle search
+!     if (all(A%j(k) /= Bi)) cycle
+
+     ! dichotomic search for llower
+     l1 = 1
+     l2 = B%nz
+     llower = (l1+l2)/2
+
+     do while ( &
+     ! stop criteria
+       .not.(Bi(llower) == A%j(k).and.(llower == 1.or.Bi(llower-1) /= A%j(k))))
+
+       if (Bi(llower).ge.A%j(k)) then
+         l2 = llower-1
+       else
+         l1 = llower+1
+       end if
+       llower = (l1+l2)/2
+
+       if (l2 < l1) then
+          cycle search
+       end if
+     end do
+
+     ! dichotomic search for lupper
+     l1 = 1
+     l2 = B%nz
+     lupper = (l1+l2)/2
+
+     do while ( &
+     ! stop criteria
+       .not.(Bi(lupper) == A%j(k).and.(lupper == B%nz.or.Bi(lupper+1) /= A%j(k))))
+
+       if (Bi(lupper) <= A%j(k)) then
+         l1 = lupper+1
+       else
+         l2 = lupper-1
+       end if
+       lupper = (l1+l2)/2
+     end do
+
+     do l=llower,lupper
+       nz = nz+1
+
+       if (nz > size(C%i)) then
+         write(stderr,*) 'Error: sorry buffer to small'
+         stop
+       end if
+       C%i(nz) = A%i(k)
+       C%j(nz) = Bj(l)
+       C%s(nz) = A%s(k)*Bs(l)
+     end do
+
+!         if (mod(k,100) == 0) then
+!           write(stderr,*) 'nz ',k,A%nz
+!         end if
+
+   end do search
+
+ else
+   ! general version: take a coffee
+  ! write(stdout,*) 'Warning: unoptimised version.'
+   do k=1,A%nz
+     do l=1,B%nz
+       if (A%j(k) == Bi(l)) then
+
+         if (nz == size(C%s)) then
+           write(stderr,*) 'Error: sorry buffer to small'
+           stop
+         end if
+
+         nz = nz+1
+         C%i(nz) = A%i(k)
+         C%j(nz) = Bj(l)
+         C%s(nz) = A%s(k)*Bs(l)
+
+
+         !if (mod(nz,100) == 0) then
          !  write(stderr,*) 'nz ',nz
          !end if
        end if

@@ -709,7 +709,7 @@ contains
   use matoper
   use ufileformat
   implicit none
-  integer, parameter :: sz(2) = [81,81]
+  integer, parameter :: sz(2) = [21,21]
   real, parameter :: x0(2) = [-3.,-3.], x1(2) = [3.,3.]
   real, parameter :: alpha(3) = [1,2,1]
   type(config) :: conf
