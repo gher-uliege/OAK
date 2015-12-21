@@ -108,7 +108,7 @@ endif
 # CHOLMOD
 CHOLMOD_INCDIR ?= /usr/include/suitesparse
 CHOLMOD_LIBDIR ?= $(LIBDIR)
-CHOLMOD_LIB ?= -lcholmod -lamd -lcolamd -lsuitesparseconfig -lccolamd -lcamd -llapack -lblas  -lm -lrt
+CHOLMOD_LIB ?= -lcholmod -lamd -lcolamd -lsuitesparseconfig -lccolamd -lcamd  -lm -lrt
 
 # use CHOLMOD_INCDIR only if it is non-empty
 ifneq ($(strip $(CHOLMOD_INCDIR)),)

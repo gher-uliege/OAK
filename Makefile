@@ -222,11 +222,16 @@ test/test_cholmod.o: test/test_cholmod.F90 matoper.F90
 test/test_cholmod: test/test_cholmod.o matoper.o cholmod_wrapper.o
 	$(F90C) $(F90FLAGS) $(LDFLAGS) -o $@ $+ $(LIBS) $(EXTRA_LDFLAGS)
 
-test: test/test_covariance test/test_ndgrid test/test_cellgrid test/assimtest2 test/test_matoper test/test_rrsqrt test/toymodel test/test_nondiag test/test_cholmod
-	./test/test_ndgrid
-	./test/test_toymodel
-	./test/test_covariance
-	./test/test_cellgrid
-	./test/test_matoper
-	./test/test_nondiag
-	./test/test_cholmod
+test/test_cholmod_wrapper.o: test/test_cholmod_wrapper.c 
+test/test_cholmod_wrapper: test/test_cholmod_wrapper.o cholmod_wrapper.o
+	$(F90C) $(F90FLAGS) $(LDFLAGS) -o $@ $+ $(LIBS) $(EXTRA_LDFLAGS)
+
+test: test/test_covariance test/test_ndgrid test/test_cellgrid test/assimtest2 test/test_matoper test/test_rrsqrt test/toymodel test/test_nondiag test/test_cholmod test/test_cholmod_wrapper
+	test/test_ndgrid
+	test/test_toymodel
+	test/test_covariance
+	test/test_cellgrid
+	test/test_matoper
+	test/test_nondiag
+	test/test_cholmod_wrapper
+	test/test_cholmod
