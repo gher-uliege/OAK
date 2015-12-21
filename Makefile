@@ -63,7 +63,7 @@ ASSIM_SRCS = sangoma_base.f90 \
 
 ASSIM_OBJS = anamorphosis.o assim.o assimilation.o date.o grids.o initfile.o \
 	matoper.o covariance.o ndgrid.o parall.o rrsqrt.o ufileformat.o match.o sangoma_ewpf.o \
-	random_d.o user_base.o oak.o
+	random_d.o user_base.o oak.o cholmod_wrapper.o
 
 MODULES = anamorphosis.mod  assimilation.mod  date.mod  grids.mod  initfile.mod  \
         matoper.mod covariance.mod  ndgrid.mod  parall.mod  rrsqrt.mod  ufileformat.mod oak.mod

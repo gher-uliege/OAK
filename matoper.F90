@@ -19,6 +19,7 @@
 
 ! include the fortran preprocessor definitions
 #include "ppdef.h"
+#define HAS_CHOLMOD
 
 module matoper
 
@@ -1400,6 +1401,67 @@ end function ssparsemat_add_ssparsemat
 
  end function pcg
 
+  !_______________________________________________________
+  !
+  ! solves the system S x = b
+  ! A is a symetric positive defined matrix
+
+#ifdef HAS_CHOLMOD
+
+ function symsolve(S,b,status) result(x)
+  use iso_c_binding, only: c_int, c_double, c_size_t, c_loc
+  implicit none
+
+  interface
+    integer(c_int) function  solve_cholmod(n,nz,Si,Sj,Ss,bb,xx) bind(c,name="solve")
+     use, intrinsic :: iso_c_binding, only: c_int, c_size_t, c_double, c_ptr
+     implicit none
+     integer(c_size_t), value :: n,nz
+     type(c_ptr), value :: Si, Sj, Ss, bb, xx
+   end function solve_cholmod
+ end interface
+ 
+  type(SparseMatrix), intent(in) :: S
+  integer, intent(out), optional :: status ! negative if error, otherwise 0
+  real, intent(in) :: b(:)
+  real :: x(size(b))
+
+  ! variables for c wrapper
+  integer(c_size_t) :: n, nz
+  integer(c_int), target, allocatable :: Si(:), Sj(:)
+  real(c_double), target, allocatable :: Ss(:), bb(:), xx(:)
+  integer(c_int) :: cstatus
+
+  integer :: l
+
+  nz = 0
+  allocate(Si(S%nz),Sj(S%nz),Ss(S%nz))
+  allocate(bb(size(b)),xx(size(b)))
+
+  do l = 1,size(Ss)   
+    ! only upper part
+    if (S%j(l) >= S%i(l)) then
+      nz = nz+1
+      Si(nz) = S%i(l)-1
+      Sj(nz) = S%j(l)-1
+      Ss(nz) = S%s(l)
+    end if
+  end do
+
+
+  bb = b
+  n = S%m
+
+  cstatus = solve_cholmod(n,nz,c_loc(Si),c_loc(Sj),c_loc(Ss),c_loc(bb),c_loc(xx))
+  x = xx
+
+  deallocate(Si,Sj,Ss)
+  deallocate(bb,xx)
+
+  if (present(status)) status = cstatus
+ end function symsolve
+
+#endif
 
   !_______________________________________________________
   !
