@@ -108,12 +108,11 @@ contains
  !
 
 
- function diff(sz,mask,pm,f,dim) result(df)
+ function diff(sz,mask,f,dim) result(df)
   use matoper
   implicit none
   integer, intent(in) :: sz(:)
   logical, intent(in) :: mask(:)
-  real, intent(in) :: pm(:,:)
   real, intent(in) :: f(:)
   integer, intent(in) :: dim
   real :: df(size(mask))
@@ -144,12 +143,11 @@ contains
  !_______________________________________________________
  !
 
- function diff_op(sz,mask,pm,dim) result(S)
+ function diff_op(sz,mask,dim) result(S)
   use matoper
   implicit none
   integer, intent(in) :: sz(:)
   logical, intent(in) :: mask(:)
-  real, intent(in) :: pm(:,:)
   integer, intent(in) :: dim
   type(SparseMatrix) :: S
 
@@ -206,7 +204,7 @@ contains
   integer, intent(in) :: dim
   real :: df(size(mask))
 
-  df = stagger(sz,mask,pm(:,dim),dim) * diff(sz,mask,pm,f,dim)
+  df = stagger(sz,mask,pm(:,dim),dim) * diff(sz,mask,f,dim)
  end function grad
 
  !_______________________________________________________
@@ -222,7 +220,7 @@ contains
   integer, intent(in) :: dim
   type(SparseMatrix) :: S
 
-  S = spdiag(stagger(sz,mask,pm(:,dim),dim)) .x. diff_op(sz,mask,pm,dim)
+  S = spdiag(stagger(sz,mask,pm(:,dim),dim)) .x. diff_op(sz,mask,dim)
  end function grad_op
 
  !_______________________________________________________
@@ -244,12 +242,12 @@ contains
 
   Lf = 0
   do i = 1,conf%ndim
-    df = diff(conf%sz,conf%mask,conf%pm,f,i)
+    df = diff(conf%sz,conf%mask,f,i)
 
     !where (smask(:,i)) df = snu(:,i) * df
     df = conf%snu(:,i) * df
 
-    ddf = diff(conf%sz,conf%smask(:,i),conf%spm(:,:,i),df,i)
+    ddf = diff(conf%sz,conf%smask(:,i),df,i)
     Lf = Lf + shift(conf%sz,conf%mask,ddf,i)
   end do
 
@@ -275,9 +273,9 @@ contains
 
   Lf = 0
   do i = 1,conf%ndim
-    S = diff_op(conf%sz,conf%mask,conf%pm,i)
+    S = diff_op(conf%sz,conf%mask,i)
     S = spdiag(conf%snu(:,i)) .x. S
-    D2 = diff_op(conf%sz,conf%smask(:,i),conf%spm(:,:,i),i) .x. S
+    D2 = diff_op(conf%sz,conf%smask(:,i),i) .x. S
 
     ! add sparse matrices
     Lap = Lap + (shift_op(conf%sz,conf%mask,i) .x. D2)
@@ -714,10 +712,10 @@ contains
   real, parameter :: alpha(3) = [1,2,1]
   type(spline) :: conf
   real :: x(sz(1)*sz(2)), Bx(sz(1)*sz(2)), fi(sz(1),sz(2))
-  integer :: maxit = 10000, nit
-  real :: relres, xiBx
-  type(SparseMatrix) :: Lap
-  integer :: i,j,l
+  ! for pcg
+  !  integer :: maxit = 10000, nit
+  !  real :: relres
+  real :: xiBx
 
   call initspline_rectdom(conf,sz,x0,x1)
   x = 0
