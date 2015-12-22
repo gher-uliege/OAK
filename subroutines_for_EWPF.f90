@@ -47,7 +47,7 @@ subroutine Kgain(Ne,Nx,Ny,vecIn,vecOut, &
 !    cb_Qhalf - apply Q^{1/2} to  the given state vector and return the result
 
       INTERFACE
-        subroutine cb_HT(Ne,Nx,Ny,vecIn,vecOut) bind(C)
+        subroutine cb_HT(Ne,Nx,Ny,vecIn,vecOut) !bind(C)
           use, intrinsic :: ISO_C_BINDING
           use sangoma_base, only: REALPREC, INTPREC
           use user_base
@@ -61,7 +61,7 @@ subroutine Kgain(Ne,Nx,Ny,vecIn,vecOut, &
       END INTERFACE
 
       INTERFACE
-        subroutine cb_solve_hqht_plus_r(Ne,Ny,vecIn,vecOut) bind(C)
+        subroutine cb_solve_hqht_plus_r(Ne,Ny,vecIn,vecOut) !bind(C)
           use, intrinsic :: ISO_C_BINDING
           use sangoma_base, only: REALPREC, INTPREC
           use user_base
@@ -76,7 +76,7 @@ subroutine Kgain(Ne,Nx,Ny,vecIn,vecOut, &
       END INTERFACE
 
       INTERFACE
-        subroutine cb_Qhalf(Ne,Nx,vecIn,vecOut) bind(C)
+        subroutine cb_Qhalf(Ne,Nx,vecIn,vecOut) !bind(C)
           use, intrinsic :: ISO_C_BINDING
           use sangoma_base, only: REALPREC, INTPREC
           use user_base
@@ -139,7 +139,7 @@ subroutine innerR_1(Ne,Ny,vecIn,vecOut, cb_solve_r)
 !    cb_solve_r - given a vector in observation space return a vector scaled by R^{-1}
 
      INTERFACE
-       subroutine cb_solve_r(Ne,Ny,vecIn,vecOut) bind(C)
+       subroutine cb_solve_r(Ne,Ny,vecIn,vecOut) !bind(C)
          use, intrinsic :: ISO_C_BINDING
          use sangoma_base, only: REALPREC, INTPREC
          implicit none
@@ -189,7 +189,7 @@ subroutine innerHQHt_plus_R_1(Ne,Ny,vecIn,vecOut, cb_solve_hqht_plus_r)
 !    cb_solve_hqht_plus_r - scale given vector in observation space by (HQH^T+R)^{-1}
 
       INTERFACE
-        subroutine cb_solve_hqht_plus_r(Ne,Ny,vecIn,vecOut) bind(C)
+        subroutine cb_solve_hqht_plus_r(Ne,Ny,vecIn,vecOut) !bind(C)
           use, intrinsic :: ISO_C_BINDING
           use sangoma_base, only: REALPREC, INTPREC
           implicit none

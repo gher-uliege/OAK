@@ -38,7 +38,7 @@ subroutine equal_weight_step(Ne,Nx,Ny,weight,x_n,y, &
 !    cb_Qhalf - to return a vector scaled by Q^{1/2} (all in state space)
 
       INTERFACE
-        subroutine cb_H(Ne,Nx,Ny,vec_in,vec_out) bind(C)
+        subroutine cb_H(Ne,Nx,Ny,vec_in,vec_out) !bind(C)
           use, intrinsic :: ISO_C_BINDING
           use sangoma_base, only: REALPREC, INTPREC
           implicit none
@@ -51,7 +51,7 @@ subroutine equal_weight_step(Ne,Nx,Ny,weight,x_n,y, &
       END INTERFACE
 
       INTERFACE
-        subroutine cb_HT(Ne,Nx,Ny,vec_in,vec_out) bind(C)
+        subroutine cb_HT(Ne,Nx,Ny,vec_in,vec_out) !bind(C)
           use, intrinsic :: ISO_C_BINDING
           use sangoma_base, only: REALPREC, INTPREC
           implicit none
@@ -64,7 +64,7 @@ subroutine equal_weight_step(Ne,Nx,Ny,weight,x_n,y, &
       END INTERFACE
 
       INTERFACE
-        subroutine cb_solve_hqht_plus_r(Ne,Ny,vec_in,vec_out) bind(C)
+        subroutine cb_solve_hqht_plus_r(Ne,Ny,vec_in,vec_out) !bind(C)
           use, intrinsic :: ISO_C_BINDING
           use sangoma_base, only: REALPREC, INTPREC
           implicit none
@@ -78,7 +78,7 @@ subroutine equal_weight_step(Ne,Nx,Ny,weight,x_n,y, &
       END INTERFACE
 
       INTERFACE
-        subroutine cb_solve_r(Ne,Ny,vec_in,vec_out) bind(C)
+        subroutine cb_solve_r(Ne,Ny,vec_in,vec_out) !bind(C)
           use, intrinsic :: ISO_C_BINDING
           use sangoma_base, only: REALPREC, INTPREC
           implicit none
@@ -92,7 +92,7 @@ subroutine equal_weight_step(Ne,Nx,Ny,weight,x_n,y, &
       END INTERFACE 
 
       INTERFACE
-        subroutine cb_Qhalf(Ne,Nx,vec_in,vec_out) bind(C)
+        subroutine cb_Qhalf(Ne,Nx,vec_in,vec_out) !bind(C)
           use, intrinsic :: ISO_C_BINDING
           use sangoma_base, only: REALPREC, INTPREC
           implicit none
