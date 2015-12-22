@@ -60,55 +60,73 @@ program test_matoper
   !_______________________________________________________
   !
 
-  subroutine mergesort (a)
+  subroutine mergesort (a,ind)
    implicit none
-   integer :: a(:)
-   integer :: b(size(a))
+   integer, intent(inout) :: a(:)
+   integer, intent(out) :: ind(:)
 
+   integer :: b(size(a))
+   integer :: indb(size(a))
    integer :: right, rend, num
    integer :: i,j,m, k, left
 
    num = size(a)
+   ind = [(i, i=1,num)]
+
+   ! k is the window size starting with 1, 2, 4, 8, ...
    k = 1
    do while (k < num) 
-     do left=0,num-k-1,2*k
-       right = left + k        
-       rend = right + k
-       if (rend > num) rend = num
+     do left=1,num-k,2*k
 
-       m = left+1 
-       i = left+1
-       j = right+1
+       ! divide array a into two subarrays a(left:right-1), a(right:rend)
+       ! every subarray can be assumed already sorted (since we start
+       ! bottom-up with k=1)
 
-       ! merge
-       do while (i <= right .and. j <= rend)
+       right = left + k
+       rend = min(right + k-1,num)
+
+       ! merge two subarrays
+       ! m: index in merged array
+       m = left
+       ! i,j: indices of subarrays
+       i = left
+       j = right
+
+       ! put the smallest value of seach subarray in b until one subarray is 
+       ! finished
+       do while (i <= right-1 .and. j <= rend)
          if (a(i) <= a(j)) then         
-           b(m) = a(i) 
+           b(m) = a(i)
+           indb(m) = ind(i)
            i = i+1
          else
            b(m) = a(j) 
+           indb(m) = ind(j)
            j = j+1
          end if
 
          m = m+1
        end do
 
-       do while (i <= right) 
+       ! put the remainer of first subarray in b (if any)
+       do while (i <= right-1) 
          b(m)=a(i) 
+         indb(m) = ind(i)
          i = i+1
          m = m+1
        end do
 
+       ! put the remainer of second subarray in b (if any)
        do while (j <= rend)
          b(m)=a(j) 
+         indb(m) = ind(j)
          j = j+1
          m = m+1
        end do
 
        ! copy over
-       do m=left+1,rend
-         a(m) = b(m)
-       end do
+       a(left:rend) = b(left:rend)
+       ind(left:rend) = indb(left:rend)
      end do
 
      k = k*2
@@ -126,9 +144,9 @@ program test_matoper
         (/0, 50, 20, 25, 90, 10, 5, 20, 99, 75, 2/), sortedA
    
    sortedA = A
-   call mergesort(sortedA)
+   call mergesort(sortedA,ind)
    call assert(all(sortedA(1:n-1) <= sortedA(2:n)),'merge sort (1)')
-!   call assert(all(sortedA == A(ind)),'quick sort (2)')
+   call assert(all(sortedA == A(ind)),'merge sort (2)')
   end subroutine test_mergesort
 
   !_______________________________________________________
