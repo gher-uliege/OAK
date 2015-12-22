@@ -1,8 +1,8 @@
 ! cd /home/abarth/Assim/OAK-nonDiagR &&  make test/test_nondiag && test/test_nondiag
 
-module spline
+module mod_spline
 
- type config
+ type spline
    ! ndim number of dimensions (e.g. 2 for lon/lat)
    ! n number of grid points
    integer :: ndim, n
@@ -24,7 +24,7 @@ module spline
    real, allocatable :: snu(:,:)
    logical, allocatable :: smask(:,:)
 
- end type config
+ end type spline
 
 contains
 
@@ -231,7 +231,7 @@ contains
  function laplacian(conf,f) result(Lf)
   use matoper
   implicit none
-  type(config), intent(in) :: conf
+  type(spline), intent(in) :: conf
   real, intent(in) :: f(:)
 
   real :: Lf(conf%n)
@@ -264,7 +264,7 @@ contains
  function laplacian_op(conf) result(Lap)
   use matoper
   implicit none
-  type(config), intent(in) :: conf
+  type(spline), intent(in) :: conf
   type(SparseMatrix) :: Lap,S,D2,Sh
   real :: Lf(conf%n)
   integer :: i
@@ -297,7 +297,7 @@ contains
  function invB_op(conf,alpha,x) result(iB)
   use matoper
   implicit none
-  type(config), intent(in) :: conf
+  type(spline), intent(in) :: conf
   real, intent(in) :: alpha(:), x(:)
   type(SparseMatrix) :: iB,Lap,gradient
 
@@ -332,7 +332,7 @@ contains
  function invB(conf,alpha,x) result(xiBx)
   use matoper
   implicit none
-  type(config), intent(in) :: conf
+  type(spline), intent(in) :: conf
   real, intent(in) :: alpha(:), x(:)
   real :: xiBx, tmp(conf%n)
 
@@ -427,9 +427,9 @@ contains
  !_______________________________________________________
  !
 
- subroutine initconfig(conf,sz,mask,pm,x)
+ subroutine initspline(conf,sz,mask,pm,x)
   implicit none
-  type(config) :: conf
+  type(spline) :: conf
   integer, intent(in) :: sz(:)
   logical, intent(in) :: mask(:)
   real, intent(in) :: pm(:,:), x(:,:)
@@ -478,16 +478,16 @@ contains
   end where
   !  write(6,*) 'conf%snu(:,i)',conf%snu
 
- end subroutine initconfig
+ end subroutine initspline
 
 
  !_______________________________________________________
  !
 
- subroutine initconfig_rectdom(conf,sz,x0,x1)
+ subroutine initspline_rectdom(conf,sz,x0,x1)
   use matoper
   implicit none
-  type(config) :: conf
+  type(spline) :: conf
   real, intent(in) :: x0(:), x1(:) ! start and end points
   integer, intent(in) :: sz(:)
 
@@ -510,28 +510,28 @@ contains
     pm(:,i) = (sz(i)-1.) / (x1(i)-x0(i)) 
   end do
 
-  call initconfig(conf,sz,mask,pm,x)
+  call initspline(conf,sz,mask,pm,x)
 
   deallocate(mask,x,pm)
 
- end subroutine initconfig_rectdom
+ end subroutine initspline_rectdom
  !_______________________________________________________
  !
 
- subroutine doneconfig(conf)
+ subroutine donespline(conf)
   implicit none
-  type(config) :: conf
+  type(spline) :: conf
 
   deallocate(conf%sz,conf%mask,conf%pm, &
        conf%x, conf%spm, conf%snu, &
        conf%smask)
- end subroutine doneconfig
+ end subroutine donespline
 
  !_______________________________________________________
  !
 
 
-end module spline
+end module mod_spline
 
 
 
@@ -540,7 +540,7 @@ end module spline
 !
 
 program test_nondiag
- use spline
+ use mod_spline
  use matoper
  implicit none
  type(SparseMatrix) :: iB
@@ -611,7 +611,7 @@ contains
   real :: x(sz(1)*sz(2),2), pm(sz(1)*sz(2),2)
   real :: df(sz(1)*sz(2)), df2(sz(1),sz(2))
   logical :: mask(sz(1)*sz(2))
-  type(config) :: conf
+  type(spline) :: conf
   type(SparseMatrix) :: Sx,Sy,Lap,Lap2
 
   integer :: i,j,l
@@ -629,8 +629,8 @@ contains
   pm(:,2) = 1./3.
   mask = .true.
 
-  !call initconfig(conf,sz,mask,pm,x)
-  call initconfig_rectdom(conf,sz,[2.,3.],[2.*sz(1), 3.*sz(2)])
+  !call initspline(conf,sz,mask,pm,x)
+  call initspline_rectdom(conf,sz,[2.,3.],[2.*sz(1), 3.*sz(2)])
   call assert(conf%x,x,1e-10,'rectdom x')
   call assert(conf%pm,pm,1e-10,'rectdom pm')
 
@@ -670,7 +670,7 @@ contains
   Lap2 = transpose(Lap).x.Lap
   call assert(full(Lap2),matmul(transpose(full(Lap)),full(Lap)),1e-10,'laplacian op (3)')
 
-  call doneconfig(conf)
+  call donespline(conf)
  end subroutine test_diff
 
 
@@ -712,14 +712,14 @@ contains
   integer, parameter :: sz(2) = [31,31]
   real, parameter :: x0(2) = [-3.,-3.], x1(2) = [3.,3.]
   real, parameter :: alpha(3) = [1,2,1]
-  type(config) :: conf
+  type(spline) :: conf
   real :: x(sz(1)*sz(2)), Bx(sz(1)*sz(2)), fi(sz(1),sz(2))
   integer :: maxit = 10000, nit
   real :: relres, xiBx
   type(SparseMatrix) :: Lap
   integer :: i,j,l
 
-  call initconfig_rectdom(conf,sz,x0,x1)
+  call initspline_rectdom(conf,sz,x0,x1)
   x = 0
   !x((size(x)+1)/2) = 1
   ! middle of domain
