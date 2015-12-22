@@ -265,7 +265,7 @@ contains
   use matoper
   implicit none
   type(spline), intent(in) :: conf
-  type(SparseMatrix) :: Lap,S,D2,Sh
+  type(SparseMatrix) :: Lap,S,D2
   real :: Lf(conf%n)
   integer :: i
 
@@ -294,11 +294,11 @@ contains
  ! inv(B)
  ! where B is the background covariance matrix in DIVA
 
- function invB_op(conf,alpha,x) result(iB)
+ function invB_op(conf,alpha) result(iB)
   use matoper
   implicit none
   type(spline), intent(in) :: conf
-  real, intent(in) :: alpha(:), x(:)
+  real, intent(in) :: alpha(:)
   type(SparseMatrix) :: iB,Lap,gradient
 
   integer :: i
@@ -709,7 +709,7 @@ contains
   use matoper
   use ufileformat
   implicit none
-  integer, parameter :: sz(2) = [91,91]
+  integer, parameter :: sz(2) = [191,191]
   real, parameter :: x0(2) = [-3.,-3.], x1(2) = [3.,3.]
   real, parameter :: alpha(3) = [1,2,1]
   type(spline) :: conf
@@ -731,7 +731,7 @@ contains
   !  write(6,*) 'fi ',fi
   call test_symmetry(fi(2:sz(1)-1,2:sz(1)-1))
 
-  iB = invB_op(conf,alpha,x)
+  iB = invB_op(conf,alpha)
 
   call test_symmetry(reshape(iB.x.x,sz))
 
