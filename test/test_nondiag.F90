@@ -713,7 +713,7 @@ contains
   real, parameter :: x0(2) = [-3.,-3.], x1(2) = [3.,3.]
   real, parameter :: alpha(3) = [1,2,1]
   type(config) :: conf
-  real :: x(product(sz)), Bx(product(sz)), fi(sz(1),sz(2))
+  real :: x(sz(1)*sz(2)), Bx(sz(1)*sz(2)), fi(sz(1),sz(2))
   integer :: maxit = 10000, nit
   real :: relres, xiBx
   type(SparseMatrix) :: Lap
