@@ -19,7 +19,7 @@
 
 
 subroutine equal_weight_step(Ne,Nx,Ny,weight,x_n,y, &
-           cb_H, cb_HT,cb_solve_r, cb_solve_hqht_plus_r,cb_Qhalf) bind(C, name="equal_weight_step_")
+           cb_H, cb_HT,cb_solve_r, cb_solve_hqht_plus_r,cb_Qhalf) !bind(C, name="equal_weight_step_")
   use, intrinsic :: ISO_C_BINDING
   use sangoma_base, only: REALPREC, INTPREC
   use user_base

@@ -24,7 +24,7 @@
 ! proposal_step nudges particles at each model time step towards the next set of future observations. 
 ! It also accumulates weight of each particle due to the nudging.
 subroutine proposal_step(Ne,Nx,Ny,weight,x_n,y,t_model,obsVec,dt_obs, &
-           cb_H, cb_HT, cb_Qhalf, cb_solve_r) bind(C, name="proposal_step_")
+           cb_H, cb_HT, cb_Qhalf, cb_solve_r) !bind(C, name="proposal_step_")
   use sangoma_base, only: REALPREC, INTPREC ! use sangoma defined precision for C-Bind
   use user_base                             ! use user defined parameters 
   implicit none
