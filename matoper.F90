@@ -813,7 +813,6 @@ function ssparsemat_add_ssparsemat(A,B) result(C)
  type(SparseMatrix), intent(in) :: A
  type(SparseMatrix), intent(in) :: B
  type(SparseMatrix) :: C
- integer :: k,l,nz,l1,l2,llower,lupper
 
  if (A%m /= B%m .or. A%n /= B%n) then
    write(stderr,*) 'ssparsemat_add_ssparsemat: size not conform: A + B '
@@ -1223,9 +1222,15 @@ end function ssparsemat_add_ssparsemat
 
   !_______________________________________________________
   !
-  ! merge sort
+  ! merge sort (non-recursive)
+  !
+  ! Sort all elements of vector A inplace.
+  ! The optional argument ind is the sort index such that
+  ! sortedA = A
+  ! call sort(sortedA,ind)
+  ! A(ind) is the same as sortedA
 
-  subroutine mergesort (a,ind)
+  subroutine sort (a,ind)
    implicit none
    DATA_TYPE, intent(inout) :: a(:)
    integer, intent(out), optional :: ind(:)
@@ -1298,19 +1303,20 @@ end function ssparsemat_add_ssparsemat
    end do
 
    if (present(ind)) ind = inda
-  end subroutine mergesort
+  end subroutine sort
 
   !_______________________________________________________
   !
-  ! quick sort
+  ! quick sort (recursive)
+  !
+  ! Sort all elements of vector A inplace.
+  ! The optional argument ind is the sort index such that
+  ! sortedA = A
+  ! call sort(sortedA,ind)
+  ! A(ind) is the same as sortedA
 
-  subroutine sort(A,ind)
+  subroutine quicksort(A,ind)
     
-    ! Sort all elements of vector A inplace.
-    ! The optional argument ind is the sort index such that
-    ! sortedA = A
-    ! call sort(sortedA,ind)
-    ! A(ind) is the same as sortedA
 
     implicit none
     
@@ -1392,7 +1398,7 @@ end function ssparsemat_add_ssparsemat
 
     end subroutine sort_partition
 
-  end subroutine sort
+   end subroutine quicksort
 
   !_______________________________________________________
   !
@@ -1526,7 +1532,7 @@ end function ssparsemat_add_ssparsemat
 
   ! quick exit
   if (sum(r**2) < tol2) then
-    if (present(nit)) nit = k
+    if (present(nit)) nit = 0
     if (present(relres)) relres = sqrt(sum(r**2)/sum(b**2))
     return
   endif

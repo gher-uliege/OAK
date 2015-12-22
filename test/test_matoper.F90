@@ -9,7 +9,7 @@ program test_matoper
  call test_pcg
  call test_chol
  call test_sqrtm
- call test_sort
+ call test_quicksort
  call test_mergesort
  call test_unique
 
@@ -44,7 +44,7 @@ program test_matoper
   !_______________________________________________________
   !
 
-  subroutine test_sort
+  subroutine test_quicksort
    implicit none
    integer, parameter :: n = 10
    integer :: ind(n)
@@ -52,10 +52,10 @@ program test_matoper
         (/0, 50, 20, 25, 90, 10, 5, 20, 99, 75/), sortedA
    
    sortedA = A
-   call sort(sortedA,ind)
+   call quicksort(sortedA,ind)
    call assert(all(sortedA(1:n-1) <= sortedA(2:n)),'quick sort (1)')
    call assert(all(sortedA == A(ind)),'quick sort (2)')
-  end subroutine test_sort
+  end subroutine test_quicksort
 
   !_______________________________________________________
   !
@@ -68,7 +68,7 @@ program test_matoper
         (/0, 50, 20, 25, 90, 10, 5, 20, 99, 75, 2/), sortedA
    
    sortedA = A
-   call mergesort(sortedA,ind)
+   call sort(sortedA,ind)
    call assert(all(sortedA(1:n-1) <= sortedA(2:n)),'merge sort (1)')
    call assert(all(sortedA == A(ind)),'merge sort (2)')
   end subroutine test_mergesort
