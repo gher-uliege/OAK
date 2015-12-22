@@ -19,8 +19,6 @@ PROFILING_LDFLAGS ?= -p
 #PROFILING_F90FLAGS ?= -prof-gen
 #PROFILING_LDFLAGS ?= -prof-gen
 
-
-
 PIC_F90FLAGS=-fPIC
 PIC_CFLAGS=-fPIC
 
@@ -32,8 +30,7 @@ endif
 ifdef DEBUG
   F90FLAGS += -g -check all -traceback
 else
-  F90FLAGS += -vec-report0 -O3 
-#  F90FLAGS += -vec-report0
+  F90FLAGS += -O3 
 endif
 
 ifeq ($(PRECISION),double)
