@@ -65,8 +65,8 @@ program test_matoper
    integer :: a(:)
    integer :: b(size(a))
 
-   integer :: rght, wid, rend, num
-   integer :: i,j,m,t, k, left
+   integer :: rght, rend, num
+   integer :: i,j,m, k, left
 
    num = size(a)
    k = 1
@@ -76,38 +76,38 @@ program test_matoper
        rend = rght + k
        if (rend > num) rend = num
 
-       m = left 
-       i = left 
-       j = rght 
+       m = left+1 
+       i = left+1
+       j = rght+1
 
        ! merge
-       do while (i < rght .and. j < rend)
-         if (a(i+1) <= a(j+1)) then         
-           b(m+1) = a(i+1) 
+       do while (i-1 < rght .and. j-1 < rend)
+         if (a(i) <= a(j)) then         
+           b(m) = a(i) 
            i = i+1
          else
-           b(m+1) = a(j+1) 
+           b(m) = a(j) 
            j = j+1
          end if
 
          m = m+1
        end do
 
-       do while (i < rght) 
-         b(m+1)=a(i+1) 
+       do while (i-1 < rght) 
+         b(m)=a(i) 
          i = i+1
          m = m+1
        end do
 
-       do while (j < rend)
-         b(m+1)=a(j+1) 
+       do while (j-1 < rend)
+         b(m)=a(j) 
          j = j+1
          m = m+1
        end do
 
        ! copy over
-       do m=left,rend-1
-         a(m+1) = b(m+1)
+       do m=left+1,rend
+         a(m) = b(m)
        end do
      end do
 
@@ -120,10 +120,10 @@ program test_matoper
 
   subroutine test_mergesort
    implicit none
-   integer, parameter :: n = 10
+   integer, parameter :: n = 11
    integer :: ind(n)
    integer, dimension(1:n) :: A = &  
-        (/0, 50, 20, 25, 90, 10, 5, 20, 99, 75/), sortedA
+        (/0, 50, 20, 25, 90, 10, 5, 20, 99, 75, 2/), sortedA
    
    sortedA = A
    call mergesort(sortedA)
