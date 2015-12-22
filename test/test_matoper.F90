@@ -65,23 +65,23 @@ program test_matoper
    integer :: a(:)
    integer :: b(size(a))
 
-   integer :: rght, rend, num
+   integer :: right, rend, num
    integer :: i,j,m, k, left
 
    num = size(a)
    k = 1
    do while (k < num) 
      do left=0,num-k-1,2*k
-       rght = left + k        
-       rend = rght + k
+       right = left + k        
+       rend = right + k
        if (rend > num) rend = num
 
        m = left+1 
        i = left+1
-       j = rght+1
+       j = right+1
 
        ! merge
-       do while (i-1 < rght .and. j-1 < rend)
+       do while (i <= right .and. j <= rend)
          if (a(i) <= a(j)) then         
            b(m) = a(i) 
            i = i+1
@@ -93,13 +93,13 @@ program test_matoper
          m = m+1
        end do
 
-       do while (i-1 < rght) 
+       do while (i <= right) 
          b(m)=a(i) 
          i = i+1
          m = m+1
        end do
 
-       do while (j-1 < rend)
+       do while (j <= rend)
          b(m)=a(j) 
          j = j+1
          m = m+1
