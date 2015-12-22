@@ -1221,6 +1221,89 @@ end function ssparsemat_add_ssparsemat
   ! Redefine DATA_TYPE to the type needed for the subroutines sort and unique
 #define DATA_TYPE integer 
 
+  !_______________________________________________________
+  !
+  ! merge sort
+
+  subroutine mergesort (a,ind)
+   implicit none
+   DATA_TYPE, intent(inout) :: a(:)
+   integer, intent(out), optional :: ind(:)
+
+   DATA_TYPE :: b(size(a))
+   integer :: inda(size(a)), indb(size(a))
+   integer :: right, rend, num
+   integer :: i,j,m, k, left
+
+   num = size(a)
+   inda = [(i, i=1,num)]
+
+   ! k is the window size starting with 1, 2, 4, 8, ...
+   k = 1
+   do while (k < num) 
+     do left=1,num-k,2*k
+
+       ! divide array a into two subarrays a(left:right-1), a(right:rend)
+       ! every subarray can be assumed already sorted (since we start
+       ! bottom-up with k=1)
+
+       right = left + k
+       rend = min(right + k-1,num)
+
+       ! merge two subarrays
+       ! m: index in merged array
+       m = left
+       ! i,j: indices of subarrays
+       i = left
+       j = right
+
+       ! put the smallest value of seach subarray in b until one subarray is 
+       ! finished
+       do while (i <= right-1 .and. j <= rend)
+         if (a(i) <= a(j)) then         
+           b(m) = a(i)
+           indb(m) = inda(i)
+           i = i+1
+         else
+           b(m) = a(j) 
+           indb(m) = inda(j)
+           j = j+1
+         end if
+
+         m = m+1
+       end do
+
+       ! put the remainer of first subarray in b (if any)
+       do while (i <= right-1) 
+         b(m)=a(i) 
+         indb(m) = inda(i)
+         i = i+1
+         m = m+1
+       end do
+
+       ! put the remainer of second subarray in b (if any)
+       do while (j <= rend)
+         b(m)=a(j) 
+         indb(m) = inda(j)
+         j = j+1
+         m = m+1
+       end do
+
+       ! copy over
+       a(left:rend) = b(left:rend)
+       inda(left:rend) = indb(left:rend)
+     end do
+
+     k = k*2
+   end do
+
+   if (present(ind)) ind = inda
+  end subroutine mergesort
+
+  !_______________________________________________________
+  !
+  ! quick sort
+
   subroutine sort(A,ind)
     
     ! Sort all elements of vector A inplace.
