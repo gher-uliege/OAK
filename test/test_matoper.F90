@@ -1,3 +1,5 @@
+
+
 program test_matoper
  use matoper
  implicit none
@@ -8,6 +10,7 @@ program test_matoper
  call test_chol
  call test_sqrtm
  call test_sort
+ call test_mergesort
  call test_unique
 
  contains
@@ -53,6 +56,80 @@ program test_matoper
    call assert(all(sortedA(1:n-1) <= sortedA(2:n)),'quick sort (1)')
    call assert(all(sortedA == A(ind)),'quick sort (2)')
   end subroutine test_sort
+
+  !_______________________________________________________
+  !
+
+  subroutine mergesort (a)
+   implicit none
+   integer :: a(:)
+   integer :: b(size(a))
+
+   integer :: rght, wid, rend, num
+   integer :: i,j,m,t, k, left
+
+   num = size(a)
+   k = 1
+   do while (k < num) 
+     do left=0,num-k-1,2*k
+       rght = left + k        
+       rend = rght + k
+       if (rend > num) rend = num
+
+       m = left 
+       i = left 
+       j = rght 
+
+       ! merge
+       do while (i < rght .and. j < rend)
+         if (a(i+1) <= a(j+1)) then         
+           b(m+1) = a(i+1) 
+           i = i+1
+         else
+           b(m+1) = a(j+1) 
+           j = j+1
+         end if
+
+         m = m+1
+       end do
+
+       do while (i < rght) 
+         b(m+1)=a(i+1) 
+         i = i+1
+         m = m+1
+       end do
+
+       do while (j < rend)
+         b(m+1)=a(j+1) 
+         j = j+1
+         m = m+1
+       end do
+
+       ! copy over
+       do m=left,rend-1
+         a(m+1) = b(m+1)
+       end do
+     end do
+
+     k = k*2
+   end do
+  end subroutine mergesort
+
+  !_______________________________________________________
+  !
+
+  subroutine test_mergesort
+   implicit none
+   integer, parameter :: n = 10
+   integer :: ind(n)
+   integer, dimension(1:n) :: A = &  
+        (/0, 50, 20, 25, 90, 10, 5, 20, 99, 75/), sortedA
+   
+   sortedA = A
+   call mergesort(sortedA)
+   call assert(all(sortedA(1:n-1) <= sortedA(2:n)),'merge sort (1)')
+!   call assert(all(sortedA == A(ind)),'quick sort (2)')
+  end subroutine test_mergesort
 
   !_______________________________________________________
   !
