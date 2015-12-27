@@ -18,8 +18,11 @@ module mod_spline
    real, allocatable :: pm(:,:)
    real, allocatable :: x(:,:)
 
-   ! computed
+   ! staggered inverse of local resolution
+   ! spm(:,i,j) = inverse of local resolution of dimension i 
+   ! staggered in direction j
    real, allocatable :: spm(:,:,:)
+
    ! snu(:,i) "diffusion coefficient"  along dimension i including metric, staggered
    real, allocatable :: snu(:,:)
    logical, allocatable :: smask(:,:)
@@ -288,6 +291,34 @@ contains
 
  !_______________________________________________________
  !
+
+ function divand_kernel_coeff(ndim,alpha) result(mu)
+  use matoper
+  implicit none
+  integer, intent(in) :: ndim
+  real, intent(in) :: alpha(:)
+  real :: mu
+  real, parameter :: pi = 4. * atan(1.)
+
+  integer :: m,k
+  real :: nu
+
+  m = size(alpha)-1
+  
+  ! check if alpha is a sequence of binomial coefficients
+  do k=0,m
+    if (nchoosek(m,k) /= alpha(k+1)) then
+      write(6,*) 'unsupported sequence of alpha'
+      stop
+    end if
+  end do
+
+  nu = m-ndim/2.
+  mu = (4*pi)**(ndim/2.) * gamma(real(m)) / gamma(nu)
+ end function divand_kernel_coeff
+
+ !_______________________________________________________
+ !
  ! compute 
  ! inv(B)
  ! where B is the background covariance matrix in DIVA
@@ -297,27 +328,44 @@ contains
   implicit none
   type(spline), intent(in) :: conf
   real, intent(in) :: alpha(:)
-  type(SparseMatrix) :: iB,Lap,gradient
+  ! WE: diagonal matrix with elements equal to the square root of the "volume" 
+  ! of each grid cell
+  type(SparseMatrix) :: iB,Lap,gradient, WE, WEs
 
+  real :: coeff, d(conf%n)
   integer :: i
 
   if (size(alpha) /= 3) then
     write(6,*) 'error alpha to small', alpha
   end if
 
+  ! TODO effective dimension
+  ! d: inverse of the volume of each grid cell
+  d = product(conf%pm,2)
+  WE = spdiag(1./sqrt(d))
+
   ! contrain on value
-  iB = spdiag([(alpha(1),i=1,conf%n)])
+  iB = spdiag(alpha(1)/d)
 
   ! contrain on gradient
   do i = 1,conf%ndim
+    WEs = spdiag(1./sqrt(product(conf%spm(:,:,i),2)))
     gradient = grad_op(conf%sz,conf%mask,conf%pm,i)
+    ! scale by grid cell
+    gradient = WEs .x. gradient
     iB = iB + (alpha(2) .x. (transpose(gradient).x.gradient))
   end do
 
   ! contrain on laplacian
   Lap = laplacian_op(conf)
+  ! scale by grid cell
+  Lap = WE .x. Lap
   iB = iB + (alpha(3) .x. (transpose(Lap).x.Lap))
 
+  ! normalize iB
+  coeff = divand_kernel_coeff(conf%ndim,alpha)
+  iB = (1./coeff) .x. iB
+!  write(6,*) 'coeff',coeff,conf%ndim,alpha
 
  end function invB_op
 
@@ -334,6 +382,7 @@ contains
   real, intent(in) :: alpha(:), x(:)
   real :: xiBx, tmp(conf%n)
 
+  real :: coeff
   integer :: i
 
   if (size(alpha) /= 3) then
@@ -352,6 +401,11 @@ contains
   ! contrain on laplacian
   tmp = laplacian(conf,x)
   xiBx = xiBx + alpha(3) * sum(tmp**2)
+
+  ! normalize iB
+  coeff = divand_kernel_coeff(conf%ndim,alpha)
+  xiBx = xiBx/coeff
+
  end function invB
 
  !_______________________________________________________
@@ -482,23 +536,29 @@ contains
  !_______________________________________________________
  !
 
- subroutine initspline_rectdom(conf,sz,x0,x1)
+ subroutine initspline_rectdom(conf,sz,x0,x1,mask)
   use matoper
   implicit none
   type(spline) :: conf
   real, intent(in) :: x0(:), x1(:) ! start and end points
   integer, intent(in) :: sz(:)
+  logical, optional :: mask(:)
 
   real, allocatable :: pm(:,:), x(:,:)
-  logical, allocatable :: mask(:)
+  logical, allocatable :: mask_(:)
 
   integer :: i,j,n, ndim, subs(size(sz))
   ndim = size(sz)
   n = product(sz)
 
-  allocate(mask(n),x(n,ndim),pm(n,ndim))
+  allocate(mask_(n),x(n,ndim),pm(n,ndim))
 
-  mask = .true.
+  if (present(mask)) then
+    mask_ = mask
+  else
+    mask_ = .true.
+  end if
+
   do j = 1,n
     subs = ind2sub(sz,j)
     x(j,:) = x0 + (x1-x0) * (subs-1.)/ (sz-1.) 
@@ -508,9 +568,9 @@ contains
     pm(:,i) = (sz(i)-1.) / (x1(i)-x0(i)) 
   end do
 
-  call initspline(conf,sz,mask,pm,x)
+  call initspline(conf,sz,mask_,pm,x)
 
-  deallocate(mask,x,pm)
+  deallocate(mask_,x,pm)
 
  end subroutine initspline_rectdom
  !_______________________________________________________
@@ -544,10 +604,33 @@ program test_nondiag
  type(SparseMatrix) :: iB
  real :: tol = 1e-7
 
+ call test_kernel
  call test_diff()
  call test_2d()
+ call test_2d_mask()
  call test_grad2d()
 contains
+
+ subroutine test_kernel
+  implicit none
+  real, parameter :: pi = 4. * atan(1.)
+  real :: coeff
+
+  coeff = divand_kernel_coeff(2,[1.,2.,1.])
+  call assert(coeff,4*pi,tol,'kernel coeff (2d) 121')
+
+  coeff = divand_kernel_coeff(2,[1.,3.,3.,1.])
+  call assert(coeff,8*pi,tol,'kernel coeff (2d) 1331')
+
+  coeff = divand_kernel_coeff(3,[1.,2.,1.])
+  call assert(coeff,8*pi,tol,'kernel coeff (3d) 121')
+
+  coeff = divand_kernel_coeff(3,[1.,3.,3.,1.])
+  call assert(coeff,32*pi,tol,'kernel coeff (3d) 1331')
+
+
+ end subroutine test_kernel
+
 
  function grad2d(mask,f,pm,dim) result(df)
   implicit none
@@ -700,6 +783,7 @@ contains
   call assert(fi,transpose(fi),tol,'check symmetry - x <-> y')
 
  end subroutine test_symmetry
+
  !_______________________________________________________
  ! 
 
@@ -708,16 +792,95 @@ contains
   use ufileformat
   implicit none
   integer, parameter :: sz(2) = [191,191]
-  real, parameter :: x0(2) = [-3.,-3.], x1(2) = [3.,3.]
+  real, parameter :: x0(2) = [-5.,-5.], x1(2) = [5.,5.]
   real, parameter :: alpha(3) = [1,2,1]
   type(spline) :: conf
-  real :: x(sz(1)*sz(2)), Bx(sz(1)*sz(2)), fi(sz(1),sz(2))
+  real :: fi(sz(1),sz(2))
+  real, dimension(sz(1)*sz(2)) :: x, Bx, r, kernel
+  integer :: i
   ! for pcg
   !  integer :: maxit = 10000, nit
   !  real :: relres
   real :: xiBx
 
   call initspline_rectdom(conf,sz,x0,x1)
+  x = 0
+  !x((size(x)+1)/2) = 1
+  ! middle of domain
+  x(sub2ind(sz,(sz+1)/2)) = 1
+
+  iB = invB_op(conf,alpha)
+
+!!!  xiBx = invB(conf,alpha,x)
+!!!  call assert(xiBx,x.x.(iB.x.x),tol,'check invB')
+
+  !  Bx = pcg(fun,x,x,tol=tol,maxit=maxit,nit=nit,relres=relres)
+  Bx = symsolve(iB,x)
+
+  call assert(iB.x.Bx,x,tol,'check inv(B)*x')
+  !  write(6,*) 'x',x
+  !  write(6,*) 'nit,relres',nit,relres
+  !  write(6,*) 'Bx',Bx
+
+  
+
+  fi = reshape(Bx,sz)
+  r = sqrt(sum(conf%x**2,2))
+
+  ! where (r /= 0)
+  !   kernel = r * bessel_k1(r)  ! not yet implemented
+  ! elsewhere
+  !   kernel = 1
+  ! end where
+
+  ! octave code to generate the sequence of numbers
+  ! [x,y] = ndgrid(linspace(-5,5,191)); 
+  ! r = sqrt(x.^2 + y.^2); 
+  ! ff = r.* besselk(1,r) ; 
+  ! ff(isnan(ff)) = 1; 
+  ! ff(96,96 + [1:50])
+
+  call assert(fi(96,[(96+i,i=1,50)]), &
+       [0.99507,0.98409,0.96919,0.95146,0.93163,0.91024,0.88769,0.86431, &
+        0.84035,0.81603,0.79152,0.76698,0.74251,0.71822,0.69419,0.67050, &
+        0.64719,0.62431,0.60191, 0.58000,0.55862,0.53778,0.51750,0.49778, &
+        0.47863,0.46004,0.44203, 0.42459,0.40771,0.39139,0.37562,0.36038, &
+        0.34568,0.33150,0.31782,0.30465,0.29195,0.27973, 0.26797,0.25666, &
+        0.24577,0.23531,0.22526,0.21560,0.20633,0.19742,0.18887,0.18067, &
+        0.17280,0.16525],0.004,'check theoretical 2d-121-kernel')
+
+
+!  call assert(Bx,kernel,0.006,'check theoretical 2d-121-kernel')
+  call usave('fi-kernel.dat',kernel,-9999.)
+
+  call usave('fi.dat',fi,-9999.)
+
+
+ end subroutine test_2d
+
+
+ !_______________________________________________________
+ ! 
+
+ subroutine test_2d_mask
+  use matoper
+  use ufileformat
+  implicit none
+  integer, parameter :: sz(2) = [191,191]
+  real, parameter :: x0(2) = [-3.,-3.], x1(2) = [3.,3.]
+  real, parameter :: alpha(3) = [1,2,1]
+  type(spline) :: conf
+  real :: x(sz(1)*sz(2)), Bx(sz(1)*sz(2)), fi(sz(1),sz(2))
+  logical :: mask(sz(1),sz(2))
+  ! for pcg
+  !  integer :: maxit = 10000, nit
+  !  real :: relres
+  real :: xiBx
+
+  mask = .true.
+  mask(80,:) = .false.
+  
+  call initspline_rectdom(conf,sz,x0,x1,mask=reshape(mask,[product(sz)]))
   x = 0
   !x((size(x)+1)/2) = 1
   ! middle of domain
@@ -734,24 +897,24 @@ contains
   call test_symmetry(reshape(iB.x.x,sz))
 
 
-  xiBx = invB(conf,alpha,x)
-  call assert(xiBx,x.x.(iB.x.x),tol,'check invB')
+!!!  xiBx = invB(conf,alpha,x)
+!!!  call assert(xiBx,x.x.(iB.x.x),tol,'check invB with mask')
 
   !  Bx = pcg(fun,x,x,tol=tol,maxit=maxit,nit=nit,relres=relres)
   Bx = symsolve(iB,x)
 
-  call assert(iB.x.Bx,x,tol,'check inv(B)*x')
+  call assert(iB.x.Bx,x,tol,'check inv(B)*x with mask')
   !  write(6,*) 'x',x
   !  write(6,*) 'nit,relres',nit,relres
   !  write(6,*) 'Bx',Bx
 
 
   fi = reshape(Bx,sz)
-  call test_symmetry(fi)
 
-  call usave('fi.dat',fi,-9999.)
+  where (.not.mask) fi = -9999.
+  call usave('fi_mask.dat',fi,-9999.)
 
 
- end subroutine test_2d
+ end subroutine 
 
 end program test_nondiag

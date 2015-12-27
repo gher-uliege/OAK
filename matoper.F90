@@ -204,6 +204,7 @@ end interface
 interface assert
   module procedure assert_bool
   module procedure assert_scal
+  module procedure assert_int
   module procedure assert_vec
   module procedure assert_mat
 end interface assert
@@ -832,9 +833,37 @@ function ssparsemat_add_ssparsemat(A,B) result(C)
 
 end function ssparsemat_add_ssparsemat
 
-!--------------------------------------------
+!_______________________________________________________
+!
+! Return the factorial of N where N is a positive integer.
  
+function factorial(n) result (res) 
+ implicit none
+ integer, intent (in) :: n
+ integer :: res
+ integer :: i
+ 
+ res = product ((/(i, i = 1, n)/))
+ 
+end function factorial
+ 
+!_______________________________________________________
+!
+! Compute the binomial coefficient
 
+function nchoosek(n, k) result (res) 
+ implicit none
+ integer, intent (in) :: n
+ integer, intent (in) :: k
+ integer :: res
+ 
+ res = factorial (n) / (factorial (k) * factorial (n - k))
+ 
+end function nchoosek
+
+
+!_______________________________________________________
+!
 
   subroutine permute(indeces,x,y)
    implicit none
@@ -1150,6 +1179,33 @@ end function ssparsemat_add_ssparsemat
 
 
   end subroutine assert_scal
+
+  !_______________________________________________________
+  !
+
+  subroutine assert_int(found,expected,msg)    
+
+    ! Produce an error if the integer found is not the same as expected
+
+    implicit none
+    
+    ! Inputs
+    integer, intent(in) :: found    ! found value
+    integer, intent(in) :: expected ! expected value
+    character(len=*)    :: msg      ! message to print while checking
+
+    ! Local variable
+    real :: maxdiff
+
+    if (found == expected) then
+       write(6,*) msg, ': OK '
+    else
+       write(6,*) msg, ': FAIL ', maxdiff
+       write(6,*) 'found ',found
+       write(6,*) 'expected ',expected
+       stop
+    end if
+  end subroutine 
 
   !_______________________________________________________
   !

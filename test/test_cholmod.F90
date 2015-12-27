@@ -18,6 +18,7 @@ program test_cholmod
 
  call simple_test()
  call sparse_test()
+ call factorize_test()
 
 contains
 
@@ -67,4 +68,97 @@ contains
 
  end subroutine sparse_test
 
+
+ subroutine factorize_test()
+  use iso_c_binding, only: c_int, c_double, c_size_t, c_loc
+  implicit none
+  
+  interface
+    integer(c_int) function cholmod_start(cholmod_common) bind(c, name='cholmod_wrapper_start')
+    use iso_c_binding
+    implicit none
+    type (c_ptr), value :: cholmod_common
+   end function 
+
+    integer(c_int) function cholmod_finish(cholmod_common) bind(c, name='cholmod_wrapper_finish')
+    use iso_c_binding
+    implicit none
+    type (c_ptr), value :: cholmod_common
+   end function 
+
+
+   integer(c_int) function cholmod_matrix(cholmod_common,n,nz,Si,Sj,Ss,A) bind(c,name="cholmod_wrapper_matrix")
+    use, intrinsic :: iso_c_binding, only: c_int, c_size_t, c_double, c_ptr
+    implicit none
+    type (c_ptr), value :: cholmod_common
+    integer(c_size_t), value :: n,nz
+    type(c_ptr), value :: Si, Sj, Ss
+    type (c_ptr), value :: A ! cholmod_sparse
+   end function cholmod_matrix
+
+   integer(c_int) function cholmod_factorize(cholmod_common,A,L) bind(c,name="cholmod_wrapper_factorize")
+    use, intrinsic :: iso_c_binding, only: c_int, c_size_t, c_double, c_ptr
+    implicit none
+    type (c_ptr), value :: cholmod_common
+    type (c_ptr), value :: A ! cholmod_sparse
+    type (c_ptr), value :: L ! cholmod_factor
+   end function cholmod_factorize
+
+!int cholmod_wrapper_solve(cholmod_common **c,cholmod_sparse **A, cholmod_factor **L, double* bb, double* xx) {
+
+
+   integer(c_int) function cholmod_solve(cholmod_common,A,L,b,x) bind(c,name="cholmod_wrapper_solve")
+    use, intrinsic :: iso_c_binding, only: c_int, c_size_t, c_double, c_ptr
+    implicit none
+    type(c_ptr), value :: cholmod_common
+    type(c_ptr), value :: A ! cholmod_sparse
+    type(c_ptr), value :: L ! cholmod_factor
+    type(c_ptr), value :: b, x
+   end function cholmod_solve
+
+   integer(c_int) function cholmod_free(cholmod_common,A,L) bind(c,name="cholmod_wrapper_free")
+    use, intrinsic :: iso_c_binding, only: c_int, c_size_t, c_double, c_ptr
+    implicit none
+    type (c_ptr), value :: cholmod_common
+    type (c_ptr), value :: A ! cholmod_sparse
+    type (c_ptr), value :: L ! cholmod_factor
+   end function cholmod_free
+
+  end interface
+
+  type(c_ptr), target :: cholmod_common, A, L
+  integer(c_int) :: status
+  integer(c_size_t), parameter :: n = 4, nz = 4
+
+
+  integer(c_int), target :: Si(nz) = [1,2,3,4]-1
+  integer(c_int), target :: Sj(nz) = [1,2,3,4]-1
+  real(c_double), target :: Ss(nz) = [2,2,2,2]
+
+  real(c_double), target :: bb(n) = [1,2,3,4]
+  real(c_double), target :: xx(n) = [1,2,3,4]
+
+  
+  status = cholmod_start(c_loc(cholmod_common))
+  write(6,*) 'cholmod_common ',cholmod_common
+
+
+
+  status = cholmod_matrix(c_loc(cholmod_common),n,nz,c_loc(Si),c_loc(Sj), &
+       c_loc(Ss), c_loc(A))
+
+  status = cholmod_factorize(c_loc(cholmod_common),c_loc(A),c_loc(L))
+
+
+  status = cholmod_solve(c_loc(cholmod_common),c_loc(A),c_loc(L),c_loc(bb), & 
+       c_loc(xx))
+
+  call assert(xx,bb/2.,tol,'factorize cholmod test (1)')
+
+
+  status = cholmod_free(c_loc(cholmod_common),c_loc(A),c_loc(L))
+
+  status = cholmod_finish(c_loc(cholmod_common))
+
+ end subroutine factorize_test
 end program test_cholmod

@@ -6,6 +6,7 @@ program test_matoper
 
 
  !call benchmark_matoper
+ call test_factorial
  call test_pcg
  call test_chol
  call test_sqrtm
@@ -15,7 +16,18 @@ program test_matoper
 
  contains
 
+ subroutine test_factorial
+  implicit none
+
+  call assert(factorial(0),1,'test factorial (1)')
+  call assert(factorial(6),720,'test factorial (2)')
+  call assert(nchoosek(5,3),10,'test nchoosek')
+  
+  
+ end subroutine test_factorial
+
  subroutine test_chol()
+  implicit none
   real :: A(3,3), U(3,3)
 
   A = reshape([2.,1.,1., 1.,2.,1., 1.,1.,2.],[3,3])
@@ -29,6 +41,7 @@ program test_matoper
   !
 
  subroutine test_sqrtm()
+  implicit none
   real :: A(3,3)
   real :: S(size(A,1),size(A,1))
 

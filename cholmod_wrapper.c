@@ -25,6 +25,76 @@ Simple wrapper for CHOLMOD
 #include "cholmod.h"
 #define INDEX size_t
 
+/* we are working with pointer to pointer so that the Fortran code does not need 
+   to know about the cholmod structures */
+
+int cholmod_wrapper_start(cholmod_common **c) {  
+  *c = malloc(sizeof(cholmod_common));
+  cholmod_start(*c);
+  /*printf("here %d\n",c);
+    printf("here %d\n",*c);*/
+}
+
+int cholmod_wrapper_finish(cholmod_common **c) {  
+  /*printf("almost done %d\n",*c);
+    printf("done\n");*/
+  cholmod_finish(*c);
+  free(*c);
+}
+
+
+int cholmod_wrapper_matrix(cholmod_common **c,INDEX n,INDEX nz, int* Si, int* Sj,double* Ss, cholmod_sparse **A) {
+    cholmod_triplet *At;    
+    cholmod_dense *x, *b;
+    cholmod_factor *L;
+    int i;
+
+    // nrow,ncol,nzmax,storage type (1=upper)
+    At = cholmod_allocate_triplet(n, n, nz, 1, CHOLMOD_REAL, *c);
+
+    At->nnz = nz;
+    for (i = 0; i < nz; i++) {
+      ((int*)At->i)[i] = Si[i];
+      ((int*)At->j)[i] = Sj[i];
+      ((double*)At->x)[i] = Ss[i];
+    }
+
+    *A = cholmod_triplet_to_sparse(At,At->nzmax,*c);
+    cholmod_free_triplet(&At, *c);
+}
+
+int cholmod_wrapper_factorize(cholmod_common **c,cholmod_sparse **A, cholmod_factor **L) {
+
+    *L = cholmod_analyze(*A, *c);		    /* analyze */
+    return cholmod_factorize(*A, *L, *c);		    /* factorize */
+}
+
+
+int cholmod_wrapper_solve(cholmod_common **c,cholmod_sparse **A, cholmod_factor **L, double* bb, double* xx) {
+    cholmod_dense *x, *b;
+    int i;
+
+    b = cholmod_zeros((*A)->nrow, 1, (*A)->xtype, *c);
+    for (i = 0; i < (*A)->nrow; i++) {
+      ((double*)b->x)[i] = bb[i];
+    }
+
+    x = cholmod_solve(CHOLMOD_A, *L, b, *c);	    /* solve Ax=b */
+
+    for (i = 0; i < (*A)->nrow; i++) {
+      xx[i] = ((double*)x->x)[i];
+    }
+
+    cholmod_free_dense(&x, *c);
+    cholmod_free_dense(&b, *c);
+}
+
+int cholmod_wrapper_free(cholmod_common **c,cholmod_sparse **A, cholmod_factor **L) {
+    cholmod_free_factor(L, *c);
+    cholmod_free_sparse(A, *c);
+}
+
+
 /*
 solves A x = b for x where A is a symetric positive defined matrix
 
@@ -38,6 +108,7 @@ bb: vector b
 Output:
 xx: vector x
 */
+
 
 int solve(INDEX n,INDEX nz, int* Si, int* Sj,double* Ss, double* bb, double* xx) {
     cholmod_sparse *A;
