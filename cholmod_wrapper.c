@@ -26,7 +26,7 @@ Simple wrapper for CHOLMOD
 #define INDEX size_t
 
 /* we are working with pointer to pointer so that the Fortran code does not need 
-   to know about the cholmod structures */
+   to know about the cholmod structures and that the C-code can modify the pointers*/
 
 int cholmod_wrapper_start(cholmod_common **c) {  
   *c = malloc(sizeof(cholmod_common));

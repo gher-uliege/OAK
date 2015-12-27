@@ -136,6 +136,7 @@ contains
   real(c_double), target :: Ss(nz) = [2,2,2,2]
 
   real(c_double), target :: bb(n) = [1,2,3,4]
+  real(c_double), target :: b2(n) = [4,5,2,-4]
   real(c_double), target :: xx(n) = [1,2,3,4]
 
   
@@ -154,6 +155,11 @@ contains
        c_loc(xx))
 
   call assert(xx,bb/2.,tol,'factorize cholmod test (1)')
+
+  status = cholmod_solve(c_loc(cholmod_common),c_loc(A),c_loc(L),c_loc(b2), & 
+       c_loc(xx))
+
+  call assert(xx,b2/2.,tol,'factorize cholmod test (2)')
 
 
   status = cholmod_free(c_loc(cholmod_common),c_loc(A),c_loc(L))
