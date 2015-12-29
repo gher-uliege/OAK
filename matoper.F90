@@ -24,6 +24,11 @@
 module matoper
 
 type SparseMatrix
+  ! nz: non-zero elements
+  ! m: number of rows
+  ! n: number of columns
+  ! i,j: indices of non-zero elements
+  ! s: value of non-zero elements
   integer          :: nz,m,n
   integer, pointer :: i(:),j(:)
   real, pointer    :: s(:)
@@ -136,6 +141,12 @@ interface det
     sdet, &
     ddet
 end interface
+
+interface sparse
+  module procedure &
+       sparse_mat, &
+       sparse_vec
+end interface sparse
 
 interface transpose
   module procedure &
@@ -461,10 +472,24 @@ end function
 
 !_______________________________________________________
 !
+! create an identidy sparse matrix
+!
+
+ function speye(n) result(S)
+  implicit none
+  integer, intent(in) :: n
+  type(SparseMatrix) :: S
+  integer :: i
+  
+  S = spdiag([(1.,i=1,n)])
+ end function speye
+
+!_______________________________________________________
+!
 ! zero sparse matrix
 !
 
- function spzero(m,n) result(S)
+ function spzeros(m,n) result(S)
   implicit none
   integer, intent(in) :: m,n
   type(SparseMatrix) :: S
@@ -473,7 +498,7 @@ end function
   S%n = n
   S%nz = 0
   allocate(S%i(S%nz),S%j(S%nz),S%s(S%nz))
- end function spzero
+ end function spzeros
 
 !_______________________________________________________
 !
@@ -500,7 +525,7 @@ end function
 ! S = SPARSE(X) converts a full matrix to sparse form by
 !    squeezing out any zero elements.
 
-function sparse(X) result(S)
+function sparse_mat(X) result(S)
 implicit none
 real, intent(in)   :: X(:,:)
 type(SparseMatrix) :: S
@@ -525,7 +550,38 @@ k = 1
    end do
  end do
 
-end function
+end function sparse_mat
+
+!_______________________________________________________
+!
+
+function sparse_vec(i,j,s,m,n) result(B)
+ implicit none
+ integer, intent(in) :: i(:),j(:) ! indices of non-zero elements
+ real, intent(in) :: s(:)         ! value of non-zero elements
+ integer, intent(in), optional :: m,n ! size of matrix
+
+ type(SparseMatrix) :: B
+
+ if (present(m)) then
+   B%m = m
+ else
+   B%m = maxval(i)
+ end if
+
+ if (present(n)) then
+   B%n = n
+ else
+   B%n = maxval(j)
+ end if
+
+ B%nz = size(i)
+
+ allocate(B%i(B%nz),B%j(B%nz),B%s(B%nz))
+ B%i = i
+ B%j = j
+ B%s = s
+end function sparse_vec
 
 !_______________________________________________________
 !
@@ -581,7 +637,7 @@ function ssparsemat_mult_ssparsemat_old(A,B) result(C)
  ! borne sup.
  nz = 10*(A%nz+B%nz)
 ! nz = 2714888
-! write(6,*) 'nz ',nz
+!  write(6,*) 'nz ',nz, A%nz,B%nz
  allocate(C%i(nz),C%j(nz),C%s(nz))
  nz=0
 
@@ -715,9 +771,9 @@ function ssparsemat_mult_ssparsemat(A,B) result(C)
 !!$  end do
 
  ! some heuristics, it will bite us
- nz = 10*(A%nz+B%nz)
+ nz = 100*(A%nz+B%nz)
  ! nz = 2714888
- ! write(6,*) 'nz ',nz
+ write(6,*) 'nz ',nz,A%nz,B%nz,A%n,A%m
  allocate(C%i(nz),C%j(nz),C%s(nz))
  nz=0
 
@@ -803,6 +859,8 @@ function ssparsemat_mult_ssparsemat(A,B) result(C)
 
  C%nz = nz
 
+ C = sparse_compress(C)
+
 end function ssparsemat_mult_ssparsemat
 
 
@@ -831,8 +889,62 @@ function ssparsemat_add_ssparsemat(A,B) result(C)
  C%j = [A%j(1:A%nz), B%j(1:B%nz)]
  C%s = [A%s(1:A%nz), B%s(1:B%nz)]
 
+ C = sparse_compress(C)
+
 end function ssparsemat_add_ssparsemat
 
+!_______________________________________________________
+!
+
+function sparse_compress(A) result(B)
+ implicit none
+ type(SparseMatrix), intent(in) :: A
+ type(SparseMatrix) :: B
+
+ integer :: l(A%nz), sort_index(A%nz), i, j, nz
+ logical :: newelem
+
+ ! sort index
+ l = A%n * (A%i(1:A%nz)-1) + A%j(1:A%nz)-1
+ 
+ ! sort first by i then by j
+ call sort(l,sort_index)
+
+ A%i(1:A%nz) = A%i(sort_index)
+ A%j(1:A%nz) = A%j(sort_index)
+ A%s(1:A%nz) = A%s(sort_index)
+
+ nz = A%nz
+ B%m = A%m
+ B%n = A%n
+ allocate(B%i(nz),B%j(nz),B%s(nz))
+
+ ! counter of non-zeros elements in B
+ j = 0
+
+ do i=1,A%nz
+   if (j == 0) then
+     newelem = .true.
+   else
+     newelem = l(i) /= l(j)
+   end if
+
+   if (newelem) then
+     ! new non-zero element
+     j = j + 1
+     B%i(j) = A%i(i)
+     B%j(j) = A%j(i)
+     B%s(j) = A%s(i)     
+   else
+     ! add to previous
+     B%s(j) = B%s(j) + A%s(i)
+   end if
+ end do
+
+ ! set non-zero elements
+ B%nz = j
+! write(6,*) 'B',B%m,B%n,B%nz
+end function sparse_compress
 !_______________________________________________________
 !
 ! Return the factorial of N where N is a positive integer.

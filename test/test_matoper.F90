@@ -1,3 +1,4 @@
+! cd /home/abarth/Assim/OAK-nonDiagR &&  make test/test_matoper && test/test_matoper
 
 
 program test_matoper
@@ -13,6 +14,8 @@ program test_matoper
  call test_quicksort
  call test_mergesort
  call test_unique
+ call test_sparse
+
 
  contains
 
@@ -195,5 +198,30 @@ program test_matoper
 
  end subroutine benchmark_matoper
 
+ !_______________________________________________________
+ !
 
+ subroutine test_sparse
+  implicit none
+  type(SparseMatrix) :: A,B,C
+  integer, parameter :: n = 3
+  real, parameter :: tol = 1e-6
+
+  A = speye(3)
+
+  A = sparse([1,2,3],[1,2,3],[1.,1.,1.],n,n)
+  B = A + A
+  call assert(full(B),full(A) + full(A),tol,'add sparse matrices (1)')
+
+  B = sparse_compress(A + A)
+  call assert(full(B),full(A) + full(A),tol,'add sparse matrices (2)')
+
+
+  A = sparse([1,2,3,2],[1,2,3,1],[1.,2.,1.,3.],n,n)
+  B = sparse([1,3,2,2],[1,1,2,1],[1.,2.,1.,3.],n,n)
+  call assert(full(sparse_compress(A+B)),full(A) + full(B),tol,'add sparse matrices (3)')
+
+  call assert(full(sparse_compress(A.x.B)),full(A).x.full(B),tol,'mult sparse matrices')
+
+ end subroutine test_sparse
 end program test_matoper

@@ -272,7 +272,7 @@ contains
 
   ! compute laplacian
 
-  Lap = spzero(conf%n,conf%n)
+  Lap = spzeros(conf%n,conf%n)
 
   Lf = 0
   do i = 1,conf%ndim
@@ -330,10 +330,10 @@ contains
   real, intent(in) :: alpha(:)
   ! WE: diagonal matrix with elements equal to the square root of the "volume" 
   ! of each grid cell
-  type(SparseMatrix) :: iB,Lap,gradient, WE, WEs
+  type(SparseMatrix) :: iB,Lap,gradient, WE, WEs, Lapi, Lap_scaled
 
   real :: coeff, d(conf%n)
-  integer :: i
+  integer :: i, j
 
   if (size(alpha) /= 3) then
     write(6,*) 'error alpha to small', alpha
@@ -344,23 +344,60 @@ contains
   d = product(conf%pm,2)
   WE = spdiag(1./sqrt(d))
 
-  ! contrain on value
-  iB = spdiag(alpha(1)/d)
+  ! laplacian
+  Lap = laplacian_op(conf)
+  ! laplacian to a power
+  Lapi = speye(conf%n)
 
-  ! contrain on gradient
-  do i = 1,conf%ndim
-    WEs = spdiag(1./sqrt(product(conf%spm(:,:,i),2)))
-    gradient = grad_op(conf%sz,conf%mask,conf%pm,i)
-    ! scale by grid cell
-    gradient = WEs .x. gradient
-    iB = iB + (alpha(2) .x. (transpose(gradient).x.gradient))
+  iB = spzeros(conf%n,conf%n)
+
+  do j = 1,size(alpha)
+    if (mod(j,2) == 1) then
+      ! i is odd
+      write(6,*) 'j',j,'lap'
+
+      ! constrain on laplacian
+      ! scale by grid cell
+      Lap_scaled = WE .x. Lapi
+      iB = iB + (alpha(j) .x. (transpose(Lap_scaled).x.Lap_scaled))
+
+      write(6,*) 'j',j,'lap','iB%nz',iB%nz
+
+    else
+      write(6,*) 'j',j,'grad'
+      ! i is even
+
+      ! constrain on gradient
+      do i = 1,conf%ndim
+        WEs = spdiag(1./sqrt(product(conf%spm(:,:,i),2)))
+        gradient = grad_op(conf%sz,conf%mask,conf%pm,i)
+        gradient = gradient.x.Lapi
+        ! scale by grid cell
+        gradient = WEs .x. gradient
+        iB = iB + (alpha(j) .x. (transpose(gradient).x.gradient))
+      end do
+    end if
+
+    Lapi = Lapi.x.Lap
   end do
 
-  ! contrain on laplacian
-  Lap = laplacian_op(conf)
-  ! scale by grid cell
-  Lap = WE .x. Lap
-  iB = iB + (alpha(3) .x. (transpose(Lap).x.Lap))
+  ! ! contrain on value
+  ! iB = spdiag(alpha(1)/d)
+
+
+  ! ! contrain on gradient
+  ! do i = 1,conf%ndim
+  !   WEs = spdiag(1./sqrt(product(conf%spm(:,:,i),2)))
+  !   gradient = grad_op(conf%sz,conf%mask,conf%pm,i)
+  !   ! scale by grid cell
+  !   gradient = WEs .x. gradient
+  !   iB = iB + (alpha(2) .x. (transpose(gradient).x.gradient))
+  ! end do
+
+  ! ! contrain on laplacian
+  ! ! scale by grid cell
+  ! Lap = WE .x. Lap
+  ! iB = iB + (alpha(3) .x. (transpose(Lap).x.Lap))
 
   ! normalize iB
   coeff = divand_kernel_coeff(conf%ndim,alpha)
