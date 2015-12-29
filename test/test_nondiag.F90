@@ -349,55 +349,59 @@ contains
   ! laplacian to a power
   Lapi = speye(conf%n)
 
+  if (.true.) then
   iB = spzeros(conf%n,conf%n)
 
   do j = 1,size(alpha)
     if (mod(j,2) == 1) then
       ! i is odd
-      write(6,*) 'j',j,'lap'
-
-      ! constrain on laplacian
+ 
+     ! constrain on laplacian
       ! scale by grid cell
       Lap_scaled = WE .x. Lapi
       iB = iB + (alpha(j) .x. (transpose(Lap_scaled).x.Lap_scaled))
-
-      write(6,*) 'j',j,'lap','iB%nz',iB%nz
+      !write(6,*) 'j',j,'lap','iB%nz',iB%nz
 
     else
-      write(6,*) 'j',j,'grad'
       ! i is even
 
       ! constrain on gradient
       do i = 1,conf%ndim
         WEs = spdiag(1./sqrt(product(conf%spm(:,:,i),2)))
         gradient = grad_op(conf%sz,conf%mask,conf%pm,i)
+!        write(6,*) 'j',j,'grad',__LINE__,'gradient%nz',gradient%nz
         gradient = gradient.x.Lapi
+!        gradient = gradient.x.(speye(conf%n))
+!        write(6,*) 'j',j,'grad',__LINE__,'gradient%nz',gradient%nz
         ! scale by grid cell
         gradient = WEs .x. gradient
+!        write(6,*) 'j',j,'grad',__LINE__,'gradient%nz',gradient%nz
         iB = iB + (alpha(j) .x. (transpose(gradient).x.gradient))
       end do
-    end if
 
-    Lapi = Lapi.x.Lap
+      Lapi = Lapi.x.Lap
+    end if
+  end do
+  else
+  ! contrain on value
+  iB = spdiag(alpha(1)/d)
+
+
+  ! contrain on gradient
+  do i = 1,conf%ndim
+    WEs = spdiag(1./sqrt(product(conf%spm(:,:,i),2)))
+    gradient = grad_op(conf%sz,conf%mask,conf%pm,i)
+    ! scale by grid cell
+    gradient = WEs .x. gradient
+    iB = iB + (alpha(2) .x. (transpose(gradient).x.gradient))
   end do
 
-  ! ! contrain on value
-  ! iB = spdiag(alpha(1)/d)
-
-
-  ! ! contrain on gradient
-  ! do i = 1,conf%ndim
-  !   WEs = spdiag(1./sqrt(product(conf%spm(:,:,i),2)))
-  !   gradient = grad_op(conf%sz,conf%mask,conf%pm,i)
-  !   ! scale by grid cell
-  !   gradient = WEs .x. gradient
-  !   iB = iB + (alpha(2) .x. (transpose(gradient).x.gradient))
-  ! end do
-
-  ! ! contrain on laplacian
-  ! ! scale by grid cell
-  ! Lap = WE .x. Lap
-  ! iB = iB + (alpha(3) .x. (transpose(Lap).x.Lap))
+  ! contrain on laplacian
+  ! scale by grid cell
+  Lap = WE .x. Lap
+  iB = iB + (alpha(3) .x. (transpose(Lap).x.Lap))
+!  write(6,*) 'iB%nz',iB%nz
+  end if
 
   ! normalize iB
   coeff = divand_kernel_coeff(conf%ndim,alpha)
@@ -419,25 +423,34 @@ contains
   real, intent(in) :: alpha(:), x(:)
   real :: xiBx, tmp(conf%n)
 
-  real :: coeff
-  integer :: i
+  real :: coeff, d(conf%n), ds(conf%n)
+  integer :: i, j
 
   if (size(alpha) /= 3) then
     write(6,*) 'error alpha to small', alpha
   end if
 
+  ! d: inverse of the volume of each grid cell
+  d = product(conf%pm,2)
+
   ! contrain on value
-  xiBx = alpha(1) * sum(x**2)
+  xiBx = alpha(1) * sum(x**2/d)
 
   ! contrain on gradient
   do i = 1,conf%ndim
     tmp = grad(conf%sz,conf%mask,conf%pm,x,i)
+    ds = product(conf%spm(:,:,i),2)
+
+    where (conf%smask(:,i))
+      tmp = tmp / sqrt(ds)
+    end where
+    
     xiBx = xiBx + alpha(2) * sum(tmp**2)
   end do
 
   ! contrain on laplacian
   tmp = laplacian(conf,x)
-  xiBx = xiBx + alpha(3) * sum(tmp**2)
+  xiBx = xiBx + alpha(3) * sum(tmp**2/d)
 
   ! normalize iB
   coeff = divand_kernel_coeff(conf%ndim,alpha)
@@ -848,8 +861,8 @@ contains
 
   iB = invB_op(conf,alpha)
 
-!!!  xiBx = invB(conf,alpha,x)
-!!!  call assert(xiBx,x.x.(iB.x.x),tol,'check invB')
+  xiBx = invB(conf,alpha,x)
+  call assert(xiBx,x.x.(iB.x.x),tol,'check invB')
 
   !  Bx = pcg(fun,x,x,tol=tol,maxit=maxit,nit=nit,relres=relres)
   Bx = symsolve(iB,x)
@@ -933,9 +946,8 @@ contains
 
   call test_symmetry(reshape(iB.x.x,sz))
 
-
-!!!  xiBx = invB(conf,alpha,x)
-!!!  call assert(xiBx,x.x.(iB.x.x),tol,'check invB with mask')
+  xiBx = invB(conf,alpha,x)
+  call assert(xiBx,x.x.(iB.x.x),tol,'check invB with mask')
 
   !  Bx = pcg(fun,x,x,tol=tol,maxit=maxit,nit=nit,relres=relres)
   Bx = symsolve(iB,x)

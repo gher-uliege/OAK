@@ -773,7 +773,7 @@ function ssparsemat_mult_ssparsemat(A,B) result(C)
  ! some heuristics, it will bite us
  nz = 100*(A%nz+B%nz)
  ! nz = 2714888
- write(6,*) 'nz ',nz,A%nz,B%nz,A%n,A%m
+ !write(6,*) 'nz ',nz,A%nz,B%nz,A%n,A%m
  allocate(C%i(nz),C%j(nz),C%s(nz))
  nz=0
 
