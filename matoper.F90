@@ -218,6 +218,7 @@ interface assert
   module procedure assert_int
   module procedure assert_vec
   module procedure assert_mat
+  module procedure assert_array3
 end interface assert
 
 
@@ -785,63 +786,68 @@ function ssparsemat_mult_ssparsemat(A,B) result(C)
  Bs = B%s(Bindex(1:B%nz))
 
  search: do k=1,A%nz
-   l1 = 1
-   l2 = B%nz
-   ! quick cycle if possible
-   if (A%j(k) < Bi(l1).or.A%j(k) > Bi(l2)) cycle search
-   !     if (all(A%j(k) /= Bi)) cycle
 
-   ! dichotomic search for llower
-   ! Bi(l)  == A%j(k) for all l, llower <= l <= lupper
+   call find(Bi,A%j(k),llower,lupper)
 
-   l1 = 1
-   l2 = B%nz
-   llower = (l1+l2)/2
+   if (llower == -1) cycle search
 
-   do while (.true.)
-     ! stop criteria
-     ! beware to avoid the evaluation of Bi(llower-1) unless we are sure is 
-     ! not 1 (Fortran operators are neither short-circuit nor eager: the 
-     ! language specification allows the compiler to select the method for 
-     ! optimization).
+   ! l1 = 1
+   ! l2 = B%nz
+   ! ! quick cycle if possible
+   ! if (A%j(k) < Bi(l1).or.A%j(k) > Bi(l2)) cycle search
+   ! !     if (all(A%j(k) /= Bi)) cycle
 
-     if (Bi(llower) == A%j(k)) then
-       if (llower == 1) exit
-       if (Bi(llower-1) /= A%j(k)) exit
-     end if
+   ! ! dichotomic search for llower
+   ! ! Bi(l)  == A%j(k) for all l, llower <= l <= lupper
 
-     if (Bi(llower) >= A%j(k)) then
-       l2 = llower-1
-     else
-       l1 = llower+1
-     end if
-     llower = (l1+l2)/2
+   ! l1 = 1
+   ! l2 = B%nz
+   ! llower = (l1+l2)/2
 
-     if (l2 < l1) then
-       cycle search
-     end if
-   end do
+   ! do while (.true.)
+   !   ! stop criteria
+   !   ! beware to avoid the evaluation of Bi(llower-1) unless we are sure is 
+   !   ! not 1 (Fortran operators are neither short-circuit nor eager: the 
+   !   ! language specification allows the compiler to select the method for 
+   !   ! optimization).
 
-   ! dichotomic search for lupper
-   l1 = 1
-   l2 = B%nz
-   lupper = (l1+l2)/2
+   !   if (Bi(llower) == A%j(k)) then
+   !     if (llower == 1) exit
+   !     if (Bi(llower-1) /= A%j(k)) exit
+   !   end if
 
-   do while (.true.)
-     ! stop criteria
-     if (Bi(lupper) == A%j(k)) then
-       if (lupper == B%nz) exit
-       if (Bi(lupper+1) /= A%j(k)) exit
-     end if
+   !   if (Bi(llower) >= A%j(k)) then
+   !     l2 = llower-1
+   !   else
+   !     l1 = llower+1
+   !   end if
+   !   llower = (l1+l2)/2
 
-     ! change lupper
-     if (Bi(lupper) <= A%j(k)) then
-       l1 = lupper+1
-     else
-       l2 = lupper-1
-     end if
-     lupper = (l1+l2)/2
-   end do
+   !   if (l2 < l1) then
+   !     cycle search
+   !   end if
+   ! end do
+
+   ! ! dichotomic search for lupper
+   ! l1 = 1
+   ! l2 = B%nz
+   ! lupper = (l1+l2)/2
+
+   ! do while (.true.)
+   !   ! stop criteria
+   !   if (Bi(lupper) == A%j(k)) then
+   !     if (lupper == B%nz) exit
+   !     if (Bi(lupper+1) /= A%j(k)) exit
+   !   end if
+
+   !   ! change lupper
+   !   if (Bi(lupper) <= A%j(k)) then
+   !     l1 = lupper+1
+   !   else
+   !     l2 = lupper-1
+   !   end if
+   !   lupper = (l1+l2)/2
+   ! end do
 
    do l=llower,lupper
      nz = nz+1
@@ -860,6 +866,91 @@ function ssparsemat_mult_ssparsemat(A,B) result(C)
  C%nz = nz
 
  C = sparse_compress(C)
+
+ contains 
+
+  ! find all elementes equal to elem in sorted vector vec such that
+  ! vec(l) == elem for all l in [llower,lupper]
+  ! vec(l) /= elem for all l not in [llower,lupper]
+
+  subroutine find(vec,elem,llower,lupper)
+   implicit none
+   integer, intent(in) :: vec(:)
+   integer, intent(in) :: elem
+   integer, intent(out) :: llower,lupper
+   
+   integer :: l1,l2
+
+   l1 = 1
+   l2 = size(vec)
+
+   ! quick cycle if possible
+   if (elem < vec(l1).or.elem > vec(l2)) then
+     llower = -1
+     lupper = -1
+     return
+   end if
+
+   !     if (all(elem /= vec)) cycle
+
+   ! dichotomic search for llower
+   ! vec(l)  == elem for all l, llower <= l <= lupper
+
+   l1 = 1
+   l2 = size(vec)
+
+   llower = (l1+l2)/2
+
+   do while (.true.)
+     ! stop criteria
+     ! beware to avoid the evaluation of vec(llower-1) unless we are sure is 
+     ! not 1 (Fortran operators are neither short-circuit nor eager: the 
+     ! language specification allows the compiler to select the method for 
+     ! optimization).
+
+     if (vec(llower) == elem) then
+       if (llower == 1) exit
+       if (vec(llower-1) /= elem) exit
+     end if
+
+     if (vec(llower) >= elem) then
+       l2 = llower-1
+     else
+       l1 = llower+1
+     end if
+     llower = (l1+l2)/2
+
+     if (l2 < l1) then
+       ! not found
+       llower = -1
+       lupper = -1
+       return
+     end if
+   end do
+
+   ! dichotomic search for lupper
+   l1 = 1
+   l2 = size(vec)
+   lupper = (l1+l2)/2
+
+   do while (.true.)
+     ! stop criteria
+     if (vec(lupper) == elem) then
+       if (lupper == B%nz) exit
+       if (vec(lupper+1) /= elem) exit
+     end if
+
+     ! change lupper
+     if (vec(lupper) <= elem) then
+       l1 = lupper+1
+     else
+       l2 = lupper-1
+     end if
+     lupper = (l1+l2)/2
+   end do
+
+
+  end subroutine find
 
 end function ssparsemat_mult_ssparsemat
 
@@ -1383,6 +1474,39 @@ end function nchoosek
 
 
   end subroutine assert_mat
+
+  !_______________________________________________________
+  !
+
+  subroutine assert_array3(found,expected,tol,msg)
+    
+    ! Produce an error if the matrix found is not the same as expected but
+    ! equality comparison for numeric data uses a tolerance tol.
+
+    implicit none
+    
+    ! Inputs
+    real, intent(in) :: found(:,:,:)     ! matrix found
+    real, intent(in) :: expected(:,:,:)  ! matrix expected
+    real, intent(in) :: tol              ! tolerance for comparision
+    character(len=*) :: msg              ! message to print while checking
+
+    ! Local variable
+    real :: maxdiff
+    maxdiff = maxval(abs(found - expected))
+
+    if (maxdiff < tol) then
+       write(6,*) msg, ': OK '
+    else
+       write(6,*) msg, ': FAIL ', maxdiff
+       ! often too large to print
+       !     write(6,*) 'found ',found
+       !     write(6,*) 'expected ',expected
+       stop
+    end if
+
+
+  end subroutine assert_array3
 
 
   ! Redefine DATA_TYPE to the type needed for the subroutines sort and unique

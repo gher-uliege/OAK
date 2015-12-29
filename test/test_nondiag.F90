@@ -335,7 +335,7 @@ contains
   real :: coeff, d(conf%n)
   integer :: i, j
 
-  if (size(alpha) /= 3) then
+  if (size(alpha) < 1) then
     write(6,*) 'error alpha to small', alpha
   end if
 
@@ -421,17 +421,50 @@ contains
   implicit none
   type(spline), intent(in) :: conf
   real, intent(in) :: alpha(:), x(:)
-  real :: xiBx, tmp(conf%n)
+  real :: xiBx, tmp(conf%n), Lapx(conf%n)
 
   real :: coeff, d(conf%n), ds(conf%n)
   integer :: i, j
 
-  if (size(alpha) /= 3) then
+  if (size(alpha) < 1) then
     write(6,*) 'error alpha to small', alpha
   end if
 
   ! d: inverse of the volume of each grid cell
   d = product(conf%pm,2)
+  Lapx = x
+
+  if (.true.) then
+    xiBx = 0.
+
+    do j = 1,size(alpha)
+      if (mod(j,2) == 1) then
+      ! i is odd
+ 
+        ! constrain on laplacian
+        ! scale by grid cell
+        xiBx = xiBx + alpha(j) * sum(Lapx**2/d)
+      else
+        ! i is even
+        
+        ! constrain on gradient
+        do i = 1,conf%ndim
+          tmp = grad(conf%sz,conf%mask,conf%pm,Lapx,i)
+          ds = product(conf%spm(:,:,i),2)
+          
+          where (conf%smask(:,i))
+            tmp = tmp / sqrt(ds)
+          end where
+          
+          xiBx = xiBx + alpha(j) * sum(tmp**2)
+        end do
+
+        Lapx = laplacian(conf,Lapx)
+      end if
+    end do
+
+
+  else
 
   ! contrain on value
   xiBx = alpha(1) * sum(x**2/d)
@@ -451,6 +484,7 @@ contains
   ! contrain on laplacian
   tmp = laplacian(conf,x)
   xiBx = xiBx + alpha(3) * sum(tmp**2/d)
+  end if
 
   ! normalize iB
   coeff = divand_kernel_coeff(conf%ndim,alpha)
@@ -658,6 +692,7 @@ program test_nondiag
  call test_diff()
  call test_2d()
  call test_2d_mask()
+! call test_3d()
  call test_grad2d()
 contains
 
@@ -837,6 +872,24 @@ contains
  !_______________________________________________________
  ! 
 
+ subroutine test_symmetry3(fi)
+  use matoper
+  implicit none
+  real, intent(in) :: fi(:,:,:)
+  integer :: sz(3) 
+
+  sz = shape(fi)
+
+  call assert(fi,fi(sz(1):1:-1,:,:),tol,'check symmetry - invert x')
+  call assert(fi,fi(:,sz(2):1:-1,:),tol,'check symmetry - invert y')
+  call assert(fi,fi(:,:,sz(3):1:-1),tol,'check symmetry - invert z')
+
+
+ end subroutine test_symmetry3
+
+ !_______________________________________________________
+ ! 
+
  subroutine test_2d
   use matoper
   use ufileformat
@@ -875,6 +928,9 @@ contains
   
 
   fi = reshape(Bx,sz)
+  call test_symmetry(fi)
+
+
   r = sqrt(sum(conf%x**2,2))
 
   ! where (r /= 0)
@@ -901,7 +957,6 @@ contains
 
 
 !  call assert(Bx,kernel,0.006,'check theoretical 2d-121-kernel')
-  call usave('fi-kernel.dat',kernel,-9999.)
 
   call usave('fi.dat',fi,-9999.)
 
@@ -965,5 +1020,90 @@ contains
 
 
  end subroutine 
+
+ !_______________________________________________________
+ ! 
+
+ subroutine test_3d
+  use matoper
+  use ufileformat
+  implicit none
+  integer, parameter :: sz(3) = [91,91,9]
+  real, parameter :: x0(3) = [-5.,-5.,-5.], x1(3) = [5.,5.,5.]
+  real, parameter :: alpha(4) = [1,3,3,1]
+  type(spline) :: conf
+  real :: fi(sz(1),sz(2),sz(3))
+  real, dimension(sz(1)*sz(2)*sz(3)) :: x, Bx, r, kernel
+  integer :: i
+  ! for pcg
+  !  integer :: maxit = 10000, nit
+  !  real :: relres
+  real :: xiBx
+
+  write(6,*) '= 3D ='
+
+  call initspline_rectdom(conf,sz,x0,x1)
+  x = 0
+  !x((size(x)+1)/2) = 1
+  ! middle of domain
+  x(sub2ind(sz,(sz+1)/2)) = 1
+
+  write(6,*) 'here',__LINE__
+  iB = invB_op(conf,alpha)
+  write(6,*) 'here',__LINE__
+
+  xiBx = invB(conf,alpha,x)
+  write(6,*) 'here',__LINE__
+
+  call assert(xiBx,x.x.(iB.x.x),tol,'check invB')
+
+  !  Bx = pcg(fun,x,x,tol=tol,maxit=maxit,nit=nit,relres=relres)
+  Bx = symsolve(iB,x)
+
+  call assert(iB.x.Bx,x,tol,'check inv(B)*x')
+  !  write(6,*) 'x',x
+  !  write(6,*) 'nit,relres',nit,relres
+  !  write(6,*) 'Bx',Bx
+
+  
+
+  fi = reshape(Bx,sz)
+  call test_symmetry3(fi)
+
+  r = sqrt(sum(conf%x**2,2))
+
+  ! where (r /= 0)
+  !   kernel = r * bessel_k1(r)  ! not yet implemented
+  ! elsewhere
+  !   kernel = 1
+  ! end where
+
+  ! octave code to generate the sequence of numbers
+  ! [x,y] = ndgrid(linspace(-5,5,191)); 
+  ! r = sqrt(x.^2 + y.^2); 
+  ! ff = r.* besselk(1,r) ; 
+  ! ff(isnan(ff)) = 1; 
+  ! ff(96,96 + [1:50])
+
+  ! call assert(fi(96,[(96+i,i=1,50)]), &
+  !      [0.99507,0.98409,0.96919,0.95146,0.93163,0.91024,0.88769,0.86431, &
+  !       0.84035,0.81603,0.79152,0.76698,0.74251,0.71822,0.69419,0.67050, &
+  !       0.64719,0.62431,0.60191, 0.58000,0.55862,0.53778,0.51750,0.49778, &
+  !       0.47863,0.46004,0.44203, 0.42459,0.40771,0.39139,0.37562,0.36038, &
+  !       0.34568,0.33150,0.31782,0.30465,0.29195,0.27973, 0.26797,0.25666, &
+  !       0.24577,0.23531,0.22526,0.21560,0.20633,0.19742,0.18887,0.18067, &
+  !       0.17280,0.16525],0.004,'check theoretical 2d-121-kernel')
+
+
+!  call assert(Bx,kernel,0.006,'check theoretical 2d-121-kernel')
+
+  call usave('fi.dat',fi,-9999.)
+
+
+ end subroutine test_3d
+
+
+ !_______________________________________________________
+ ! 
 
 end program test_nondiag
