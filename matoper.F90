@@ -771,13 +771,6 @@ function ssparsemat_mult_ssparsemat(A,B) result(C)
 !!$    end do
 !!$  end do
 
- ! some heuristics, it will bite us
- nz = 100*(A%nz+B%nz)
- ! nz = 2714888
- !write(6,*) 'nz ',nz,A%nz,B%nz,A%n,A%m
- allocate(C%i(nz),C%j(nz),C%s(nz))
- nz=0
-
  ! sort along index i of B
 
  Bi = B%i(1:B%nz)
@@ -785,69 +778,28 @@ function ssparsemat_mult_ssparsemat(A,B) result(C)
  Bj = B%j(Bindex(1:B%nz))
  Bs = B%s(Bindex(1:B%nz))
 
+ ! count non-zero elements
+ nz = 0
+ do k=1,A%nz
+   call find(Bi,A%j(k),llower,lupper)
+
+   if (llower /= -1) then
+     nz = nz + lupper-llower+1
+   end if
+ end do
+
+ ! some heuristics, it will bite us
+ !nz = 100*(A%nz+B%nz)
+ ! nz = 2714888
+ !write(6,*) 'nz1 ',nz,A%nz,B%nz,A%n,A%m
+ allocate(C%i(nz),C%j(nz),C%s(nz))
+ nz=0
+
  search: do k=1,A%nz
 
    call find(Bi,A%j(k),llower,lupper)
 
    if (llower == -1) cycle search
-
-   ! l1 = 1
-   ! l2 = B%nz
-   ! ! quick cycle if possible
-   ! if (A%j(k) < Bi(l1).or.A%j(k) > Bi(l2)) cycle search
-   ! !     if (all(A%j(k) /= Bi)) cycle
-
-   ! ! dichotomic search for llower
-   ! ! Bi(l)  == A%j(k) for all l, llower <= l <= lupper
-
-   ! l1 = 1
-   ! l2 = B%nz
-   ! llower = (l1+l2)/2
-
-   ! do while (.true.)
-   !   ! stop criteria
-   !   ! beware to avoid the evaluation of Bi(llower-1) unless we are sure is 
-   !   ! not 1 (Fortran operators are neither short-circuit nor eager: the 
-   !   ! language specification allows the compiler to select the method for 
-   !   ! optimization).
-
-   !   if (Bi(llower) == A%j(k)) then
-   !     if (llower == 1) exit
-   !     if (Bi(llower-1) /= A%j(k)) exit
-   !   end if
-
-   !   if (Bi(llower) >= A%j(k)) then
-   !     l2 = llower-1
-   !   else
-   !     l1 = llower+1
-   !   end if
-   !   llower = (l1+l2)/2
-
-   !   if (l2 < l1) then
-   !     cycle search
-   !   end if
-   ! end do
-
-   ! ! dichotomic search for lupper
-   ! l1 = 1
-   ! l2 = B%nz
-   ! lupper = (l1+l2)/2
-
-   ! do while (.true.)
-   !   ! stop criteria
-   !   if (Bi(lupper) == A%j(k)) then
-   !     if (lupper == B%nz) exit
-   !     if (Bi(lupper+1) /= A%j(k)) exit
-   !   end if
-
-   !   ! change lupper
-   !   if (Bi(lupper) <= A%j(k)) then
-   !     l1 = lupper+1
-   !   else
-   !     l2 = lupper-1
-   !   end if
-   !   lupper = (l1+l2)/2
-   ! end do
 
    do l=llower,lupper
      nz = nz+1
@@ -862,6 +814,8 @@ function ssparsemat_mult_ssparsemat(A,B) result(C)
    end do
 
  end do search
+
+ !write(6,*) 'nz2 ',nz,A%nz,B%nz,A%n,A%m
 
  C%nz = nz
 
