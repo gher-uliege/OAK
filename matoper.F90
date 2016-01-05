@@ -30,8 +30,11 @@ type SparseMatrix
   ! i,j: indices of non-zero elements
   ! s: value of non-zero elements
   integer          :: nz,m,n
-  integer, pointer :: i(:),j(:)
-  real, pointer    :: s(:)
+!  integer, pointer :: i(:),j(:)
+!  real, pointer    :: s(:)
+! change to
+  integer, allocatable :: i(:),j(:)
+  real, allocatable    :: s(:)
 end type
 
 
@@ -503,6 +506,24 @@ end function
 
 !_______________________________________________________
 !
+! print sparse matrix
+!
+
+ subroutine spprint(S)
+  implicit none
+  type(SparseMatrix), intent(in) :: S
+  type(SparseMatrix) :: T
+
+  integer :: i
+  T = sparse_compress(S)
+
+  do i = 1,T%nz
+    write(6,*) 'i,j,s',T%i(i),T%j(i),T%s(i)
+  end do
+ end subroutine spprint
+
+!_______________________________________________________
+!
 ! transpose a sparse matrix
 !
 
@@ -788,10 +809,7 @@ function ssparsemat_mult_ssparsemat(A,B) result(C)
    end if
  end do
 
- ! some heuristics, it will bite us
- !nz = 100*(A%nz+B%nz)
- ! nz = 2714888
- !write(6,*) 'nz1 ',nz,A%nz,B%nz,A%n,A%m
+ !write(6,*) 'nz ',nz,A%nz,B%nz,A%n,A%m
  allocate(C%i(nz),C%j(nz),C%s(nz))
  nz=0
 
@@ -946,18 +964,13 @@ function sparse_compress(A) result(B)
  type(SparseMatrix), intent(in) :: A
  type(SparseMatrix) :: B
 
- integer :: l(A%nz), sort_index(A%nz), i, j, nz
- logical :: newelem
+ integer :: l(A%nz), sort_index(A%nz), i, j, nz, lprevious
 
  ! sort index
  l = A%n * (A%i(1:A%nz)-1) + A%j(1:A%nz)-1
  
  ! sort first by i then by j
  call sort(l,sort_index)
-
- A%i(1:A%nz) = A%i(sort_index)
- A%j(1:A%nz) = A%j(sort_index)
- A%s(1:A%nz) = A%s(sort_index)
 
  nz = A%nz
  B%m = A%m
@@ -966,29 +979,29 @@ function sparse_compress(A) result(B)
 
  ! counter of non-zeros elements in B
  j = 0
+ ! linear sort index of current element
+ lprevious = -1
 
  do i=1,A%nz
-   if (j == 0) then
-     newelem = .true.
-   else
-     newelem = l(i) /= l(j)
-   end if
 
-   if (newelem) then
+   if (l(i) /= lprevious) then
      ! new non-zero element
      j = j + 1
-     B%i(j) = A%i(i)
-     B%j(j) = A%j(i)
-     B%s(j) = A%s(i)     
+     B%i(j) = A%i(sort_index(i))
+     B%j(j) = A%j(sort_index(i))
+     B%s(j) = A%s(sort_index(i))
+     lprevious = l(i)
    else
-     ! add to previous
-     B%s(j) = B%s(j) + A%s(i)
+     ! add to previous element
+     B%s(j) = B%s(j) + A%s(sort_index(i))
    end if
  end do
 
  ! set non-zero elements
  B%nz = j
-! write(6,*) 'B',B%m,B%n,B%nz
+
+! write(6,*) 'B',B%nz,count(B%s(1:B%nz) /= 0)
+
 end function sparse_compress
 !_______________________________________________________
 !

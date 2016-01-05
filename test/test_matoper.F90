@@ -223,5 +223,12 @@ program test_matoper
 
   call assert(full(sparse_compress(A.x.B)),full(A).x.full(B),tol,'mult sparse matrices')
 
+  A = sparse([1,2,3,2],[1,2,3,2],[1.,2.,1.,3.],n,n)
+  A = sparse_compress(A)
+  call assert(A%nz,3,'sparse compress')
+   
+!  call spprint(A)
+
+
  end subroutine test_sparse
 end program test_matoper

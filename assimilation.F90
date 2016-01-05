@@ -2211,7 +2211,7 @@ end subroutine fmtIndex
   real, intent(out) :: Hshift(:)
   real, intent(inout) :: invsqrtR(:)
 
-  type(SparseMatrix)  :: filterMod, tmpH
+  type(SparseMatrix)  :: filterMod
   character(len=maxLen), pointer :: filenames(:)
   character(len=maxLen)          :: path
 
@@ -2329,12 +2329,7 @@ end subroutine fmtIndex
 
   if (presentInitValue(initfname,trim(prefix)//'filterMod')) then
     call loadSparseMatrix(trim(prefix)//'filterMod',ModML,ModML,filterMod)
-    ! bug deallocation of H ?
-    tmpH%i => H%i
-    tmpH%j => H%j
-    tmpH%s => H%s
-    H = tmpH.x.filterMod
-    deallocate(tmpH%i,tmpH%j,tmpH%s,filterMod%i,filterMod%j,filterMod%s)
+    H = H.x.filterMod
   end if
 
 

@@ -400,12 +400,16 @@ contains
   ! scale by grid cell
   Lap = WE .x. Lap
   iB = iB + (alpha(3) .x. (transpose(Lap).x.Lap))
-!  write(6,*) 'iB%nz',iB%nz
   end if
+
+!  write(6,*) 'iB%nz',iB%nz
 
   ! normalize iB
   coeff = divand_kernel_coeff(conf%ndim,alpha)
   iB = (1./coeff) .x. iB
+
+
+
 !  write(6,*) 'coeff',coeff,conf%ndim,alpha
 
  end function invB_op
@@ -692,7 +696,8 @@ program test_nondiag
  call test_diff()
  call test_2d()
  call test_2d_mask()
-! call test_3d()
+ call test_2d_small()
+ call test_3d()
  call test_grad2d()
 contains
 
@@ -890,6 +895,54 @@ contains
  !_______________________________________________________
  ! 
 
+ subroutine test_2d_small
+  use matoper
+  use ufileformat
+  implicit none
+  integer, parameter :: sz(2) = [3,3]
+  real, parameter :: x0(2) = [-5.,-5.], x1(2) = [5.,5.]
+  real, parameter :: alpha(3) = [1,2,1]
+  type(spline) :: conf
+  real :: fi(sz(1),sz(2))
+  real, dimension(sz(1)*sz(2)) :: x, Bx, r, kernel
+  integer :: i
+  ! for pcg
+  !  integer :: maxit = 10000, nit
+  !  real :: relres
+  real :: xiBx
+
+  write(6,*) '= test_2d_small ='
+
+  call initspline_rectdom(conf,sz,x0,x1)
+  x = 0
+  !x((size(x)+1)/2) = 1
+  ! middle of domain
+  x(sub2ind(sz,(sz+1)/2)) = 1
+
+  iB = invB_op(conf,alpha)
+
+  xiBx = invB(conf,alpha,x)
+  call assert(xiBx,x.x.(iB.x.x),tol,'check invB')
+
+  !  Bx = pcg(fun,x,x,tol=tol,maxit=maxit,nit=nit,relres=relres)
+  Bx = symsolve(iB,x)
+
+  call assert(iB.x.Bx,x,tol,'check inv(B)*x')
+  !  write(6,*) 'x',x
+  !  write(6,*) 'nit,relres',nit,relres
+  !  write(6,*) 'Bx',Bx
+
+  
+
+  fi = reshape(Bx,sz)
+  call test_symmetry(fi)
+
+ end subroutine test_2d_small
+
+
+ !_______________________________________________________
+ ! 
+
  subroutine test_2d
   use matoper
   use ufileformat
@@ -905,6 +958,8 @@ contains
   !  integer :: maxit = 10000, nit
   !  real :: relres
   real :: xiBx
+
+  write(6,*) '= test_2d ='
 
   call initspline_rectdom(conf,sz,x0,x1)
   x = 0
@@ -982,6 +1037,8 @@ contains
   !  real :: relres
   real :: xiBx
 
+  write(6,*) '= test_2d_mask ='
+
   mask = .true.
   mask(80,:) = .false.
   
@@ -1028,9 +1085,12 @@ contains
   use matoper
   use ufileformat
   implicit none
-  integer, parameter :: sz(3) = [91,91,9]
+  !integer, parameter :: sz(3) = [4,4,4]
+  !integer, parameter :: sz(3) = [101,101,48]
+  integer, parameter :: sz(3) = [21,21,9]
   real, parameter :: x0(3) = [-5.,-5.,-5.], x1(3) = [5.,5.,5.]
   real, parameter :: alpha(4) = [1,3,3,1]
+  !real, parameter :: alpha(3) = [1,2,1]
   type(spline) :: conf
   real :: fi(sz(1),sz(2),sz(3))
   real, dimension(sz(1)*sz(2)*sz(3)) :: x, Bx, r, kernel
@@ -1040,7 +1100,7 @@ contains
   !  real :: relres
   real :: xiBx
 
-  write(6,*) '= 3D ='
+  write(6,*) '= test_3d ='
 
   call initspline_rectdom(conf,sz,x0,x1)
   x = 0
@@ -1048,12 +1108,9 @@ contains
   ! middle of domain
   x(sub2ind(sz,(sz+1)/2)) = 1
 
-  write(6,*) 'here',__LINE__
   iB = invB_op(conf,alpha)
-  write(6,*) 'here',__LINE__
 
   xiBx = invB(conf,alpha,x)
-  write(6,*) 'here',__LINE__
 
   call assert(xiBx,x.x.(iB.x.x),tol,'check invB')
 
@@ -1097,7 +1154,7 @@ contains
 
 !  call assert(Bx,kernel,0.006,'check theoretical 2d-121-kernel')
 
-  call usave('fi.dat',fi,-9999.)
+!  call usave('fi.dat',fi,-9999.)
 
 
  end subroutine test_3d
