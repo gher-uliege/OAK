@@ -4,10 +4,10 @@ module mod_spline
 
  type spline
    ! ndim number of dimensions (e.g. 2 for lon/lat)
-   ! n number of grid points
+   ! n number of grid points, e.g. 110 for a 10 by 11 grid
    integer :: ndim, n
 
-   ! size of the domain
+   ! size of the domain, n should be equal to product(sz)
    integer, allocatable :: sz(:)
 
    ! mask is true for "within domain"/"sea" grid points and false 

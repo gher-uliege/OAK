@@ -2,7 +2,7 @@
 
 
 module cholmod
- use iso_c_binding, only: c_int, c_double, c_size_t, c_loc
+ use, intrinsic :: iso_c_binding, only: c_ptr
  use matoper
 
   type SparseSolver
@@ -16,20 +16,20 @@ module cholmod
 
   interface
     integer(c_int) function cholmod_start(cholmod_common) bind(c, name='cholmod_wrapper_start')
-    use iso_c_binding
+    use, intrinsic :: iso_c_binding, only: c_int, c_ptr
     implicit none
     type (c_ptr), value :: cholmod_common
    end function 
 
     integer(c_int) function cholmod_finish(cholmod_common) bind(c, name='cholmod_wrapper_finish')
-    use iso_c_binding
+    use, intrinsic :: iso_c_binding, only: c_int, c_ptr
     implicit none
     type (c_ptr), value :: cholmod_common
    end function 
 
 
    integer(c_int) function cholmod_matrix(cholmod_common,n,nz,Si,Sj,Ss,A) bind(c,name="cholmod_wrapper_matrix")
-    use, intrinsic :: iso_c_binding, only: c_int, c_size_t, c_double, c_ptr
+    use, intrinsic :: iso_c_binding, only: c_int, c_size_t, c_ptr
     implicit none
     type (c_ptr), value :: cholmod_common
     integer(c_size_t), value :: n,nz
@@ -38,7 +38,7 @@ module cholmod
    end function cholmod_matrix
 
    integer(c_int) function cholmod_factorize(cholmod_common,A,L) bind(c,name="cholmod_wrapper_factorize")
-    use, intrinsic :: iso_c_binding, only: c_int, c_size_t, c_double, c_ptr
+    use, intrinsic :: iso_c_binding, only: c_int, c_ptr
     implicit none
     type (c_ptr), value :: cholmod_common
     type (c_ptr), value :: A ! cholmod_sparse
@@ -56,7 +56,7 @@ module cholmod
    end function cholmod_solve
 
    integer(c_int) function cholmod_free(cholmod_common,A,L) bind(c,name="cholmod_wrapper_free")
-    use, intrinsic :: iso_c_binding, only: c_int, c_size_t, c_double, c_ptr
+    use, intrinsic :: iso_c_binding, only: c_int, c_ptr
     implicit none
     type (c_ptr), value :: cholmod_common
     type (c_ptr), value :: A ! cholmod_sparse
@@ -69,6 +69,7 @@ module cholmod
   contains
 
  subroutine SparseSolver_init(this,S) 
+  use, intrinsic :: iso_c_binding, only: c_int, c_size_t, c_double, c_loc
   implicit none
   class(SparseSolver) :: this
   type(SparseMatrix) :: S
@@ -109,6 +110,7 @@ module cholmod
  end subroutine SparseSolver_init
 
  function SparseSolver_solve(this,b,stat) result(x)
+  use, intrinsic :: iso_c_binding, only: c_int, c_double, c_loc
   implicit none
   class(SparseSolver) :: this
   real, intent(in) :: b(:)
@@ -131,6 +133,7 @@ module cholmod
 
 
  subroutine SparseSolver_done(this) 
+  use, intrinsic :: iso_c_binding, only: c_int, c_loc
   implicit none
   class(SparseSolver) :: this
   integer(c_int) :: status
