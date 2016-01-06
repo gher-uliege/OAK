@@ -1,6 +1,6 @@
 !
 !  OAK, Ocean Assimilation Kit
-!  Copyright(c) 2002-2015 Alexander Barth and Luc Vandenblucke
+!  Copyright(c) 2002-2016 Alexander Barth and Luc Vandenblucke
 !
 !  This program is free software; you can redistribute it and/or
 !  modify it under the terms of the GNU General Public License
@@ -22,6 +22,9 @@
 #define HAS_CHOLMOD
 
 module matoper
+use, intrinsic :: iso_c_binding, only: c_ptr
+
+! sparse matrix in trippled format
 
 type SparseMatrix
   ! nz: non-zero elements
@@ -30,14 +33,12 @@ type SparseMatrix
   ! i,j: indices of non-zero elements
   ! s: value of non-zero elements
   integer          :: nz,m,n
-!  integer, pointer :: i(:),j(:)
-!  real, pointer    :: s(:)
-! change to
   integer, allocatable :: i(:),j(:)
   real, allocatable    :: s(:)
-end type
+end type SparseMatrix
 
 
+! matrix multiplication
 ! A B
 
 interface operator(.x.)
@@ -214,6 +215,79 @@ interface diag
     ddiag, &
     cdiag    
 end interface
+
+!----------------------------------------------------------
+!
+! Sparse matrix solver based on CHOLMOD to solve systems
+! A x = b
+! where A is sparse, symmetric and positive defined
+!----------------------------------------------------------
+
+#ifdef HAS_CHOLMOD
+  type SparseSolver
+    type(c_ptr), pointer :: cholmod_common, A, L
+    contains
+     procedure :: init => SparseSolver_init
+     procedure :: solve => SparseSolver_solve
+     procedure :: done => SparseSolver_done
+
+  end type SparseSolver
+
+  interface
+    integer(c_int) function cholmod_start(cholmod_common) bind(c, name='cholmod_wrapper_start')
+    use, intrinsic :: iso_c_binding, only: c_int, c_ptr
+    implicit none
+    type (c_ptr), value :: cholmod_common
+   end function 
+
+    integer(c_int) function cholmod_finish(cholmod_common) bind(c, name='cholmod_wrapper_finish')
+    use, intrinsic :: iso_c_binding, only: c_int, c_ptr
+    implicit none
+    type (c_ptr), value :: cholmod_common
+   end function 
+
+
+   integer(c_int) function cholmod_matrix(cholmod_common,n,nz,Si,Sj,Ss,A) bind(c,name="cholmod_wrapper_matrix")
+    use, intrinsic :: iso_c_binding, only: c_int, c_size_t, c_ptr
+    implicit none
+    type (c_ptr), value :: cholmod_common
+    integer(c_size_t), value :: n,nz
+    type(c_ptr), value :: Si, Sj, Ss
+    type (c_ptr), value :: A ! cholmod_sparse
+   end function cholmod_matrix
+
+   integer(c_int) function cholmod_factorize(cholmod_common,A,L) bind(c,name="cholmod_wrapper_factorize")
+    use, intrinsic :: iso_c_binding, only: c_int, c_ptr
+    implicit none
+    type (c_ptr), value :: cholmod_common
+    type (c_ptr), value :: A ! cholmod_sparse
+    type (c_ptr), value :: L ! cholmod_factor
+   end function cholmod_factorize
+
+
+   integer(c_int) function cholmod_solve(cholmod_common,A,L,b,x) bind(c,name="cholmod_wrapper_solve")
+    use, intrinsic :: iso_c_binding, only: c_int, c_size_t, c_double, c_ptr
+    implicit none
+    type(c_ptr), value :: cholmod_common
+    type(c_ptr), value :: A ! cholmod_sparse
+    type(c_ptr), value :: L ! cholmod_factor
+    type(c_ptr), value :: b, x
+   end function cholmod_solve
+
+   integer(c_int) function cholmod_free(cholmod_common,A,L) bind(c,name="cholmod_wrapper_free")
+    use, intrinsic :: iso_c_binding, only: c_int, c_ptr
+    implicit none
+    type (c_ptr), value :: cholmod_common
+    type (c_ptr), value :: A ! cholmod_sparse
+    type (c_ptr), value :: L ! cholmod_factor
+   end function cholmod_free
+  end interface
+
+#endif
+
+!----------------------------------------------------------
+!
+
 
 interface assert
   module procedure assert_bool
@@ -1574,9 +1648,7 @@ end function nchoosek
   ! call sort(sortedA,ind)
   ! A(ind) is the same as sortedA
 
-  subroutine quicksort(A,ind)
-    
-
+  subroutine quicksort(A,ind)   
     implicit none
     
     ! Input
@@ -1875,39 +1947,28 @@ end function nchoosek
   !_______________________________________________________
   !
   ! solves the system S x = b
-  ! A is a symetric positive defined matrix
+  ! A is a sparse symetric positive defined matrix
+
 
 #ifdef HAS_CHOLMOD
 
- function symsolve(S,b,status) result(x)
-  use iso_c_binding, only: c_int, c_double, c_size_t, c_loc
+ subroutine SparseSolver_init(this,S) 
+  use, intrinsic :: iso_c_binding, only: c_int, c_size_t, c_double, c_loc
   implicit none
-
-  interface
-    integer(c_int) function  solve_cholmod(n,nz,Si,Sj,Ss,bb,xx) bind(c,name="solve")
-     use, intrinsic :: iso_c_binding, only: c_int, c_size_t, c_double, c_ptr
-     implicit none
-     integer(c_size_t), value :: n,nz
-     type(c_ptr), value :: Si, Sj, Ss, bb, xx
-   end function solve_cholmod
- end interface
- 
-  type(SparseMatrix), intent(in) :: S
-  integer, intent(out), optional :: status ! negative if error, otherwise 0
-  real, intent(in) :: b(:)
-  real :: x(size(b))
+  class(SparseSolver) :: this
+  type(SparseMatrix) :: S
 
   ! variables for c wrapper
   integer(c_size_t) :: n, nz
   integer(c_int), target, allocatable :: Si(:), Sj(:)
-  real(c_double), target, allocatable :: Ss(:), bb(:), xx(:)
-  integer(c_int) :: cstatus
+  real(c_double), target, allocatable :: Ss(:)
+  integer(c_int) :: status
 
   integer :: l
 
   nz = 0
+  allocate(this%cholmod_common,this%A,this%L)
   allocate(Si(S%nz),Sj(S%nz),Ss(S%nz))
-  allocate(bb(size(b)),xx(size(b)))
 
   do l = 1,size(Ss)   
     ! only upper part
@@ -1920,16 +1981,73 @@ end function nchoosek
   end do
 
 
-  bb = b
   n = S%m
 
-  cstatus = solve_cholmod(n,nz,c_loc(Si),c_loc(Sj),c_loc(Ss),c_loc(bb),c_loc(xx))
+  status = cholmod_start(c_loc(this%cholmod_common))
+
+  status = cholmod_matrix(c_loc(this%cholmod_common),n,nz,c_loc(Si),c_loc(Sj), &
+       c_loc(Ss), c_loc(this%A))
+
+  status = cholmod_factorize(c_loc(this%cholmod_common),c_loc(this%A),c_loc(this%L))
+
+  
+ end subroutine SparseSolver_init
+
+ function SparseSolver_solve(this,b,stat) result(x)
+  use, intrinsic :: iso_c_binding, only: c_int, c_double, c_loc
+  implicit none
+  class(SparseSolver) :: this
+  real, intent(in) :: b(:)
+  integer, intent(out), optional :: stat
+  real :: x(size(b))
+
+  real(c_double), target, allocatable :: bb(:), xx(:)
+  integer(c_int) :: status
+
+  allocate(bb(size(b)),xx(size(b)))
+  bb = b
+
+  status = cholmod_solve(c_loc(this%cholmod_common),c_loc(this%A), &
+       c_loc(this%L),c_loc(bb), & 
+       c_loc(xx))
+
   x = xx
+  if (present(stat)) stat = status
+ end function SparseSolver_solve
 
-  deallocate(Si,Sj,Ss)
-  deallocate(bb,xx)
 
-  if (present(status)) status = cstatus
+ subroutine SparseSolver_done(this) 
+  use, intrinsic :: iso_c_binding, only: c_int, c_loc
+  implicit none
+  class(SparseSolver) :: this
+  integer(c_int) :: status
+
+  status = cholmod_free(c_loc(this%cholmod_common),c_loc(this%A),c_loc(this%L))
+  status = cholmod_finish(c_loc(this%cholmod_common))
+
+  deallocate(this%cholmod_common,this%A,this%L)
+ end subroutine SparseSolver_done
+
+
+  !_______________________________________________________
+  !
+
+ function symsolve(S,b,status) result(x)
+  implicit none
+  type(SparseMatrix), intent(in) :: S
+  integer, intent(out), optional :: status ! negative if error, otherwise 0
+  real, intent(in) :: b(:)
+  real :: x(size(b))
+
+  integer :: stat
+  type(SparseSolver) :: solver
+
+  call solver%init(S)
+  x = solver%solve(b,stat)
+  call solver%done()
+
+
+  if (present(status)) status = stat
  end function symsolve
 
 #endif
@@ -1940,7 +2058,8 @@ end function nchoosek
   function ind2sub(dims,ind) result(sub)
     
     ! Create subscripts sub(1), sub(2), ... from a linear index ind.
-    ! The linear index is interpreted in column-major order. All indices are 1-based.
+    ! The linear index is interpreted in column-major order. All indices are 
+    ! 1-based.
     ! https://en.wikipedia.org/wiki/Row-major_order
     ! This function is the same as ind2sub in matlab/octave.
 

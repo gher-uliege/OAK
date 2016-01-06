@@ -33,6 +33,8 @@ int cholmod_wrapper_start(cholmod_common **c) {
   cholmod_start(*c);
   /*printf("here %d\n",c);
     printf("here %d\n",*c);*/
+
+  return 0;
 }
 
 int cholmod_wrapper_finish(cholmod_common **c) {  
@@ -40,6 +42,8 @@ int cholmod_wrapper_finish(cholmod_common **c) {
     printf("done\n");*/
   cholmod_finish(*c);
   free(*c);
+
+  return 0;
 }
 
 
@@ -61,12 +65,16 @@ int cholmod_wrapper_matrix(cholmod_common **c,INDEX n,INDEX nz, int* Si, int* Sj
 
     *A = cholmod_triplet_to_sparse(At,At->nzmax,*c);
     cholmod_free_triplet(&At, *c);
+
+    return 0;
 }
 
 int cholmod_wrapper_factorize(cholmod_common **c,cholmod_sparse **A, cholmod_factor **L) {
 
     *L = cholmod_analyze(*A, *c);		    /* analyze */
-    return cholmod_factorize(*A, *L, *c);		    /* factorize */
+    cholmod_factorize(*A, *L, *c);		    /* factorize */
+
+    return (*c)->status;
 }
 
 
@@ -87,11 +95,15 @@ int cholmod_wrapper_solve(cholmod_common **c,cholmod_sparse **A, cholmod_factor 
 
     cholmod_free_dense(&x, *c);
     cholmod_free_dense(&b, *c);
+
+    return 0;
 }
 
 int cholmod_wrapper_free(cholmod_common **c,cholmod_sparse **A, cholmod_factor **L) {
     cholmod_free_factor(L, *c);
     cholmod_free_sparse(A, *c);
+
+    return 0;
 }
 
 

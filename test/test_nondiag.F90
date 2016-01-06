@@ -692,13 +692,15 @@ program test_nondiag
  type(SparseMatrix) :: iB
  real :: tol = 1e-7
 
- call test_kernel
- call test_diff()
- call test_2d()
- call test_2d_mask()
- call test_2d_small()
- call test_3d()
- call test_grad2d()
+ ! call test_kernel
+ ! call test_diff()
+ ! call test_2d()
+ ! call test_2d_mask()
+ ! call test_2d_small()
+ ! call test_3d()
+ ! call test_grad2d()
+
+ call test_loc_cov
 contains
 
  subroutine test_kernel
@@ -1163,4 +1165,46 @@ contains
  !_______________________________________________________
  ! 
 
+ subroutine test_loc_cov
+  use ndgrid, only: cellgrid, setupgrid, near
+  use covariance
+  use matoper
+  use ufileformat
+  implicit none
+  integer, parameter :: sz(2) = [11,11]
+  real, parameter :: x0(2) = [-5.,-5.], x1(2) = [5.,5.]
+  real, parameter :: alpha(3) = [1,2,1]
+  type(spline) :: conf
+  real :: fi(sz(1),sz(2))
+  real, dimension(sz(1)*sz(2)) :: x, Bx, r, kernel, Cx, Cx2, distnear
+  integer, dimension(sz(1)*sz(2)) :: ind
+  integer :: i, j, k, l, nnz
+  real :: xiBx, len, dist
+  type(cellgrid) :: cg
+
+  write(6,*) '= test_loc_cov ='
+  
+  call initspline_rectdom(conf,sz,x0,x1)
+  x = 1
+  len = 2
+
+  Cx = 0
+  do j = 1,conf%n
+    do i = 1,conf%n
+      dist = cdist(conf%x(i,:),conf%x(j,:))
+      Cx(j) = Cx(j) + locfun(dist/len) * x(i)
+    end do
+  end do
+
+
+  cg = setupgrid(conf%x,[len/10.,len/10.])
+  Cx2 = 0
+  do j = 1,conf%n
+    call near(cg,conf%x(j,:),conf%x,cdist,2*len,ind,distnear,nnz)
+    do k = 1,nnz
+      Cx2(j) = Cx2(j) + locfun(distnear(k)/len) * x(ind(k))
+    end do
+  end do
+
+ end subroutine test_loc_cov
 end program test_nondiag

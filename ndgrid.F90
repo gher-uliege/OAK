@@ -1430,14 +1430,20 @@ end subroutine
 
  ! create a grid of cells
  function setupgrid(xpos,dx) result(cg)
+  ! xpos(m,n) xpos(i,:) are the n-dimensional coordinates of the i-th point
   real, intent(in) :: xpos(:,:), dx(:)
   real, allocatable :: xmax(:)
   integer, allocatable :: gridind(:)
   integer :: n, i, j, l, Nt
   type(cellgrid) :: cg
-
+  ! fractional index
+  real :: fracindex(size(xpos,2))
   integer :: startsize = 100, ci
+  real :: eps
 
+  ! small balue to make the upper-bound slightly larger to ensure that 
+  ! the largerst value is also inside a cell
+  eps = 1e-6 * minval(dx)
   n = size(xpos,2)
   cg%n = n
 
@@ -1447,7 +1453,7 @@ end subroutine
 
   do i = 1,n
     cg%xmin(i) = minval(xpos(:,i))
-    xmax(i) = maxval(xpos(:,i))
+    xmax(i) = maxval(xpos(:,i)) + eps
   end do
 
   ! number of intervales in each dimensions
@@ -1474,7 +1480,9 @@ end subroutine
   ! loop throught every coordinate and put index into a cell
   do l = 1,size(xpos,1)
     ! compute grid index
-    gridind = floor((xpos(l,:) - cg%xmin)/ dx) + 1
+    fracindex = (xpos(l,:) - cg%xmin)/dx
+    gridind = floor(fracindex) + 1
+    !write(6,*) 'xpos',xpos(l,:),cg%xmin,gridind, (xpos(l,:) - cg%xmin)/ dx
 
     ci = sum((gridind-1) * cg%offset) + 1
     call add(cg%gridn(ci),l)
@@ -1516,7 +1524,7 @@ end subroutine
  end function setupgrid
 
 
- ! get all points (one more!) near the location x
+ ! get all points (or more!) near the location x
  
  subroutine near(cg,x,xpos,distfun,maxdist,ind,dist,n)
   type(cellgrid), intent(in) :: cg
@@ -1526,12 +1534,16 @@ end subroutine
   real, intent(out) :: dist(:)
   integer, intent(out) :: ind(:), n
 
-  ! appended grid index
-  integer :: appended(2,product(cg%Ni)), nappended
+  ! appended grid indices
+  integer :: appended(cg%n,product(cg%Ni)), nappended
+  ! already checked grid indices
+  integer :: checked(cg%n,product(cg%Ni)), nchecked
   integer :: gridind(cg%n)
 
   nappended = 0
+  nchecked = 0
   n = 0
+  
 
   gridind = floor((x - cg%xmin)/ cg%dx) + 1
   call append(gridind)
@@ -1539,13 +1551,18 @@ end subroutine
  contains
   recursive subroutine append(gridind)
    integer, intent(in) :: gridind(:)
-   integer :: l,nc,ci
+   integer :: l,nc,ci, j,k,twon
    integer :: gi(cg%n)
 
+   real :: xb(cg%n)
+   logical :: close_corners
    !     real, allocatable :: dist(:)
 
    !   write(6,*) 'gridindex', gridind
    ! check if gridind is valid
+
+   twon = 2**cg%n
+
    do l = 1,cg%n
      if (gridind(l) < 1 .or. gridind(l) > cg%Ni(l)) return
    end do
@@ -1555,7 +1572,36 @@ end subroutine
      if (all(gridind == appended(:,l))) return
    end do
 
+   ! check if already checked
+   do l = 1,nchecked
+     if (all(gridind == checked(:,l))) return
+   end do
+
    ! it's a fresh one
+   ! add cell index to the list of already checked cells
+   nchecked = nchecked+1
+   checked(:,nchecked) = gridind
+
+
+   ! check if any corner points of cell grid are within distance
+   close_corners = .false.
+   do j = 1,twon
+     do k=1,cg%n
+       if (btest(j-1,k-1)) then
+         xb(k) = cg%xmin(k) + (gridind(k)-1) * cg%dx(k)
+       else
+         xb(k) = cg%xmin(k) + (gridind(k)) * cg%dx(k)
+       end if
+
+       close_corners = close_corners .or. distfun(x,xb) < maxdist
+       !write(6,*) 'distfun(x,xb) < maxdist',distfun(x,xb),maxdist,distfun(x,xb) < maxdist
+     end do
+   end do
+
+   if (.not. close_corners) then
+     !write(6,*) 'no close corners'
+     return
+   end if
 
    ! cell index
    ci = sum((gridind-1) * cg%offset) + 1
@@ -1578,11 +1624,11 @@ end subroutine
      ind(n+1:n+nc) = cg%gridn(ci)%ind(1:nc)
      n = n+nc
 
-     ! all cell index to the list of already visited cells
+     ! add cell index to the list of already visited cells
      nappended = nappended+1
      appended(:,nappended) = gridind
-
      ! recursively check neighbors
+   end if
 
      do l = 1,cg%n
        gi = gridind
@@ -1593,18 +1639,17 @@ end subroutine
        gi(l) = gridind(l) - 1
        call append(gi)
      end do
-   end if
+
   end subroutine append
  end subroutine near
 
 
  ! check results with exhaustive search
- subroutine checknear(cg,x,xpos,distfun,maxdist,ind,dist)
+ subroutine checknear(cg,x,xpos,distfun,maxdist,ind)
   type(cellgrid), intent(in) :: cg
   real, intent(in) :: x(:),xpos(:,:)
   procedure(distind) :: distfun
   real, intent(in) :: maxdist
-  real, intent(in) :: dist(:)
   integer, intent(in) :: ind(:)
 
   integer :: found,l
@@ -1620,15 +1665,17 @@ end subroutine
       if (any(ind == l)) then
         found = found+1
       else
-        write(6,*) 'not found ',l,distl,x
+        write(6,*) 'not found ',l,distl,maxdist,x,xpos(l,:),'FAIL'
         stop
       end if
     end if
   end do
 
-  write(6,*) 'found all ',found,size(ind)
+  write(6,*) 'found all ',found,size(ind),'OK'
 
  end subroutine checknear
+
+ ! return all indices inside the cell to which x also belongs
 
  subroutine get(cg,x,ind,n)
   type(cellgrid), intent(in) :: cg
@@ -1638,6 +1685,12 @@ end subroutine
   integer :: gridind(cg%n),ci
 
   gridind = floor((x - cg%xmin)/ cg%dx) + 1
+
+  if (any(gridind < 0) .or. any(gridind > cg%Ni)) then
+    ! out of grid
+    n = 0
+    return
+  end if
 
   ! cell index
   ci = sum((gridind-1) * cg%offset) + 1
@@ -1654,6 +1707,7 @@ end subroutine
  end subroutine get
 
 
+ ! cartesian distance
  pure real function cdist(x,y)
   real, intent(in) :: x(:),y(:)
   cdist = sqrt(sum((x-y)**2))

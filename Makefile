@@ -146,7 +146,7 @@ ndgrid.o: ndgrid.F90 ndgrid_inc.F90 matoper.o ufileformat.o ppdef.h
 
 parall.o: parall.F90 ppdef.h
 
-matoper.o: matoper.F90 ppdef.h matoper_inc.F90
+matoper.o: matoper.F90 ppdef.h matoper_inc.F90 cholmod_wrapper.o
 
 covariance.o: matoper.o covariance.F90
 
@@ -214,11 +214,11 @@ test/test_rrsqrt.o: test/test_rrsqrt.F90  matoper.o covariance.o rrsqrt.o
 test/test_rrsqrt: test/test_rrsqrt.o  matoper.o covariance.o rrsqrt.o  cholmod_wrapper.o
 	$(F90C) $(F90FLAGS) $(LDFLAGS) -o $@ $+ $(LIBS) $(EXTRA_LDFLAGS)
 
-test/test_nondiag.o: test/test_nondiag.F90 matoper.F90 rrsqrt.o covariance.o ufileformat.o
-test/test_nondiag: test/test_nondiag.o matoper.o cholmod_wrapper.o rrsqrt.o covariance.o ufileformat.o
+test/test_nondiag.o: test/test_nondiag.F90 matoper.F90 rrsqrt.o covariance.o ndgrid.o ufileformat.o
+test/test_nondiag: test/test_nondiag.o matoper.o cholmod_wrapper.o rrsqrt.o covariance.o ndgrid.o ufileformat.o
 	$(F90C) $(F90FLAGS) $(LDFLAGS) -o $@ $+ $(LIBS) $(EXTRA_LDFLAGS)
 
-test/test_cholmod.o: test/test_cholmod.F90 matoper.F90
+test/test_cholmod.o: test/test_cholmod.F90 matoper.o
 test/test_cholmod: test/test_cholmod.o matoper.o cholmod_wrapper.o
 	$(F90C) $(F90FLAGS) $(LDFLAGS) -o $@ $+ $(LIBS) $(EXTRA_LDFLAGS)
 
