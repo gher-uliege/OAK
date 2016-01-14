@@ -1,6 +1,7 @@
 ! cd /home/abarth/Assim/OAK-nonDiagR &&  make test/test_nondiag && test/test_nondiag
 
 module mod_spline
+ use covariance
 
  type spline
    ! ndim number of dimensions (e.g. 2 for lon/lat)
@@ -28,6 +29,8 @@ module mod_spline
    logical, allocatable :: smask(:,:)
 
  end type spline
+
+
 
 contains
 
@@ -688,19 +691,27 @@ end module mod_spline
 program test_nondiag
  use mod_spline
  use matoper
+  use ndgrid, only: cellgrid, setupgrid, near
  implicit none
  type(SparseMatrix) :: iB
+
+ ! for Rfun and PreCondfun
+ type(spline) :: conf
+ real :: len
+ type(cellgrid) :: cg
+ type(SparseSolver) :: solver
+
  real :: tol = 1e-7
 
- ! call test_kernel
- ! call test_diff()
- ! call test_2d()
- ! call test_2d_mask()
- ! call test_2d_small()
- ! call test_3d()
- ! call test_grad2d()
+ call test_kernel
+ call test_diff()
+ call test_2d()
+ call test_2d_mask()
+ call test_2d_small()
+ call test_3d()
+ call test_grad2d()
 
- call test_loc_cov
+! call test_loc_cov
 contains
 
  subroutine test_kernel
@@ -960,6 +971,7 @@ contains
   !  integer :: maxit = 10000, nit
   !  real :: relres
   real :: xiBx
+  real :: len = 1
 
   write(6,*) '= test_2d ='
 
@@ -1165,28 +1177,75 @@ contains
  !_______________________________________________________
  ! 
 
+ function Rfun(y) result(Ry)
+  implicit none
+  real, intent(in) :: y(:)
+  real             :: Ry(size(y))
+  
+  real, dimension(size(y)) :: distnear
+  integer, dimension(size(y)) :: ind
+  integer :: i, j, k, l, nnz, status
+  
+  Ry = 0
+  do j = 1,conf%n
+    call near(cg,conf%x(j,:),conf%x,cdist,2*len,ind,distnear,nnz)
+    do k = 1,nnz
+      Ry(j) = Ry(j) + locfun(distnear(k)/len) * y(ind(k))
+    end do
+  end do
+
+
+!  Ry = iB .x. y
+
+ end function Rfun
+
+
+ function PreCondfun(y) result(Ry)
+  implicit none
+  real, intent(in) :: y(:)
+  real             :: Ry(size(y))
+
+  integer          :: status
+!  Ry = solver%solve(y,status)
+!  Ry = 10*y
+  Ry = iB.x.y
+ end function PreCondfun
+
+ !_______________________________________________________
+ ! 
+
  subroutine test_loc_cov
-  use ndgrid, only: cellgrid, setupgrid, near
   use covariance
   use matoper
   use ufileformat
   implicit none
-  integer, parameter :: sz(2) = [11,11]
+  integer, parameter :: sz(2) = [5,5]
+!  integer, parameter :: sz(2) = [11,11]
   real, parameter :: x0(2) = [-5.,-5.], x1(2) = [5.,5.]
   real, parameter :: alpha(3) = [1,2,1]
-  type(spline) :: conf
+!  type(spline) :: conf
+
   real :: fi(sz(1),sz(2))
-  real, dimension(sz(1)*sz(2)) :: x, Bx, r, kernel, Cx, Cx2, distnear
+  real, dimension(sz(1)*sz(2)) :: x, Bx, r, kernel, Cx, Cx2, distnear, x2
   integer, dimension(sz(1)*sz(2)) :: ind
-  integer :: i, j, k, l, nnz
-  real :: xiBx, len, dist
-  type(cellgrid) :: cg
+  integer :: i, j, k, l, nnz, status
+  real :: xiBx, dist
+  ! for pcg
+  integer :: maxit = 10000, nit
+  real :: relres
+  real :: lenSpline
 
   write(6,*) '= test_loc_cov ='
   
   call initspline_rectdom(conf,sz,x0,x1)
-  x = 1
-  len = 2
+  len = 1.
+  lenSpline = len/2.3
+
+  x = 0
+  !x((size(x)+1)/2) = 1
+  ! middle of domain
+  x(sub2ind(sz,(sz+1)/2)) = 1
+
 
   Cx = 0
   do j = 1,conf%n
@@ -1205,6 +1264,26 @@ contains
       Cx2(j) = Cx2(j) + locfun(distnear(k)/len) * x(ind(k))
     end do
   end do
+
+  call assert(Cx,Cx2,tol,'Cx')
+
+!  call assert(Cx,Rfun(x),tol,'Cx (2)')
+
+
+  iB = invB_op(conf,alpha)
+  call solver%init(iB)
+  x2 = solver%solve(x,status)
+
+  Bx = pcg(Rfun,x,x,tol=1e-4,maxit=maxit,nit=nit,relres=relres)
+  call assert(Rfun(Bx),x,1e-5,'check inv(B)*x without preconditioner')
+  write(6,*) 'nit',nit
+
+  Bx = pcg(Rfun,x,x,tol=1e-4,maxit=maxit,nit=nit,relres=relres,pc=PreCondfun)
+  call assert(Rfun(Bx),x,1e-5,'check inv(B)*x with preconditioner')
+  write(6,*) 'nit',nit
+
+
+  call solver%done()
 
  end subroutine test_loc_cov
 end program test_nondiag
