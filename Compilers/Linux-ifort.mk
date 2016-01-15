@@ -13,8 +13,8 @@ LDFLAGS ?=
 
 F90FLAGS += -heap-arrays 
 
-PROFILING_F90FLAGS ?= -p
-PROFILING_LDFLAGS ?= -p
+PROFILING_F90FLAGS ?= -profile-functions -profile-loops=all -profile-loops-report=2
+PROFILING_LDFLAGS ?=  -profile-functions -profile-loops=all -profile-loops-report=2
 
 #PROFILING_F90FLAGS ?= -prof-gen
 #PROFILING_LDFLAGS ?= -prof-gen
