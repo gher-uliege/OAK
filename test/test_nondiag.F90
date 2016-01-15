@@ -326,16 +326,17 @@ contains
  ! inv(B)
  ! where B is the background covariance matrix in DIVA
 
- function invB_op(conf,alpha) result(iB)
+ function invB_op(conf,alpha,len) result(iB)
   use matoper
   implicit none
   type(spline), intent(in) :: conf
   real, intent(in) :: alpha(:)
+  real, intent(in) :: len
   ! WE: diagonal matrix with elements equal to the square root of the "volume" 
   ! of each grid cell
   type(SparseMatrix) :: iB,Lap,gradient, WE, WEs, Lapi, Lap_scaled
 
-  real :: coeff, d(conf%n)
+  real :: coeff, d(conf%n), leni
   integer :: i, j
 
   if (size(alpha) < 1) then
@@ -351,6 +352,8 @@ contains
   Lap = laplacian_op(conf)
   ! laplacian to a power
   Lapi = speye(conf%n)
+  ! len to a power
+  leni = 1.
 
   if (.true.) then
   iB = spzeros(conf%n,conf%n)
@@ -362,7 +365,7 @@ contains
      ! constrain on laplacian
       ! scale by grid cell
       Lap_scaled = WE .x. Lapi
-      iB = iB + (alpha(j) .x. (transpose(Lap_scaled).x.Lap_scaled))
+      iB = iB + ((leni * alpha(j)) .x. (transpose(Lap_scaled).x.Lap_scaled))
       !write(6,*) 'j',j,'lap','iB%nz',iB%nz
 
     else
@@ -379,11 +382,13 @@ contains
         ! scale by grid cell
         gradient = WEs .x. gradient
 !        write(6,*) 'j',j,'grad',__LINE__,'gradient%nz',gradient%nz
-        iB = iB + (alpha(j) .x. (transpose(gradient).x.gradient))
+        iB = iB + ((leni * alpha(j)) .x. (transpose(gradient).x.gradient))
       end do
 
       Lapi = Lapi.x.Lap
     end if
+
+    leni = leni * len
   end do
   else
   ! contrain on value
@@ -423,14 +428,15 @@ contains
  ! x' inv(B) x
  ! where B is the background covariance matrix in DIVA
 
- function invB(conf,alpha,x) result(xiBx)
+ function invB(conf,alpha,len,x) result(xiBx)
   use matoper
   implicit none
   type(spline), intent(in) :: conf
   real, intent(in) :: alpha(:), x(:)
+  real, intent(in) :: len
   real :: xiBx, tmp(conf%n), Lapx(conf%n)
 
-  real :: coeff, d(conf%n), ds(conf%n)
+  real :: coeff, d(conf%n), leni, ds(conf%n)
   integer :: i, j
 
   if (size(alpha) < 1) then
@@ -440,6 +446,8 @@ contains
   ! d: inverse of the volume of each grid cell
   d = product(conf%pm,2)
   Lapx = x
+  ! len to a power
+  leni = 1.
 
   if (.true.) then
     xiBx = 0.
@@ -450,7 +458,7 @@ contains
  
         ! constrain on laplacian
         ! scale by grid cell
-        xiBx = xiBx + alpha(j) * sum(Lapx**2/d)
+        xiBx = xiBx + leni * alpha(j) * sum(Lapx**2/d)
       else
         ! i is even
         
@@ -463,11 +471,13 @@ contains
             tmp = tmp / sqrt(ds)
           end where
           
-          xiBx = xiBx + alpha(j) * sum(tmp**2)
+          xiBx = xiBx + leni * alpha(j) * sum(tmp**2)
         end do
 
         Lapx = laplacian(conf,Lapx)
       end if
+
+      leni = leni * len
     end do
 
 
@@ -697,21 +707,22 @@ program test_nondiag
 
  ! for Rfun and PreCondfun
  type(spline) :: conf
- real :: len
+ real :: len, lenCov
  type(cellgrid) :: cg
  type(SparseSolver) :: solver
 
  real :: tol = 1e-7
 
- call test_kernel
- call test_diff()
- call test_2d()
- call test_2d_mask()
- call test_2d_small()
- call test_3d()
- call test_grad2d()
+ ! call test_kernel
+ ! call test_diff()
+ ! call test_2d()
+ ! call test_2d_mask()
+ ! call test_2d_small()
+ ! call test_3d()
+ ! call test_grad2d()
 
-! call test_loc_cov
+ !call test_loc_cov
+ call test_loc_cov_large
 contains
 
  subroutine test_kernel
@@ -922,19 +933,20 @@ contains
   ! for pcg
   !  integer :: maxit = 10000, nit
   !  real :: relres
-  real :: xiBx
+  real :: xiBx, len
 
   write(6,*) '= test_2d_small ='
 
+  len = 1
   call initspline_rectdom(conf,sz,x0,x1)
   x = 0
   !x((size(x)+1)/2) = 1
   ! middle of domain
   x(sub2ind(sz,(sz+1)/2)) = 1
 
-  iB = invB_op(conf,alpha)
+  iB = invB_op(conf,alpha,len)
 
-  xiBx = invB(conf,alpha,x)
+  xiBx = invB(conf,alpha,len,x)
   call assert(xiBx,x.x.(iB.x.x),tol,'check invB')
 
   !  Bx = pcg(fun,x,x,tol=tol,maxit=maxit,nit=nit,relres=relres)
@@ -981,9 +993,9 @@ contains
   ! middle of domain
   x(sub2ind(sz,(sz+1)/2)) = 1
 
-  iB = invB_op(conf,alpha)
+  iB = invB_op(conf,alpha,len)
 
-  xiBx = invB(conf,alpha,x)
+  xiBx = invB(conf,alpha,len,x)
   call assert(xiBx,x.x.(iB.x.x),tol,'check invB')
 
   !  Bx = pcg(fun,x,x,tol=tol,maxit=maxit,nit=nit,relres=relres)
@@ -1015,6 +1027,8 @@ contains
   ! ff(isnan(ff)) = 1; 
   ! ff(96,96 + [1:50])
 
+  call usave('fi.dat',fi,-9999.)
+
   call assert(fi(96,[(96+i,i=1,50)]), &
        [0.99507,0.98409,0.96919,0.95146,0.93163,0.91024,0.88769,0.86431, &
         0.84035,0.81603,0.79152,0.76698,0.74251,0.71822,0.69419,0.67050, &
@@ -1027,7 +1041,6 @@ contains
 
 !  call assert(Bx,kernel,0.006,'check theoretical 2d-121-kernel')
 
-  call usave('fi.dat',fi,-9999.)
 
 
  end subroutine test_2d
@@ -1050,6 +1063,7 @@ contains
   !  integer :: maxit = 10000, nit
   !  real :: relres
   real :: xiBx
+  real :: len = 1
 
   write(6,*) '= test_2d_mask ='
 
@@ -1068,11 +1082,11 @@ contains
   !  write(6,*) 'fi ',fi
   call test_symmetry(fi(2:sz(1)-1,2:sz(1)-1))
 
-  iB = invB_op(conf,alpha)
+  iB = invB_op(conf,alpha,len)
 
   call test_symmetry(reshape(iB.x.x,sz))
 
-  xiBx = invB(conf,alpha,x)
+  xiBx = invB(conf,alpha,len,x)
   call assert(xiBx,x.x.(iB.x.x),tol,'check invB with mask')
 
   !  Bx = pcg(fun,x,x,tol=tol,maxit=maxit,nit=nit,relres=relres)
@@ -1113,6 +1127,7 @@ contains
   !  integer :: maxit = 10000, nit
   !  real :: relres
   real :: xiBx
+  real :: len = 1
 
   write(6,*) '= test_3d ='
 
@@ -1122,9 +1137,9 @@ contains
   ! middle of domain
   x(sub2ind(sz,(sz+1)/2)) = 1
 
-  iB = invB_op(conf,alpha)
+  iB = invB_op(conf,alpha,len)
 
-  xiBx = invB(conf,alpha,x)
+  xiBx = invB(conf,alpha,len,x)
 
   call assert(xiBx,x.x.(iB.x.x),tol,'check invB')
 
@@ -1188,9 +1203,9 @@ contains
   
   Ry = 0
   do j = 1,conf%n
-    call near(cg,conf%x(j,:),conf%x,cdist,2*len,ind,distnear,nnz)
+    call near(cg,conf%x(j,:),conf%x,cdist,2*lenCov,ind,distnear,nnz)
     do k = 1,nnz
-      Ry(j) = Ry(j) + locfun(distnear(k)/len) * y(ind(k))
+      Ry(j) = Ry(j) + locfun(distnear(k)/lenCov) * y(ind(k))
     end do
   end do
 
@@ -1219,8 +1234,8 @@ contains
   use matoper
   use ufileformat
   implicit none
-  integer, parameter :: sz(2) = [5,5]
-!  integer, parameter :: sz(2) = [11,11]
+!  integer, parameter :: sz(2) = [5,5]
+  integer, parameter :: sz(2) = [11,11]
   real, parameter :: x0(2) = [-5.,-5.], x1(2) = [5.,5.]
   real, parameter :: alpha(3) = [1,2,1]
 !  type(spline) :: conf
@@ -1233,13 +1248,87 @@ contains
   ! for pcg
   integer :: maxit = 10000, nit
   real :: relres
-  real :: lenSpline
 
   write(6,*) '= test_loc_cov ='
   
   call initspline_rectdom(conf,sz,x0,x1)
-  len = 1.
-  lenSpline = len/2.3
+  lenCov = 2.
+  len = lenCov/2.3
+
+  x = 0
+  !x((size(x)+1)/2) = 1
+  ! middle of domain
+  x(sub2ind(sz,(sz+1)/2)) = 1
+
+  Cx = 0
+  do j = 1,conf%n
+    do i = 1,conf%n
+      dist = cdist(conf%x(i,:),conf%x(j,:))
+      Cx(j) = Cx(j) + locfun(dist/lenCov) * x(i)
+    end do
+  end do
+
+  cg = setupgrid(conf%x,[lenCov/10.,lenCov/10.])
+  Cx2 = 0
+  do j = 1,conf%n
+    call near(cg,conf%x(j,:),conf%x,cdist,2*lenCov,ind,distnear,nnz)
+    do k = 1,nnz
+      Cx2(j) = Cx2(j) + locfun(distnear(k)/lenCov) * x(ind(k))
+    end do
+  end do
+
+
+  call assert(Cx,Cx2,tol,'Cx')
+  call assert(Cx,Rfun(x),tol,'Cx (2)')
+
+
+  iB = invB_op(conf,alpha,len)
+  call solver%init(iB)
+  x2 = solver%solve(x,status)
+
+  Bx = pcg(Rfun,x,x,tol=1e-4,maxit=maxit,nit=nit,relres=relres)
+  write(6,*) 'nit',nit
+  call assert(Rfun(Bx),x,1e-4,'check inv(B)*x without preconditioner')
+
+  Bx = pcg(Rfun,x,x,tol=1e-4,maxit=maxit,nit=nit,relres=relres,pc=PreCondfun)
+  write(6,*) 'nit',nit
+
+  call assert(Rfun(Bx),x,1e-4,'check inv(B)*x with preconditioner')
+
+
+  call solver%done()
+
+ end subroutine test_loc_cov
+
+
+ !_______________________________________________________
+ ! 
+
+ subroutine test_loc_cov_large
+  use covariance
+  use matoper
+  use ufileformat
+  implicit none
+!  integer, parameter :: sz(2) = [5,5]
+  integer, parameter :: sz(2) = [11,11]
+  real, parameter :: x0(2) = [-5.,-5.], x1(2) = [5.,5.]
+  real, parameter :: alpha(3) = [1,2,1]
+!  type(spline) :: conf
+
+  real :: fi(sz(1),sz(2))
+  real, dimension(sz(1)*sz(2)) :: x, Bx, r, kernel, Cx, Cx2, distnear, x2
+  integer, dimension(sz(1)*sz(2)) :: ind
+  integer :: i, j, k, l, nnz, status
+  real :: xiBx, dist
+  ! for pcg
+  integer :: maxit = 10000, nit
+  real :: relres
+
+  write(6,*) '= test_loc_cov ='
+  
+  call initspline_rectdom(conf,sz,x0,x1)
+  lenCov = 2.
+  len = lenCov/2.3
 
   x = 0
   !x((size(x)+1)/2) = 1
@@ -1247,43 +1336,35 @@ contains
   x(sub2ind(sz,(sz+1)/2)) = 1
 
 
-  Cx = 0
-  do j = 1,conf%n
-    do i = 1,conf%n
-      dist = cdist(conf%x(i,:),conf%x(j,:))
-      Cx(j) = Cx(j) + locfun(dist/len) * x(i)
-    end do
-  end do
+  ! Cx = 0
+  ! do j = 1,conf%n
+  !   do i = 1,conf%n
+  !     dist = cdist(conf%x(i,:),conf%x(j,:))
+  !     Cx(j) = Cx(j) + locfun(dist/lenCov) * x(i)
+  !   end do
+  ! end do
+
+  cg = setupgrid(conf%x,[lenCov/10.,lenCov/10.])
+  ! Cx2 = 0
+  ! do j = 1,conf%n
+  !   call near(cg,conf%x(j,:),conf%x,cdist,2*lenCov,ind,distnear,nnz)
+  !   do k = 1,nnz
+  !     Cx2(j) = Cx2(j) + locfun(distnear(k)/lenCov) * x(ind(k))
+  !   end do
+  ! end do
 
 
-  cg = setupgrid(conf%x,[len/10.,len/10.])
-  Cx2 = 0
-  do j = 1,conf%n
-    call near(cg,conf%x(j,:),conf%x,cdist,2*len,ind,distnear,nnz)
-    do k = 1,nnz
-      Cx2(j) = Cx2(j) + locfun(distnear(k)/len) * x(ind(k))
-    end do
-  end do
-
-  call assert(Cx,Cx2,tol,'Cx')
-
-!  call assert(Cx,Rfun(x),tol,'Cx (2)')
+  ! call assert(Cx,Cx2,tol,'Cx')
+  ! call assert(Cx,Rfun(x),tol,'Cx (2)')
 
 
-  iB = invB_op(conf,alpha)
-  call solver%init(iB)
-  x2 = solver%solve(x,status)
-
-  Bx = pcg(Rfun,x,x,tol=1e-4,maxit=maxit,nit=nit,relres=relres)
-  call assert(Rfun(Bx),x,1e-5,'check inv(B)*x without preconditioner')
-  write(6,*) 'nit',nit
+  iB = invB_op(conf,alpha,len)
 
   Bx = pcg(Rfun,x,x,tol=1e-4,maxit=maxit,nit=nit,relres=relres,pc=PreCondfun)
-  call assert(Rfun(Bx),x,1e-5,'check inv(B)*x with preconditioner')
   write(6,*) 'nit',nit
 
+  call assert(Rfun(Bx),x,1e-4,'check inv(B)*x with preconditioner')
 
-  call solver%done()
+ end subroutine test_loc_cov_large
 
- end subroutine test_loc_cov
 end program test_nondiag
