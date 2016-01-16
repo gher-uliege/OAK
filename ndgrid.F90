@@ -1534,17 +1534,13 @@ end subroutine
   real, intent(out) :: dist(:)
   integer, intent(out) :: ind(:), n
 
-  !! appended grid indices
-  !integer :: appended(cg%n,product(cg%Ni)), nappended
   ! already checked grid indices
-  integer :: checked(cg%n,product(cg%Ni)), nchecked
+  logical :: ischecked(product(cg%Ni))
   integer :: gridind(cg%n)
 
-  !nappended = 0
-  nchecked = 0
   n = 0
+  ischecked = .false.
   
-
   gridind = floor((x - cg%xmin)/ cg%dx) + 1
   call append(gridind)
 
@@ -1559,29 +1555,22 @@ end subroutine
    !     real, allocatable :: dist(:)
 
    !   write(6,*) 'gridindex', gridind
-   ! check if gridind is valid
 
    twon = 2**cg%n
 
+   ! check if gridind is valid
    do l = 1,cg%n
      if (gridind(l) < 1 .or. gridind(l) > cg%Ni(l)) return
    end do
 
-   ! ! check if already appended
-   ! do l = 1,nappended
-   !   if (all(gridind == appended(:,l))) return
-   ! end do
+   ! cell index
+   ci = sum((gridind-1) * cg%offset) + 1
 
    ! check if already checked
-   do l = 1,nchecked
-     if (all(gridind == checked(:,l))) return
-   end do
+   if (ischecked(ci)) return
 
    ! it's a fresh one
-   ! add cell index to the list of already checked cells
-   nchecked = nchecked+1
-   checked(:,nchecked) = gridind
-
+   ischecked(ci) = .true.
 
    ! check if any corner points of cell grid are within distance
    close_corners = .false.
@@ -1603,8 +1592,6 @@ end subroutine
      return
    end if
 
-   ! cell index
-   ci = sum((gridind-1) * cg%offset) + 1
    nc = cg%gridn(ci)%n
 
    if (n+nc > size(dist)) then
@@ -1623,23 +1610,20 @@ end subroutine
 
      ind(n+1:n+nc) = cg%gridn(ci)%ind(1:nc)
      n = n+nc
-
-     ! add cell index to the list of already visited cells
-     !nappended = nappended+1
-     !appended(:,nappended) = gridind
    end if
-     ! recursively check neighbors
 
-     do l = 1,cg%n
-       gi = gridind
-       gi(l) = gridind(l) + 1
-       call append(gi)
-
-       gi = gridind
-       gi(l) = gridind(l) - 1
-       call append(gi)
-     end do
-
+   ! recursively check neighbors
+   
+   do l = 1,cg%n
+     gi = gridind
+     gi(l) = gridind(l) + 1
+     call append(gi)
+     
+     gi = gridind
+     gi(l) = gridind(l) - 1
+     call append(gi)
+   end do
+   
   end subroutine append
  end subroutine near
 

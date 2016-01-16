@@ -1,3 +1,5 @@
+! cd ~/Assim/OAK-nonDiagR; make DEBUG= PROFILING= test/test_cellgrid && time test/test_cellgrid 
+
 program test_cellgrid
  integer :: sz(2)
 
