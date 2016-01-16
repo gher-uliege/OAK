@@ -9,8 +9,10 @@ F90FLAGS ?= -fimplicit-none
 LD ?= $(F90C)
 LDFLAGS ?= 
 
-PROFILING_F90FLAGS ?= -pg
-PROFILING_LDFLAGS ?= -pg
+#PROFILING_F90FLAGS ?= -pg
+#PROFILING_LDFLAGS ?= -pg
+PROFILING_F90FLAGS ?= -fprofile-arcs -ftest-coverage
+PROFILING_LDFLAGS ?= -fprofile-arcs -ftest-coverage
 
 PIC_F90FLAGS=-fPIC
 PIC_CFLAGS=-fPIC

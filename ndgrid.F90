@@ -1534,13 +1534,13 @@ end subroutine
   real, intent(out) :: dist(:)
   integer, intent(out) :: ind(:), n
 
-  ! appended grid indices
-  integer :: appended(cg%n,product(cg%Ni)), nappended
+  !! appended grid indices
+  !integer :: appended(cg%n,product(cg%Ni)), nappended
   ! already checked grid indices
   integer :: checked(cg%n,product(cg%Ni)), nchecked
   integer :: gridind(cg%n)
 
-  nappended = 0
+  !nappended = 0
   nchecked = 0
   n = 0
   
@@ -1567,10 +1567,10 @@ end subroutine
      if (gridind(l) < 1 .or. gridind(l) > cg%Ni(l)) return
    end do
 
-   ! check if already appended
-   do l = 1,nappended
-     if (all(gridind == appended(:,l))) return
-   end do
+   ! ! check if already appended
+   ! do l = 1,nappended
+   !   if (all(gridind == appended(:,l))) return
+   ! end do
 
    ! check if already checked
    do l = 1,nchecked
@@ -1625,10 +1625,10 @@ end subroutine
      n = n+nc
 
      ! add cell index to the list of already visited cells
-     nappended = nappended+1
-     appended(:,nappended) = gridind
-     ! recursively check neighbors
+     !nappended = nappended+1
+     !appended(:,nappended) = gridind
    end if
+     ! recursively check neighbors
 
      do l = 1,cg%n
        gi = gridind
