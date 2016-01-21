@@ -5,10 +5,10 @@ module mod_spline
 
  type spline
    ! ndim number of dimensions (e.g. 2 for lon/lat)
-   ! n number of grid points, e.g. 110 for a 10 by 11 grid
-   integer :: ndim, n
+   ! nelem number of grid points, e.g. 110 for a 10 by 11 grid
+   integer :: ndim, nelem
 
-   ! size of the domain, n should be equal to product(sz)
+   ! size of the domain, nelem should be equal to product(sz)
    integer, allocatable :: sz(:)
 
    ! mask is true for "within domain"/"sea" grid points and false 
@@ -79,17 +79,17 @@ contains
   integer, intent(in) :: dim
   type(SparseMatrix) :: S
 
-  integer :: l1,l2,subs1(size(sz)),subs2(size(sz)),maxnz,n
+  integer :: l1,l2,subs1(size(sz)),subs2(size(sz)),maxnz,nelem
 
-  n = product(sz)
+  nelem = product(sz)
   S%nz = 0
-  S%m = n
-  S%n = n
-  maxnz = n
+  S%m = nelem
+  S%n = nelem
+  maxnz = nelem
   allocate(S%i(maxnz),S%j(maxnz),S%s(maxnz))
   S%s = 0
 
-  do l1 = 1,n    
+  do l1 = 1,nelem    
     ! get subscripts
     ! sub1 and l1 corresponds to (i,j) if dim = 1
     subs1 = ind2sub(sz,l1)
@@ -157,17 +157,17 @@ contains
   integer, intent(in) :: dim
   type(SparseMatrix) :: S
 
-  integer :: l1,l2,subs1(size(sz)),subs2(size(sz)),maxnz,n
+  integer :: l1,l2,subs1(size(sz)),subs2(size(sz)),maxnz,nelem
 
-  n = product(sz)
+  nelem = product(sz)
   S%nz = 0
-  S%m = n
-  S%n = n
-  maxnz = 2*n
+  S%m = nelem
+  S%n = nelem
+  maxnz = 2*nelem
   allocate(S%i(maxnz),S%j(maxnz),S%s(maxnz))
   S%s = 0
 
-  do l1 = 1,n    
+  do l1 = 1,nelem    
     ! get subscripts
     ! sub1 and l1 corresponds to (i,j) if dim = 1
     subs1 = ind2sub(sz,l1)
@@ -238,11 +238,11 @@ contains
   type(spline), intent(in) :: conf
   real, intent(in) :: f(:)
 
-  real :: Lf(conf%n)
+  real :: Lf(conf%nelem)
 
 
   integer :: i
-  real, dimension(conf%n) :: df, ddf
+  real, dimension(conf%nelem) :: df, ddf
 
   ! compte laplacian
 
@@ -270,12 +270,12 @@ contains
   implicit none
   type(spline), intent(in) :: conf
   type(SparseMatrix) :: Lap,S,D2
-  real :: Lf(conf%n)
+  real :: Lf(conf%nelem)
   integer :: i
 
   ! compute laplacian
 
-  Lap = spzeros(conf%n,conf%n)
+  Lap = spzeros(conf%nelem,conf%nelem)
 
   Lf = 0
   do i = 1,conf%ndim
@@ -336,7 +336,7 @@ contains
   ! of each grid cell
   type(SparseMatrix) :: iB,Lap,gradient, WE, WEs, Lapi, Lap_scaled
 
-  real :: coeff, d(conf%n), leni
+  real :: coeff, d(conf%nelem), leni
   integer :: i, j
 
   if (size(alpha) < 1) then
@@ -351,12 +351,12 @@ contains
   ! laplacian
   Lap = laplacian_op(conf)
   ! laplacian to a power
-  Lapi = speye(conf%n)
+  Lapi = speye(conf%nelem)
   ! len to a power
   leni = 1.
 
   if (.true.) then
-  iB = spzeros(conf%n,conf%n)
+  iB = spzeros(conf%nelem,conf%nelem)
 
   do j = 1,size(alpha)
     if (mod(j,2) == 1) then
@@ -377,7 +377,7 @@ contains
         gradient = grad_op(conf%sz,conf%mask,conf%pm,i)
 !        write(6,*) 'j',j,'grad',__LINE__,'gradient%nz',gradient%nz
         gradient = gradient.x.Lapi
-!        gradient = gradient.x.(speye(conf%n))
+!        gradient = gradient.x.(speye(conf%nelem))
 !        write(6,*) 'j',j,'grad',__LINE__,'gradient%nz',gradient%nz
         ! scale by grid cell
         gradient = WEs .x. gradient
@@ -434,9 +434,9 @@ contains
   type(spline), intent(in) :: conf
   real, intent(in) :: alpha(:), x(:)
   real, intent(in) :: len
-  real :: xiBx, tmp(conf%n), Lapx(conf%n)
+  real :: xiBx, tmp(conf%nelem), Lapx(conf%nelem)
 
-  real :: coeff, d(conf%n), leni, ds(conf%n)
+  real :: coeff, d(conf%nelem), leni, ds(conf%nelem)
   integer :: i, j
 
   if (size(alpha) < 1) then
@@ -587,16 +587,16 @@ contains
   logical, intent(in) :: mask(:)
   real, intent(in) :: pm(:,:), x(:,:)
 
-  integer :: n,ndim,i,j
+  integer :: nelem,ndim,i,j
 
   ndim = size(sz)
-  n = product(sz)
-  allocate(conf%sz(ndim),conf%mask(n),conf%pm(n,ndim), &
-       conf%x(n,ndim), conf%spm(n,ndim,ndim), conf%snu(n,ndim), &
-       conf%smask(n,ndim))
+  nelem = product(sz)
+  allocate(conf%sz(ndim),conf%mask(nelem),conf%pm(nelem,ndim), &
+       conf%x(nelem,ndim), conf%spm(nelem,ndim,ndim), conf%snu(nelem,ndim), &
+       conf%smask(nelem,ndim))
 
   conf%ndim = ndim
-  conf%n = n
+  conf%nelem = nelem
   conf%sz = sz
   conf%mask = mask
   conf%pm = pm
@@ -648,11 +648,11 @@ contains
   real, allocatable :: pm(:,:), x(:,:)
   logical, allocatable :: mask_(:)
 
-  integer :: i,j,n, ndim, subs(size(sz))
+  integer :: i,j,nelem, ndim, subs(size(sz))
   ndim = size(sz)
-  n = product(sz)
+  nelem = product(sz)
 
-  allocate(mask_(n),x(n,ndim),pm(n,ndim))
+  allocate(mask_(nelem),x(nelem,ndim),pm(nelem,ndim))
 
   if (present(mask)) then
     mask_ = mask
@@ -660,7 +660,7 @@ contains
     mask_ = .true.
   end if
 
-  do j = 1,n
+  do j = 1,nelem
     subs = ind2sub(sz,j)
     x(j,:) = x0 + (x1-x0) * (subs-1.)/ (sz-1.) 
   end do
@@ -713,15 +713,15 @@ program test_nondiag
 
  real :: tol = 1e-7
 
- ! call test_kernel
- ! call test_diff()
- ! call test_2d()
- ! call test_2d_mask()
- ! call test_2d_small()
- ! call test_3d()
- ! call test_grad2d()
+ call test_kernel
+ call test_diff()
+ call test_2d()
+ call test_2d_mask()
+ call test_2d_small()
+ call test_3d()
+ call test_grad2d()
 
- !call test_loc_cov
+ call test_loc_cov
  call test_loc_cov_large
 contains
 
@@ -1202,7 +1202,7 @@ contains
   integer :: i, j, k, l, nnz, status
   
   Ry = 0
-  do j = 1,conf%n
+  do j = 1,conf%nelem
     call near(cg,conf%x(j,:),conf%x,cdist,2*lenCov,ind,distnear,nnz)
     do k = 1,nnz
       Ry(j) = Ry(j) + locfun(distnear(k)/lenCov) * y(ind(k))
@@ -1265,8 +1265,8 @@ contains
   x(sub2ind(sz,(sz+1)/2)) = 1
 
   Cx = 0
-  do j = 1,conf%n
-    do i = 1,conf%n
+  do j = 1,conf%nelem
+    do i = 1,conf%nelem
       dist = cdist(conf%x(i,:),conf%x(j,:))
       Cx(j) = Cx(j) + locfun(dist/lenCov) * x(i)
     end do
@@ -1274,7 +1274,7 @@ contains
 
   cg = setupgrid(conf%x,[lenCov/10.,lenCov/10.])
   Cx2 = 0
-  do j = 1,conf%n
+  do j = 1,conf%nelem
 #ifdef OLD
     call near(cg,conf%x(j,:),conf%x,cdist,2*lenCov,ind,distnear,nnz)
     do k = 1,nnz
@@ -1315,6 +1315,7 @@ contains
 
 
   call solver%done()
+  call donespline(conf)
 
  end subroutine test_loc_cov
 
@@ -1355,8 +1356,8 @@ contains
 
 
   ! Cx = 0
-  ! do j = 1,conf%n
-  !   do i = 1,conf%n
+  ! do j = 1,conf%nelem
+  !   do i = 1,conf%nelem
   !     dist = cdist(conf%x(i,:),conf%x(j,:))
   !     Cx(j) = Cx(j) + locfun(dist/lenCov) * x(i)
   !   end do
@@ -1364,7 +1365,7 @@ contains
 
   cg = setupgrid(conf%x,[lenCov/10.,lenCov/10.])
   ! Cx2 = 0
-  ! do j = 1,conf%n
+  ! do j = 1,conf%nelem
   !   call near(cg,conf%x(j,:),conf%x,cdist,2*lenCov,ind,distnear,nnz)
   !   do k = 1,nnz
   !     Cx2(j) = Cx2(j) + locfun(distnear(k)/lenCov) * x(ind(k))
@@ -1382,6 +1383,7 @@ contains
   write(6,*) 'nit',nit
 
   call assert(Rfun(Bx),x,1e-4,'check inv(B)*x with preconditioner')
+  call donespline(conf)
 
  end subroutine test_loc_cov_large
 
