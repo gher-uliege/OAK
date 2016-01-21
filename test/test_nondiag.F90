@@ -1238,6 +1238,9 @@ contains
   integer, parameter :: sz(2) = [11,11]
   real, parameter :: x0(2) = [-5.,-5.], x1(2) = [5.,5.]
   real, parameter :: alpha(3) = [1,2,1]
+  ! start and end index of sub-region
+  integer :: index0(2), index1(2), subsz(2)
+  real :: dx(2)
 !  type(spline) :: conf
 
   real :: fi(sz(1),sz(2))
@@ -1255,6 +1258,7 @@ contains
   lenCov = 2.
   len = lenCov/2.3
 
+  dx = (x1-x0)/(sz-1)
   x = 0
   !x((size(x)+1)/2) = 1
   ! middle of domain
@@ -1271,10 +1275,24 @@ contains
   cg = setupgrid(conf%x,[lenCov/10.,lenCov/10.])
   Cx2 = 0
   do j = 1,conf%n
+#ifdef OLD
     call near(cg,conf%x(j,:),conf%x,cdist,2*lenCov,ind,distnear,nnz)
     do k = 1,nnz
       Cx2(j) = Cx2(j) + locfun(distnear(k)/lenCov) * x(ind(k))
     end do
+#else
+    ! i range = (conf%x(j,:)-x0 - 2*lenCov)/dx +1 ...  (conf%x(j,:)-x0 + 2*lenCov)/dx +1
+
+    index0 = max(floor((conf%x(j,:)-x0 - 2*lenCov)/dx) +1,1)
+    index1 = min(ceiling((conf%x(j,:)-x0 + 2*lenCov)/dx) +1,conf%sz)
+    subsz = index1-index0+1
+
+    do k = 1,product(index1-index0+1)
+      i = sub2ind(conf%sz,ind2sub(subsz,k) + index0-1)
+
+      Cx2(j) = Cx2(j) + locfun(cdist(conf%x(i,:),conf%x(j,:))/lenCov) * x(i)
+    end do
+#endif
   end do
 
 

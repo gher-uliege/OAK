@@ -1,6 +1,6 @@
 !
 !  OAK, Ocean Assimilation Kit
-!  Copyright(c) 2002-2011 Alexander Barth and Luc Vandenblucke
+!  Copyright(c) 2002-2015 Alexander Barth and Luc Vandenblucke
 !
 !  This program is free software; you can redistribute it and/or
 !  modify it under the terms of the GNU General Public License
@@ -14,7 +14,7 @@
 !
 !  You should have received a copy of the GNU General Public License
 !  along with this program; if not, write to the Free Software
-!  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+!  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 !
 
 !
@@ -54,15 +54,19 @@ module ndgrid
 
 ! definition of a n-dimensional aribtrary grid
 
- type grid
+ type basegrid
    ! dimension of the grid
    integer :: n
 
    ! gshape(n): shape of the grid, gshape(i) is the maximum value of the ith one-based index
    integer, pointer :: gshape(:)
+
+ end type basegrid
+
+ type, extends(basegrid) :: grid
+
    ! ioffset(i,j) offset of the ith coordinate repectus the jth index
    integer, pointer :: ioffset(:,:)
-
    integer, pointer :: ioffset_mask(:)
 
 
@@ -70,7 +74,7 @@ module ndgrid
    integer, pointer :: dependence(:,:)
 
    ! coordinates
-   real, pointer :: coord(:,:) 
+   !real, pointer :: coord(:,:) 
    real, pointer :: data(:)
 
    ! startindex(n)
