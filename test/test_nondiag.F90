@@ -9,10 +9,6 @@ module mod_spline
    ! nelem should be equal to product(gshape)
    integer :: nelem
 
-   ! mask is true for "within domain"/"sea" grid points and false 
-   ! for "outside the domain"/"land"
-   logical, allocatable :: mask(:)
-
    ! inverse of local resolution
    real, allocatable :: pm(:,:)
    real, allocatable :: x(:,:)
@@ -24,8 +20,6 @@ module mod_spline
 
    ! snu(:,i) "diffusion coefficient"  along dimension i including metric, staggered
    real, allocatable :: snu(:,:)
-   logical, allocatable :: smask(:,:)
-
    logical, allocatable :: smasked(:,:)
 
  end type spline
@@ -38,14 +32,14 @@ contains
  !
  ! shift the field by 1 grid point in the direction dim
 
- function shift(gshape,mask,f,dim) result(sf)
+ function shift(gshape,masked,f,dim) result(sf)
   use matoper
   implicit none
   integer, intent(in) :: gshape(:)
-  logical, intent(in) :: mask(:)
+  logical, intent(in) :: masked(:)
   real, intent(in) :: f(:)
   integer, intent(in) :: dim
-  real :: sf(size(mask))
+  real :: sf(size(masked))
 
   integer :: l1,l2,subs1(size(gshape)),subs2(size(gshape))
 
@@ -71,11 +65,11 @@ contains
  !_______________________________________________________
  !
 
- function shift_op(gshape,mask,dim) result(S)
+ function shift_op(gshape,masked,dim) result(S)
   use matoper
   implicit none
   integer, intent(in) :: gshape(:)
-  logical, intent(in) :: mask(:)
+  logical, intent(in) :: masked(:)
   integer, intent(in) :: dim
   type(SparseMatrix) :: S
 
@@ -114,14 +108,14 @@ contains
  !
 
 
- function diff(gshape,mask,f,dim) result(df)
+ function diff(gshape,masked,f,dim) result(df)
   use matoper
   implicit none
   integer, intent(in) :: gshape(:)
-  logical, intent(in) :: mask(:)
+  logical, intent(in) :: masked(:)
   real, intent(in) :: f(:)
   integer, intent(in) :: dim
-  real :: df(size(mask))
+  real :: df(size(masked))
 
   integer :: l1,l2,subs1(size(gshape)),subs2(size(gshape))
 
@@ -138,7 +132,7 @@ contains
       subs2(dim) = subs2(dim)+1
       l2 = sub2ind(gshape,subs2)
 
-      if (mask(l1).and.mask(l2)) then
+      if (.not.masked(l1).and..not.masked(l2)) then
         df(l1) = f(l2) - f(l1)
       end if
     end if
@@ -149,11 +143,11 @@ contains
  !_______________________________________________________
  !
 
- function diff_op(gshape,mask,dim) result(S)
+ function diff_op(gshape,masked,dim) result(S)
   use matoper
   implicit none
   integer, intent(in) :: gshape(:)
-  logical, intent(in) :: mask(:)
+  logical, intent(in) :: masked(:)
   integer, intent(in) :: dim
   type(SparseMatrix) :: S
 
@@ -178,7 +172,7 @@ contains
       subs2(dim) = subs2(dim)+1
       l2 = sub2ind(gshape,subs2)
 
-      if (mask(l1).and.mask(l2)) then
+      if (.not.masked(l1).and..not.masked(l2)) then
         S%nz = S%nz+1
         S%i(S%nz) = l1
         S%j(S%nz) = l2
@@ -200,33 +194,33 @@ contains
  !_______________________________________________________
  !
 
- function grad(gshape,mask,pm,f,dim) result(df)
+ function grad(gshape,masked,pm,f,dim) result(df)
   use matoper
   implicit none
   integer, intent(in) :: gshape(:)
-  logical, intent(in) :: mask(:)
+  logical, intent(in) :: masked(:)
   real, intent(in) :: pm(:,:)
   real, intent(in) :: f(:)
   integer, intent(in) :: dim
-  real :: df(size(mask))
+  real :: df(size(masked))
 
-  df = stagger(gshape,mask,pm(:,dim),dim) * diff(gshape,mask,f,dim)
+  df = stagger(gshape,masked,pm(:,dim),dim) * diff(gshape,masked,f,dim)
  end function grad
 
  !_______________________________________________________
  !
 
 
- function grad_op(gshape,mask,pm,dim) result(S)
+ function grad_op(gshape,masked,pm,dim) result(S)
   use matoper
   implicit none
   integer, intent(in) :: gshape(:)
-  logical, intent(in) :: mask(:)
+  logical, intent(in) :: masked(:)
   real, intent(in) :: pm(:,:)
   integer, intent(in) :: dim
   type(SparseMatrix) :: S
 
-  S = spdiag(stagger(gshape,mask,pm(:,dim),dim)) .x. diff_op(gshape,mask,dim)
+  S = spdiag(stagger(gshape,masked,pm(:,dim),dim)) .x. diff_op(gshape,masked,dim)
  end function grad_op
 
  !_______________________________________________________
@@ -248,18 +242,21 @@ contains
 
   Lf = 0
   do i = 1,conf%n
-    df = diff(conf%gshape,conf%mask,f,i)
+    df = diff(conf%gshape,conf%masked,f,i)
 
-    !where (smask(:,i)) df = snu(:,i) * df
+!    write(6,*) 'df',df,conf%masked
+
+    !where (smasked(:,i)) df = snu(:,i) * df
     df = conf%snu(:,i) * df
 
-    ddf = diff(conf%gshape,conf%smask(:,i),df,i)
-    Lf = Lf + shift(conf%gshape,conf%mask,ddf,i)
+    ddf = diff(conf%gshape,conf%smasked(:,i),df,i)
+    Lf = Lf + shift(conf%gshape,conf%masked,ddf,i)
   end do
 
   ! product(pm,2) is the inverse of the volume of a grid cell
   Lf = Lf * product(conf%pm,2)
 
+ ! write(6,*) 'Lf',Lf
  end function laplacian
 
  !_______________________________________________________
@@ -279,12 +276,12 @@ contains
 
   Lf = 0
   do i = 1,conf%n
-    S = diff_op(conf%gshape,conf%mask,i)
+    S = diff_op(conf%gshape,conf%masked,i)
     S = spdiag(conf%snu(:,i)) .x. S
-    D2 = diff_op(conf%gshape,conf%smask(:,i),i) .x. S
+    D2 = diff_op(conf%gshape,conf%smasked(:,i),i) .x. S
 
     ! add sparse matrices
-    Lap = Lap + (shift_op(conf%gshape,conf%mask,i) .x. D2)
+    Lap = Lap + (shift_op(conf%gshape,conf%masked,i) .x. D2)
   end do
 
   ! product(pm,2) is the inverse of the volume of a grid cell
@@ -374,7 +371,7 @@ contains
       ! constrain on gradient
       do i = 1,conf%n
         WEs = spdiag(1./sqrt(product(conf%spm(:,:,i),2)))
-        gradient = grad_op(conf%gshape,conf%mask,conf%pm,i)
+        gradient = grad_op(conf%gshape,conf%masked,conf%pm,i)
 !        write(6,*) 'j',j,'grad',__LINE__,'gradient%nz',gradient%nz
         gradient = gradient.x.Lapi
 !        gradient = gradient.x.(speye(conf%nelem))
@@ -398,7 +395,7 @@ contains
   ! contrain on gradient
   do i = 1,conf%n
     WEs = spdiag(1./sqrt(product(conf%spm(:,:,i),2)))
-    gradient = grad_op(conf%gshape,conf%mask,conf%pm,i)
+    gradient = grad_op(conf%gshape,conf%masked,conf%pm,i)
     ! scale by grid cell
     gradient = WEs .x. gradient
     iB = iB + (alpha(2) .x. (transpose(gradient).x.gradient))
@@ -464,10 +461,10 @@ contains
         
         ! constrain on gradient
         do i = 1,conf%n
-          tmp = grad(conf%gshape,conf%mask,conf%pm,Lapx,i)
+          tmp = grad(conf%gshape,conf%masked,conf%pm,Lapx,i)
           ds = product(conf%spm(:,:,i),2)
           
-          where (conf%smask(:,i))
+          where (.not.conf%smasked(:,i))
             tmp = tmp / sqrt(ds)
           end where
           
@@ -488,10 +485,10 @@ contains
 
   ! contrain on gradient
   do i = 1,conf%n
-    tmp = grad(conf%gshape,conf%mask,conf%pm,x,i)
+    tmp = grad(conf%gshape,conf%masked,conf%pm,x,i)
     ds = product(conf%spm(:,:,i),2)
 
-    where (conf%smask(:,i))
+    where (.not.conf%smasked(:,i))
       tmp = tmp / sqrt(ds)
     end where
     
@@ -512,17 +509,17 @@ contains
  !_______________________________________________________
  !
 
- function stagger_mask(gshape,mask,dim) result(smask)
+ function stagger_masked(gshape,masked,dim) result(smasked)
   use matoper
   implicit none
 
   integer, intent(in) :: dim,gshape(:)
-  logical, intent(in) :: mask(:)
-  logical :: smask(size(mask))
+  logical, intent(in) :: masked(:)
+  logical :: smasked(size(masked))
 
   integer :: l1,l2,subs1(size(gshape)),subs2(size(gshape))
 
-  smask = .false.
+  smasked = .true.
 
   do l1 = 1,product(gshape)
     ! get subscripts
@@ -535,22 +532,22 @@ contains
       subs2(dim) = subs2(dim)+1
       l2 = sub2ind(gshape,subs2)
 
-      smask(l1) = mask(l1).and.mask(l2)
+      smasked(l1) = masked(l1).or.masked(l2)
     end if
   end do
 
- end function stagger_mask
+ end function stagger_masked
 
 
  !_______________________________________________________
  !
 
- function stagger(gshape,mask,f,dim) result(sf)
+ function stagger(gshape,masked,f,dim) result(sf)
   use matoper
   implicit none
 
   integer, intent(in) :: dim,gshape(:)
-  logical, intent(in) :: mask(:)
+  logical, intent(in) :: masked(:)
   real, intent(in) :: f(:)
   real :: sf(size(f))
 
@@ -569,7 +566,7 @@ contains
       subs2(dim) = subs2(dim)+1
       l2 = sub2ind(gshape,subs2)
 
-      if (mask(l1).and.mask(l2)) then
+      if (.not.masked(l1).and..not.masked(l2)) then
         sf(l1) = (f(l2) + f(l1))/2.
       end if
     end if
@@ -580,26 +577,25 @@ contains
  !_______________________________________________________
  !
 
- subroutine initspline(conf,gshape,mask,pm,x)
+ subroutine initspline(conf,gshape,masked,pm,x)
   implicit none
   type(spline) :: conf
   integer, intent(in) :: gshape(:)
-  logical, intent(in) :: mask(:)
+  logical, intent(in) :: masked(:)
   real, intent(in) :: pm(:,:), x(:,:)
 
   integer :: nelem,n,i,j
 
   n = size(gshape)
   nelem = product(gshape)
-  allocate(conf%gshape(n),conf%mask(nelem),conf%masked(nelem),conf%pm(nelem,n), &
+  allocate(conf%gshape(n),conf%masked(nelem),conf%pm(nelem,n), &
        conf%x(nelem,n), conf%spm(nelem,n,n), conf%snu(nelem,n), &
-       conf%smask(nelem,n))
+       conf%smasked(nelem,n))
 
   conf%n = n
   conf%nelem = nelem
   conf%gshape = gshape
-  conf%mask = mask
-  conf%masked = .not.mask
+  conf%masked = masked
   conf%pm = pm
   conf%x = x
 
@@ -608,11 +604,11 @@ contains
 
   do i = 1,n
     ! staggered mask
-    conf%smask(:,i) = stagger_mask(gshape,mask,i)
+    conf%smasked(:,i) = stagger_masked(gshape,masked,i)
 
     ! staggered grid metric
     do j = 1,n
-      conf%spm(:,j,i) = stagger(gshape,mask,pm(:,j),i)
+      conf%spm(:,j,i) = stagger(gshape,masked,pm(:,j),i)
     end do
 
     ! coefficient for laplacian
@@ -624,10 +620,10 @@ contains
       end if
     end do
 
-    !    write(6,*) 'conf%snu(:,i)',pack(conf%snu(:,i),.not.conf%smask(:,i))
+    !    write(6,*) 'conf%snu(:,i)',pack(conf%snu(:,i),.not.conf%smasked(:,i))
   end do
 
-  where (.not.conf%smask)
+  where (conf%smasked)
     conf%snu = 0
   end where
   !  write(6,*) 'conf%snu(:,i)',conf%snu
@@ -638,27 +634,27 @@ contains
  !_______________________________________________________
  !
 
- subroutine initspline_rectdom(conf,gshape,x0,x1,mask)
+ subroutine initspline_rectdom(conf,gshape,x0,x1,masked)
   use matoper
   implicit none
   type(spline) :: conf
   real, intent(in) :: x0(:), x1(:) ! start and end points
   integer, intent(in) :: gshape(:)
-  logical, optional :: mask(:)
+  logical, optional :: masked(:)
 
   real, allocatable :: pm(:,:), x(:,:)
-  logical, allocatable :: mask_(:)
+  logical, allocatable :: masked_(:)
 
   integer :: i,j,nelem, n, subs(size(gshape))
   n = size(gshape)
   nelem = product(gshape)
 
-  allocate(mask_(nelem),x(nelem,n),pm(nelem,n))
+  allocate(masked_(nelem),x(nelem,n),pm(nelem,n))
 
-  if (present(mask)) then
-    mask_ = mask
+  if (present(masked)) then
+    masked_ = masked
   else
-    mask_ = .true.
+    masked_ = .false.
   end if
 
   do j = 1,nelem
@@ -670,9 +666,9 @@ contains
     pm(:,i) = (gshape(i)-1.) / (x1(i)-x0(i)) 
   end do
 
-  call initspline(conf,gshape,mask_,pm,x)
+  call initspline(conf,gshape,masked_,pm,x)
 
-  deallocate(mask_,x,pm)
+  deallocate(masked_,x,pm)
 
  end subroutine initspline_rectdom
  !_______________________________________________________
@@ -682,9 +678,9 @@ contains
   implicit none
   type(spline) :: conf
 
-  deallocate(conf%gshape,conf%mask,conf%pm, &
+  deallocate(conf%gshape,conf%masked,conf%pm, &
        conf%x, conf%spm, conf%snu, &
-       conf%smask)
+       conf%smasked)
  end subroutine donespline
 
  !_______________________________________________________
@@ -747,10 +743,10 @@ contains
  end subroutine test_kernel
 
 
- function grad2d(mask,f,pm,dim) result(df)
+ function grad2d(masked,f,pm,dim) result(df)
   implicit none
 
-  logical, intent(in) :: mask(:,:)
+  logical, intent(in) :: masked(:,:)
   real, intent(in) :: f(:,:),pm(:,:,:)
   integer, intent(in) :: dim
   real :: df(size(f,1),size(f,2))
@@ -761,7 +757,7 @@ contains
   if (dim == 1) then
     do j = 1,size(df,2)
       do i = 1,size(df,1)-1
-        if (mask(i+1,j).and.mask(i,j)) then
+        if (.not.masked(i+1,j).and..not.masked(i,j)) then
           df(i,j) = (f(i+1,j) - f(i,j)) * (pm(i+1,j,1) + pm(i,j,1))/2.
         end if
       end do
@@ -776,7 +772,7 @@ contains
   integer, parameter :: gshape(2) = [3,4]
   real :: x(gshape(1),gshape(2),2), pm(gshape(1),gshape(2),2)
   real :: df(gshape(1),gshape(2))
-  logical :: mask(gshape(1),gshape(2))
+  logical :: masked(gshape(1),gshape(2))
 
   integer :: i,j
 
@@ -788,8 +784,8 @@ contains
   end do
 
   pm = 1
-  mask = .true.
-  df = grad2d(mask,3*x(:,:,1) + 2*x(:,:,2),pm,1)
+  masked = .false.
+  df = grad2d(masked,3*x(:,:,1) + 2*x(:,:,2),pm,1)
 
   call assert(maxval(abs(df(1:gshape(1)-1,:) - 3)),0.,1e-10,'grad x')
 
@@ -806,7 +802,7 @@ contains
   integer, parameter :: gshape(2) = [3,4]
   real :: x(gshape(1)*gshape(2),2), pm(gshape(1)*gshape(2),2)
   real :: df(gshape(1)*gshape(2)), df2(gshape(1),gshape(2))
-  logical :: mask(gshape(1)*gshape(2))
+  logical :: masked(gshape(1)*gshape(2))
   type(spline) :: conf
   type(SparseMatrix) :: Sx,Sy,Lap,Lap2
 
@@ -823,18 +819,18 @@ contains
 
   pm(:,1) = 1./2.
   pm(:,2) = 1./3.
-  mask = .true.
+  masked = .false.
 
-  !call initspline(conf,gshape,mask,pm,x)
+  !call initspline(conf,gshape,masked,pm,x)
   call initspline_rectdom(conf,gshape,[2.,3.],[2.*gshape(1), 3.*gshape(2)])
   call assert(conf%x,x,1e-10,'rectdom x')
   call assert(conf%pm,pm,1e-10,'rectdom pm')
 
-  df = grad(gshape,mask,pm,3*x(:,1) + 2*x(:,2),1)
+  df = grad(gshape,masked,pm,3*x(:,1) + 2*x(:,2),1)
   df2 = reshape(df,gshape)    
   call assert(maxval(abs(df2(1:gshape(1)-1,:) - 3)),0.,1e-10,'gradv x')
 
-  df = grad(gshape,mask,pm,3*x(:,1) + 2*x(:,2),2)
+  df = grad(gshape,masked,pm,3*x(:,1) + 2*x(:,2),2)
   df2 = reshape(df,gshape)    
   call assert(maxval(abs(df2(:,1:gshape(2)-1) - 2)),0.,1e-10,'gradv y')
 
@@ -848,11 +844,11 @@ contains
   df2 = reshape(df,gshape)    
   call assert(maxval(abs(df2(2:gshape(1)-1,2:gshape(2)-1) - 6)),0.,1e-10,'laplacian (2)')
 
-  Sx = grad_op(gshape,mask,pm,1)
+  Sx = grad_op(gshape,masked,pm,1)
   df2 = reshape(Sx .x. (3*x(:,1) + 2*x(:,2)) ,gshape)    
   call assert(maxval(abs(df2(1:gshape(1)-1,:) - 3)),0.,1e-10,'gradv op x')
 
-  Sy = grad_op(gshape,mask,pm,2)
+  Sy = grad_op(gshape,masked,pm,2)
   df2 = reshape(Sy .x. (3*x(:,1) + 2*x(:,2)) ,gshape)    
   call assert(maxval(abs(df2(:,1:gshape(2)-1) - 2)),0.,1e-10,'gradv op x')
 
@@ -1059,7 +1055,7 @@ contains
   real, parameter :: alpha(3) = [1,2,1]
   type(spline) :: conf
   real :: x(gshape(1)*gshape(2)), Bx(gshape(1)*gshape(2)), fi(gshape(1),gshape(2))
-  logical :: mask(gshape(1),gshape(2))
+  logical :: masked(gshape(1),gshape(2))
   ! for pcg
   !  integer :: maxit = 10000, nit
   !  real :: relres
@@ -1068,10 +1064,10 @@ contains
 
   write(6,*) '= test_2d_mask ='
 
-  mask = .true.
-  mask(80,:) = .false.
+  masked = .false.
+  masked(80,:) = .true.
   
-  call initspline_rectdom(conf,gshape,x0,x1,mask=reshape(mask,[product(gshape)]))
+  call initspline_rectdom(conf,gshape,x0,x1,masked=reshape(masked,[product(gshape)]))
   x = 0
   !x((size(x)+1)/2) = 1
   ! middle of domain
@@ -1088,12 +1084,12 @@ contains
   call test_symmetry(reshape(iB.x.x,gshape))
 
   xiBx = invB(conf,alpha,len,x)
-  call assert(xiBx,x.x.(iB.x.x),tol,'check invB with mask')
+  call assert(xiBx,x.x.(iB.x.x),tol,'check invB with masked')
 
   !  Bx = pcg(fun,x,x,tol=tol,maxit=maxit,nit=nit,relres=relres)
   Bx = symsolve(iB,x)
 
-  call assert(iB.x.Bx,x,tol,'check inv(B)*x with mask')
+  call assert(iB.x.Bx,x,tol,'check inv(B)*x with masked')
   !  write(6,*) 'x',x
   !  write(6,*) 'nit,relres',nit,relres
   !  write(6,*) 'Bx',Bx
@@ -1101,7 +1097,7 @@ contains
 
   fi = reshape(Bx,gshape)
 
-  where (.not.mask) fi = -9999.
+  where (masked) fi = -9999.
   call usave('fi_mask.dat',fi,-9999.)
 
 
