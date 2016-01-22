@@ -1340,7 +1340,7 @@ contains
   integer :: maxit = 10000, nit
   real :: relres
 
-  write(6,*) '= test_loc_cov ='
+  write(6,*) '= test_loc_cov_large ='
   
   call initspline_rectdom(conf,gshape,x0,x1)
   lenCov = 2.
