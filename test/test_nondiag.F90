@@ -1233,6 +1233,7 @@ contains
   implicit none
 !  integer, parameter :: gshape(2) = [5,5]
   integer, parameter :: gshape(2) = [11,11]
+!  integer, parameter :: gshape(2) = [21,21]
   real, parameter :: x0(2) = [-5.,-5.], x1(2) = [5.,5.]
   real, parameter :: alpha(3) = [1,2,1]
   ! start and end index of sub-region
@@ -1326,7 +1327,8 @@ contains
   use ufileformat
   implicit none
 !  integer, parameter :: gshape(2) = [5,5]
-  integer, parameter :: gshape(2) = [11,11]
+!  integer, parameter :: gshape(2) = [11,11]
+  integer, parameter :: gshape(2) = [21,21]
   real, parameter :: x0(2) = [-5.,-5.], x1(2) = [5.,5.]
   real, parameter :: alpha(3) = [1,2,1]
 !  type(spline) :: conf
