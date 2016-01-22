@@ -55,18 +55,23 @@ module ndgrid
 ! definition of a n-dimensional aribtrary grid
 
  type basegrid
-   ! dimension of the grid
+   ! n number of dimensions (e.g. 2 for lon/lat)
+
    integer :: n
 
    ! gshape(n): shape of the grid, gshape(i) is the maximum value of the ith one-based index
    integer, pointer :: gshape(:)
 
+   ! .false. if point on grid is valid, .true. if is masked
+   logical, pointer :: masked(:)
  end type basegrid
 
  type, extends(basegrid) :: grid
 
-   ! ioffset(i,j) offset of the ith coordinate repectus the jth index
+   ! ioffset(i,j) offset of the ith coordinate with repect to the jth index
    integer, pointer :: ioffset(:,:)
+
+   ! offset for mask
    integer, pointer :: ioffset_mask(:)
 
 
@@ -81,9 +86,6 @@ module ndgrid
    ! the corridnate value relevant for intex i start at data(startindex(i))
    integer, pointer :: startindex(:)
    integer, pointer :: endindex(:)
-
-   ! .false. if point on grid is valid, .true. if is masked
-   logical, pointer :: masked(:)
    
    ! how the cube should be splitted in tetrahedrons
    real, pointer :: tetrahedron(:,:,:)

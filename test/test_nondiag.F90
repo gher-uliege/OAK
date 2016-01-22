@@ -2,14 +2,12 @@
 
 module mod_spline
  use covariance
+ use ndgrid, only: basegrid
 
- type spline
-   ! n number of dimensions (e.g. 2 for lon/lat)
+ type, extends(basegrid) :: spline
    ! nelem number of grid points, e.g. 110 for a 10 by 11 grid
-   integer :: n, nelem
-
-   ! size of the domain, nelem should be equal to product(gshape)
-   integer, allocatable :: gshape(:)
+   ! nelem should be equal to product(gshape)
+   integer :: nelem
 
    ! mask is true for "within domain"/"sea" grid points and false 
    ! for "outside the domain"/"land"
@@ -27,6 +25,8 @@ module mod_spline
    ! snu(:,i) "diffusion coefficient"  along dimension i including metric, staggered
    real, allocatable :: snu(:,:)
    logical, allocatable :: smask(:,:)
+
+   logical, allocatable :: smasked(:,:)
 
  end type spline
 
@@ -591,7 +591,7 @@ contains
 
   n = size(gshape)
   nelem = product(gshape)
-  allocate(conf%gshape(n),conf%mask(nelem),conf%pm(nelem,n), &
+  allocate(conf%gshape(n),conf%mask(nelem),conf%masked(nelem),conf%pm(nelem,n), &
        conf%x(nelem,n), conf%spm(nelem,n,n), conf%snu(nelem,n), &
        conf%smask(nelem,n))
 
@@ -599,6 +599,7 @@ contains
   conf%nelem = nelem
   conf%gshape = gshape
   conf%mask = mask
+  conf%masked = .not.mask
   conf%pm = pm
   conf%x = x
 
