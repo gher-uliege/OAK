@@ -1533,6 +1533,7 @@ end subroutine
  ! get all points (or more!) near the location x
  
  subroutine near(cg,x,xpos,distfun,maxdist,ind,dist,n)
+  implicit none
   type(cellgrid), intent(in) :: cg
   real, intent(in) :: x(:),xpos(:,:)
   procedure(distind) :: distfun
