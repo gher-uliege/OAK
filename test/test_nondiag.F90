@@ -710,15 +710,15 @@ program test_nondiag
 
  real :: tol = 1e-7
 
- call test_kernel
- call test_diff()
- call test_2d()
- call test_2d_mask()
- call test_2d_small()
- call test_3d()
- call test_grad2d()
+ ! call test_kernel
+ ! call test_diff
+ ! call test_2d
+ ! call test_2d_mask
+ ! call test_2d_small
+ ! call test_3d
+ ! call test_grad2d
 
- call test_loc_cov
+ ! call test_loc_cov
  call test_loc_cov_large
 contains
 
@@ -1200,7 +1200,8 @@ contains
   
   Ry = 0
   do j = 1,conf%nelem
-    call near(cg,conf%x(j,:),conf%x,cdist,2*lenCov,ind,distnear,nnz)
+    !call near(cg,conf%x(j,:),conf%x,cdist,2*lenCov,ind,distnear,nnz)
+    call near_rectdom(cg,conf%x(j,:),conf%x,cdist,2*lenCov,ind,distnear,nnz)
     do k = 1,nnz
       Ry(j) = Ry(j) + locfun(distnear(k)/lenCov) * y(ind(k))
     end do
@@ -1225,6 +1226,42 @@ contains
 
  !_______________________________________________________
  ! 
+ ! return list of points with a maximum distance maxdist
+ ! for point on a regular grid
+
+ subroutine near_rectdom(cg,x,xpos,distfun,maxdist,ind,dist,n)
+  use ndgrid, only: distind
+  implicit none
+  type(cellgrid), intent(in) :: cg
+  real, intent(in) :: x(:),xpos(:,:)
+  procedure(distind) :: distfun
+  real, intent(in) :: maxdist
+  real, intent(out) :: dist(:)
+  integer, intent(out) :: ind(:), n
+
+  real :: x0(conf%n), dx(conf%n)
+  integer :: i,j,k
+  integer :: index0(conf%n), index1(conf%n), subshape(conf%n)
+
+  x0 = conf%x(1,:)
+  dx = (conf%x(conf%nelem,:) - x0) / (conf%gshape-1)
+
+
+  index0 = max(floor((x-x0 - maxdist)/dx) +1,1)
+  index1 = min(ceiling((x-x0 + maxdist)/dx) +1,conf%gshape)
+  subshape = index1-index0+1
+  n = 0
+  
+  do k = 1,product(subshape)
+    i = sub2ind(conf%gshape,ind2sub(subshape,k) + index0-1)
+  
+    n = n+1
+    dist(n) = cdist(conf%x(i,:),x)
+    ind(n) = i
+  end do
+  
+ end subroutine near_rectdom
+
 
  subroutine test_loc_cov
   use covariance
@@ -1237,7 +1274,7 @@ contains
   real, parameter :: x0(2) = [-5.,-5.], x1(2) = [5.,5.]
   real, parameter :: alpha(3) = [1,2,1]
   ! start and end index of sub-region
-  integer :: index0(2), index1(2), subgshape(2)
+  integer :: index0(2), index1(2), subshape(2)
   real :: dx(2)
 !  type(spline) :: conf
 
@@ -1273,26 +1310,32 @@ contains
   cg = setupgrid(conf%x,[lenCov/10.,lenCov/10.])
   Cx2 = 0
   do j = 1,conf%nelem
-#ifdef OLD
-    call near(cg,conf%x(j,:),conf%x,cdist,2*lenCov,ind,distnear,nnz)
+!    call near(cg,conf%x(j,:),conf%x,cdist,2*lenCov,ind,distnear,nnz)
+    call near_rectdom(cg,conf%x(j,:),conf%x,cdist,2*lenCov,ind,distnear,nnz)
     do k = 1,nnz
       Cx2(j) = Cx2(j) + locfun(distnear(k)/lenCov) * x(ind(k))
     end do
-#else
-    ! i range = (conf%x(j,:)-x0 - 2*lenCov)/dx +1 ...  (conf%x(j,:)-x0 + 2*lenCov)/dx +1
 
-    index0 = max(floor((conf%x(j,:)-x0 - 2*lenCov)/dx) +1,1)
-    index1 = min(ceiling((conf%x(j,:)-x0 + 2*lenCov)/dx) +1,conf%gshape)
-    subgshape = index1-index0+1
 
-    do k = 1,product(index1-index0+1)
-      i = sub2ind(conf%gshape,ind2sub(subgshape,k) + index0-1)
+! #ifdef OLD
+!     call near(cg,conf%x(j,:),conf%x,cdist,2*lenCov,ind,distnear,nnz)
+!     do k = 1,nnz
+!       Cx2(j) = Cx2(j) + locfun(distnear(k)/lenCov) * x(ind(k))
+!     end do
+! #else
+!     ! i range = (conf%x(j,:)-x0 - 2*lenCov)/dx +1 ...  (conf%x(j,:)-x0 + 2*lenCov)/dx +1
 
-      Cx2(j) = Cx2(j) + locfun(cdist(conf%x(i,:),conf%x(j,:))/lenCov) * x(i)
-    end do
-#endif
+!     index0 = max(floor((conf%x(j,:)-x0 - 2*lenCov)/dx) +1,1)
+!     index1 = min(ceiling((conf%x(j,:)-x0 + 2*lenCov)/dx) +1,conf%gshape)
+!     subshape = index1-index0+1
+
+!     do k = 1,product(index1-index0+1)
+!       i = sub2ind(conf%gshape,ind2sub(subshape,k) + index0-1)
+
+!       Cx2(j) = Cx2(j) + locfun(cdist(conf%x(i,:),conf%x(j,:))/lenCov) * x(i)
+!     end do
+! #endif
   end do
-
 
   call assert(Cx,Cx2,tol,'Cx')
   call assert(Cx,Rfun(x),tol,'Cx (2)')
@@ -1328,7 +1371,7 @@ contains
   implicit none
 !  integer, parameter :: gshape(2) = [5,5]
 !  integer, parameter :: gshape(2) = [11,11]
-  integer, parameter :: gshape(2) = [21,21]
+  integer, parameter :: gshape(2) = [31,31]
   real, parameter :: x0(2) = [-5.,-5.], x1(2) = [5.,5.]
   real, parameter :: alpha(3) = [1,2,1]
 !  type(spline) :: conf
