@@ -1,4 +1,7 @@
+! include the fortran preprocessor definitions
+#include "../ppdef.h"
 
+#define PROFILE
 module test_suite
 
 contains
@@ -401,6 +404,9 @@ contains
   real, allocatable :: xf(:), xa(:), yo(:)
   real, allocatable :: Sa(:,:), diagR(:)
   type(SparseMatrix) :: Hs
+# ifdef PROFILE
+  real(8) :: cputime(2)
+# endif
 
   write(6,*) 'Running test with a domain ',sz
   n = product(sz)
@@ -478,11 +484,18 @@ contains
 
   allocate(Sa(n,Nens)) 
 
+# ifdef PROFILE
+  call cpu_time(cputime(1))
+# endif    
   if (computeSa) then
     call locensanalysis(xf,S,Hs,yo,Rc,lpoints,Hc,xa,Sa)
   else
     call locensanalysis(xf,S,Hs,yo,Rc,lpoints,Hc,xa)
   end if
+# ifdef PROFILE
+  call cpu_time(cputime(2))
+  write(stdout,*) 'locensanalysis CPU time  ',cputime(2)-cputime(1)
+# endif    
 
 
   do i = 1,size(Hc,2)      

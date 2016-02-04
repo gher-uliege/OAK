@@ -20,6 +20,7 @@
 ! include the fortran preprocessor definitions
 #include "ppdef.h"
 #define HAS_CHOLMOD
+!#define PROFILE
 
 module matoper
 use, intrinsic :: iso_c_binding, only: c_ptr
@@ -1836,6 +1837,9 @@ end function nchoosek
   integer :: n, k
   real :: tol2
   real, dimension(size(x)) :: Ap, p, r, r_old, z
+# ifdef PROFILE
+  real(8) :: cputime(2)
+# endif
 
   n = size(b)
   ! default parameters
@@ -1891,8 +1895,19 @@ end function nchoosek
 
   do k=1,maxit_    
     !     write(6,*) ' k',k,sum(r*r),maxit_,tol2
+
+#   ifdef PROFILE
+    call cpu_time(cputime(1))
+#   endif    
+
     ! compute A*p
     Ap = fun(p)
+
+#   ifdef PROFILE
+    call cpu_time(cputime(2))
+    write(stdout,*) 'pcg fun',cputime(2)-cputime(1)
+#   endif
+
     !maxdiff(A*p,Ap)
 
     ! how far do we need to go in direction p?
