@@ -3753,6 +3753,8 @@ end function
      logical :: valid
      real :: tw
 
+     ! should use near_regulargrid
+
      !      call locpoints(indexi,modGrid,len,nnz,indexj,w,onlyj)  
 
      !pindexi = indexi

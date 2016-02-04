@@ -190,8 +190,8 @@ test/toymodel: test/toymodel.o matoper.o covariance.o ndgrid.o assimilation.o rr
                sangoma_ewpf.o match.o cholmod_wrapper.o
 	$(F90C) $(F90FLAGS) $(LDFLAGS) -o $@ $+ $(LIBS) $(EXTRA_LDFLAGS)
 
-test/test_covariance.o: test/test_covariance.F90 matoper.o covariance.o
-test/test_covariance: test/test_covariance.o matoper.o covariance.o cholmod_wrapper.o
+test/test_covariance.o: test/test_covariance.F90 matoper.o covariance.o ndgrid.o 
+test/test_covariance: test/test_covariance.o matoper.o covariance.o ndgrid.o cholmod_wrapper.o ufileformat.o
 	$(F90C) $(F90FLAGS) $(LDFLAGS) -o $@ $+ $(LIBS) $(EXTRA_LDFLAGS)
 
 test/test_ndgrid.o: test/test_ndgrid.F90 matoper.o ndgrid.o ufileformat.o

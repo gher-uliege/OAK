@@ -388,7 +388,7 @@ contains
 
  subroutine run_test_large(sz,computeSa)
   use covariance
-
+  use ndgrid, only: regulargrid, init_regulargrid, near_regulargrid
   integer, intent(in) :: sz(:)
   logical :: computeSa
 
@@ -401,9 +401,11 @@ contains
   real, pointer :: x(:,:)
   integer :: i,j,k,l,m
   real, pointer :: S(:,:), Hc(:,:)
-  real, allocatable :: xf(:), xa(:), yo(:)
-  real, allocatable :: Sa(:,:), diagR(:)
+  real, allocatable :: xf(:), xa(:), yo(:), xa2(:)
+  real, allocatable :: Sa(:,:), diagR(:), Sa2(:,:)
   type(SparseMatrix) :: Hs
+  type(regulargrid) :: g
+
 # ifdef PROFILE
   real(8) :: cputime(2)
 # endif
@@ -458,6 +460,7 @@ contains
     end do
   end if
 
+  call init_regulargrid(g,sz,0.*sz,0.*sz+1)
 
   m = n/2
 
@@ -474,7 +477,7 @@ contains
   Hs%s = 1
   Hs%nz = m
 
-  allocate(xf(n),xa(n),yo(m))
+  allocate(xf(n),xa(n), xa2(n), yo(m))
   xf = 0
   yo = 1
 
@@ -482,20 +485,36 @@ contains
 
   call assert(Hs .x. xf, (/ (2.*i,i=1,m) /) ,6e-5,'verifying obsoperator')
 
-  allocate(Sa(n,Nens)) 
+  allocate(Sa(n,Nens),Sa2(n,Nens)) 
 
+  if (computeSa) then
 # ifdef PROFILE
   call cpu_time(cputime(1))
 # endif    
-  if (computeSa) then
     call locensanalysis(xf,S,Hs,yo,Rc,lpoints,Hc,xa,Sa)
-  else
-    call locensanalysis(xf,S,Hs,yo,Rc,lpoints,Hc,xa)
-  end if
 # ifdef PROFILE
   call cpu_time(cputime(2))
   write(stdout,*) 'locensanalysis CPU time  ',cputime(2)-cputime(1)
 # endif    
+
+
+
+! # ifdef PROFILE
+!   call cpu_time(cputime(1))
+! # endif    
+!     call locensanalysis(xf,S,Hs,yo,Rc,lpoints_regulargrid,Hc,xa2,Sa2)
+
+! # ifdef PROFILE
+!   call cpu_time(cputime(2))
+!   write(stdout,*) 'locensanalysis rg CPU time  ',cputime(2)-cputime(1)
+! # endif    
+
+!       call assert(xa,xa2,6e-5,'checking xa ')
+!       call assert(Sa,Sa2,6e-5,'checking Sa ')
+
+  else
+    call locensanalysis(xf,S,Hs,yo,Rc,lpoints,Hc,xa)
+  end if
 
 
   do i = 1,size(Hc,2)      
@@ -527,6 +546,30 @@ contains
    call locpoints(i,x,len,nnz,j,w,onlyj)  
   end subroutine lpoints
 
+
+  subroutine lpoints_regulargrid(i,nnz,j,w,onlyj)
+   integer, intent(in) :: i
+   integer, intent(out) :: nnz,j(:)
+   real, intent(out) :: w(:)
+   integer, optional, intent(in) :: onlyj(:)  
+   integer :: l
+
+   ! write(6,*) 'i',i
+   ! call locpoints(i,x,len,nnz,j,w,onlyj)  
+   ! write(6,*) 'locpoints',sum(j(1:nnz)),sum(w(1:nnz))
+   ! write(6,*) 'locpoints',nnz
+   ! write(6,*) 'len',len
+   call near_regulargrid(g,x(i,:),cdist,2*len,j,w,nnz)
+
+   do l = 1,nnz
+     w(l) = locfun(w(l)/len)
+   end do
+
+   !write(6,*) 'locpoints',j(1:nnz),nnz
+   !write(6,*) 'locpoints',sum(j(1:nnz)),sum(w(1:nnz))
+   !stop
+  end subroutine lpoints_regulargrid
+
  end subroutine run_test_large
 
 end module test_suite
@@ -542,19 +585,23 @@ program test
    stop
  end if
 
- call test_DiagCovar
- call test_SMWCovar
+!  call test_DiagCovar
+!  call test_SMWCovar
 
- call test_locfun 
+!  call test_locfun 
 
-! same results as matlab code test_covariance_fortran
-! call run_test([3,2]) ! ok
+! ! same results as matlab code test_covariance_fortran
+! ! call run_test([3,2]) ! ok
 
-! call run_test([5,5])
- call run_test([5,5,10]) ! ok
- call run_test_large([5,5,10],.false.) ! ok in double precision
-! call run_test_large([30,30,20],.false.) ! ok
-! call run_test_large([80,80,30],.false.)
+! ! call run_test([5,5])
+!  call run_test([5,5,10]) ! ok
+!  call run_test_large([5,5,10],.false.) ! ok in double precision
+
+! call run_test_large([5,5,10],.true.) ! ok in double precision
+ call run_test_large([50,5,10],.true.) ! ok in double precision
+
+! ! call run_test_large([30,30,20],.false.) ! ok
+! ! call run_test_large([80,80,30],.false.)
 
 contains
 

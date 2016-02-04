@@ -66,6 +66,14 @@ module ndgrid
    logical, pointer :: masked(:)
  end type basegrid
 
+ type, extends(basegrid) :: regulargrid
+   ! coordinate of point (i,j)  is 
+   ! x0(1) + i*dx(1), x0(2) + j*dx(2)
+
+   real, allocatable :: x0(:), dx(:) 
+ end type regulargrid
+
+
  type, extends(basegrid) :: grid
 
    ! ioffset(i,j) offset of the ith coordinate with repect to the jth index
@@ -169,6 +177,100 @@ end interface
 
 
 contains
+
+ subroutine init_regulargrid(g,gshape,x0,dx,masked)
+  implicit none
+  type(regulargrid) :: g
+  integer, intent(in) :: gshape(:)
+  real, intent(in) :: x0(:), dx(:) ! offset point and increment
+  logical, optional :: masked(:)
+
+  integer :: n
+  real, allocatable :: pm(:,:), x(:,:)
+  logical, allocatable :: masked_(:)
+
+  n = size(gshape)
+
+  allocate(g%x0(n),g%dx(n),g%gshape(n),g%masked(n))
+
+  g%n = n
+  g%gshape = gshape
+  g%x0 = x0
+  g%dx = dx
+
+  if (present(masked)) then
+    g%masked = masked
+  else
+    g%masked = .false.
+  end if
+
+ end subroutine init_regulargrid
+
+
+ ! get coordinates x of point at indices ind
+ function getCoord_regulargrid(g,ind,out) result(x)
+  implicit none
+  type(regulargrid), intent(in) :: g
+  integer, intent(in) :: ind(:)
+  logical, optional, intent(out) :: out
+  real :: x(size(ind))
+
+  x = g%x0 + ind * g%dx
+  ! TODO define out
+ end function getCoord_regulargrid
+
+ ! get all points (or more!) near the location x
+ 
+ subroutine near_regulargrid(g,x,distfun,maxdist,ind,dist,n)
+  use matoper
+  implicit none
+  type(regulargrid), intent(in) :: g
+  real, intent(in) :: x(:) !,xpos(:,:)
+  procedure(distind) :: distfun
+  ! maximum distance to x
+  real, intent(in) :: maxdist
+  ! actual distance to x
+  real, intent(out) :: dist(:)
+  ! indices and number of points
+  integer, intent(out) :: ind(:), n
+
+  real :: x0(g%n), dx(g%n), xi(g%n)
+  ! distance 
+  real :: d
+  integer :: i,j,k
+  integer :: index0(g%n), index1(g%n), index(g%n), subshape(g%n)
+  logical :: out
+
+  x0 = g%x0
+  dx = g%dx
+
+  index0 = max(floor((x-x0 - maxdist)/dx) +1,1)
+  index1 = min(ceiling((x-x0 + maxdist)/dx) +1,g%gshape)
+  subshape = index1-index0+1
+  n = 0
+
+  !write(6,*) 'index0',index0
+  !write(6,*) 'index1',index1
+
+  do k = 1,product(subshape)
+    index = ind2sub(subshape,k) + index0-1
+    i = sub2ind(g%gshape,index)
+
+    xi = getCoord_regulargrid(g,index,out)
+    !write(6,*) 'index ',index
+    !write(6,*) 'xi ',xi
+    d = cdist(xi,x)
+    !write(6,*) 'd ',d
+
+    if (d <= maxdist) then
+      n = n+1
+      dist(n) = d     
+      ind(n) = i
+    end if
+  end do
+  
+ end subroutine near_regulargrid
+
 
 !!$ subroutine  allpossibilities(n,b)
 !!$  implicit none
@@ -1698,11 +1800,11 @@ end subroutine
  end subroutine get
 
 
+
  ! cartesian distance
  pure real function cdist(x,y)
   real, intent(in) :: x(:),y(:)
   cdist = sqrt(sum((x-y)**2))
  end function cdist
-
 
 end module ndgrid

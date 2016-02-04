@@ -633,7 +633,7 @@ contains
 
  !_______________________________________________________
  !
-
+ ! should use init_regulargrid
  subroutine initspline_rectdom(conf,gshape,x0,x1,masked)
   use matoper
   implicit none
@@ -1243,6 +1243,7 @@ contains
   integer :: i,j,k
   integer :: index0(conf%n), index1(conf%n), subshape(conf%n)
 
+  ! should use near_regulargrid
   x0 = conf%x(1,:)
   dx = (conf%x(conf%nelem,:) - x0) / (conf%gshape-1)
 
