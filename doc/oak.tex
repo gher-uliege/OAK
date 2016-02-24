@@ -396,7 +396,7 @@ Using the decomposition \eqref{Udec} in equation (\ref{eqn:Pa_with_Sf}) one obta
 So we found a square root decomposition of $\mathbf{P}^a$ in terms of $\mathbf{S}^f\mathbf{U}(\mathbf I + \mathbf \Lambda)^{-1/2}$. But in order to construct an ensemble from the columns of $\mathbf S^a$, its mean has to be zero. So we will transform $\mathbf S^a$ so that the identity \eqref{PaSfSft} is preserved. One way to do this is
 
 \begin{equation}
-   \mathbf S^a = \mathbf S^f \mathbf U (\mathbf I + \mathbf \Lambda)^{-1/2} \mathbf U^T \mathbf \Omega
+   \mathbf S^a = \mathbf S^f \mathbf U (\mathbf I + \mathbf \Lambda)^{-1/2} \mathbf U^T  %\mathbf \Omega
 \end{equation}
 
 
@@ -423,38 +423,38 @@ by:
 
 \newcommand{\one}{ \mathbf 1_{N \times 1}}
 
-$\mathbf \Omega$ is an orthogonal matrix chosen such that sum of all columns of $\mathbf S^a$ is zero. This sum can be obtained by multiplying to the right with a vector $N \times 1$ with all elements equal to 1 ($\one$). Since $\mathbf S^f \one$ is zero, $\mathbf S^a \one$ is also zero if:
+% $\mathbf \Omega$ is an orthogonal matrix chosen such that sum of all columns of $\mathbf S^a$ is zero. This sum can be obtained by multiplying to the right with a vector $N \times 1$ with all elements equal to 1 ($\one$). Since $\mathbf S^f \one$ is zero, $\mathbf S^a \one$ is also zero if:
 
-\begin{eqnarray}
-  \mathbf U (\mathbf I + \mathbf \Lambda)^{-1/2} \mathbf U^T \mathbf \Omega \, \one &=& \one \\
-  \mathbf \Omega \, \one &=& \mathbf U (\mathbf I + \mathbf \Lambda)^{1/2} \mathbf U^T \one
-\end{eqnarray}
+% \begin{eqnarray}
+%   \mathbf U (\mathbf I + \mathbf \Lambda)^{-1/2} \mathbf U^T \mathbf \Omega \, \one &=& \one \\
+%   \mathbf \Omega \, \one &=& \mathbf U (\mathbf I + \mathbf \Lambda)^{1/2} \mathbf U^T \one
+% \end{eqnarray}
 
-We defined the normalised vectors $\mathbf w$ and $\mathbf v$:
+% We defined the normalised vectors $\mathbf w$ and $\mathbf v$:
 
-\begin{eqnarray}
-  \mathbf w &=& \frac{1}{\sqrt{N}} \one \\
-  \mathbf v &=& \alpha \mathbf U (\mathbf I + \mathbf \Lambda)^{1/2} \mathbf U^T \one
-\end{eqnarray}
+% \begin{eqnarray}
+%   \mathbf w &=& \frac{1}{\sqrt{N}} \one \\
+%   \mathbf v &=& \alpha \mathbf U (\mathbf I + \mathbf \Lambda)^{1/2} \mathbf U^T \one
+% \end{eqnarray}
 
-$\mathbf \Omega$ is thus a matrix which rotates $\mathbf w$ onto $\mathbf v$. 
-\begin{equation}
-\mathbf \Omega \mathbf w = \mathbf v
-\end{equation}
+% $\mathbf \Omega$ is thus a matrix which rotates $\mathbf w$ onto $\mathbf v$. 
+% \begin{equation}
+% \mathbf \Omega \mathbf w = \mathbf v
+% \end{equation}
 
-It can be computed by:
+% It can be computed by:
 
-\begin{eqnarray}
-\mathbf \Omega = \mathbf v \mathbf w^T  + \mathbf H({\mathbf v}) \mathbf H({\mathbf w})^T
-\end{eqnarray}
+% \begin{eqnarray}
+% \mathbf \Omega = \mathbf v \mathbf w^T  + \mathbf H({\mathbf v}) \mathbf H({\mathbf w})^T
+% \end{eqnarray}
 
-where $\mathbf H(\mathbf v)$ is the $N \times (N-1)$ Householder matrix associated to the vector $\mathbf v$, i.e.
-all columns of $\mathbf H({\mathbf v})$ are vectors perpendicular to $\mathbf v$ \citep{Hoteit02}:
+% where $\mathbf H(\mathbf v)$ is the $N \times (N-1)$ Householder matrix associated to the vector $\mathbf v$, i.e.
+% all columns of $\mathbf H({\mathbf v})$ are vectors perpendicular to $\mathbf v$ \citep{Hoteit02}:
 
-\begin{eqnarray}
-\mathbf H(\mathbf v)_{i,j} &=& \delta_{i,j} - \frac{\mathbf v_i \mathbf v_j}{|\mathbf v_N| + 1}   \qquad \mbox{for $i \le N-1$} \\
-\mathbf H(\mathbf v)_{N,j} &=& - \frac{(\mathbf v_N + \sgn(\mathbf v_N)) \mathbf v_j }{|\mathbf v_N| + 1}
-\end{eqnarray}
+% \begin{eqnarray}
+% \mathbf H(\mathbf v)_{i,j} &=& \delta_{i,j} - \frac{\mathbf v_i \mathbf v_j}{|\mathbf v_N| + 1}   \qquad \mbox{for $i \le N-1$} \\
+% \mathbf H(\mathbf v)_{N,j} &=& - \frac{(\mathbf v_N + \sgn(\mathbf v_N)) \mathbf v_j }{|\mathbf v_N| + 1}
+% \end{eqnarray}
 
 %% \begin{equation*}
 %% \mathbf H(\mathbf v)_{i,j} = 
@@ -488,7 +488,7 @@ all columns of $\mathbf H({\mathbf v})$ are vectors perpendicular to $\mathbf v$
 %%     H(n,j) = alpha * (v(n)+sign(1.,v(n)))*v(j);
 
 
-{\color{blue}
+{%\color{blue}
 For a linear observation operator, the sum of all columns of $\mat H \mat S^f$ is zero. Thus $\one$ is a (unnormalized) eigenvector of $\left(\mathbf H \mathbf S^f\right)^T  \mathbf R^{-1} \mathbf H \mathbf S^f$ with eigenvalue 0:
 
 
@@ -514,7 +514,8 @@ where $\vec e_N$ is the a vector with all elements equal to zero expect that las
   \mathbf U (\mathbf I + \mathbf \Lambda)^{-1/2} \mathbf U^T \one = \one
 \end{equation}
 
-since the element $\mat \Lambda_{N,N}$ is zero. For a linear observation operator, the matrix $\mat \Omega$ above is thus the identity matrix as $\vec v = \vec w$ in this case. \\
+since the element $\mat \Lambda_{N,N}$ is zero. 
+%or a linear observation operator, the matrix $\mat \Omega$ above is thus the identity matrix as $\vec v = \vec w$ in this case. \\
 }
  
 $\mathbf S^a$ is the square root of $\mathbf P^a$:
