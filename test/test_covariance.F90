@@ -585,23 +585,22 @@ program test
    stop
  end if
 
-!  call test_DiagCovar
-!  call test_SMWCovar
+ call test_DiagCovar
+ call test_SMWCovar
+ call test_locfun 
 
-!  call test_locfun 
+ ! same results as matlab code test_covariance_fortran
+ call run_test([3,2]) ! ok
 
-! ! same results as matlab code test_covariance_fortran
-! ! call run_test([3,2]) ! ok
+ call run_test([5,5])
+ call run_test([5,5,10]) ! ok
+! call run_test_large([5,5,10],.false.) ! ok in double precision
 
-! ! call run_test([5,5])
-!  call run_test([5,5,10]) ! ok
-!  call run_test_large([5,5,10],.false.) ! ok in double precision
+ !call run_test_large([5,5,10],.true.) ! ok in double precision
+ !call run_test_large([50,5,10],.true.) ok in double precision
 
-! call run_test_large([5,5,10],.true.) ! ok in double precision
- call run_test_large([50,5,10],.true.) ! ok in double precision
-
-! ! call run_test_large([30,30,20],.false.) ! ok
-! ! call run_test_large([80,80,30],.false.)
+! call run_test_large([30,30,20],.false.) ! ok
+! call run_test_large([80,80,30],.false.)
 
 contains
 

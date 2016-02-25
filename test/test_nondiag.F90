@@ -710,16 +710,16 @@ program test_nondiag
 
  real :: tol = 1e-7
 
- ! call test_kernel
- ! call test_diff
- ! call test_2d
- ! call test_2d_mask
- ! call test_2d_small
- ! call test_3d
- ! call test_grad2d
+ call test_kernel
+ call test_diff
+ call test_2d
+ call test_2d_mask
+ call test_2d_small
+ call test_3d
+ call test_grad2d
 
- ! call test_loc_cov
- call test_loc_cov_large
+ call test_loc_cov
+ ! call test_loc_cov_large
 contains
 
  subroutine test_kernel
