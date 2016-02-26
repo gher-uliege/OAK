@@ -57,7 +57,7 @@ end interface
 
 
 type, extends(Covar) :: DiagCovar
-  real, pointer :: diag(:)
+  real, allocatable :: diag(:)
    contains
         procedure :: init => DiagCovar_init
         procedure :: full => DiagCovar_full
@@ -281,22 +281,27 @@ end interface
 !---------------------------------------------------------------------
 
   function newDiagCovar(diag) result(this)
-    type(DiagCovar) :: this
-    real, target :: diag(:)
+   implicit none
+   type(DiagCovar) :: this
+   real :: diag(:)
 
-    this%n = size(diag)
-    this%diag => diag 
+   this%n = size(diag)
+   allocate(this%diag(this%n))
+   this%diag = diag
+   !this%diag => diag 
   end function newDiagCovar
 
 !---------------------------------------------------------------------
 
-  subroutine DiagCovar_init(this,C)
-    class(DiagCovar) :: this
-    real, target :: C(:)
-
-    this%n = size(C)
-    this%diag => C 
-   end subroutine DiagCovar_init
+  subroutine DiagCovar_init(this,diag)
+   implicit none
+   class(DiagCovar) :: this
+   real :: diag(:)
+   
+   this%n = size(diag)
+   allocate(this%diag(this%n))
+   this%diag = diag
+  end subroutine DiagCovar_init
 
 !---------------------------------------------------------------------
  
