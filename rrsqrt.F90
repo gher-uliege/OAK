@@ -25,6 +25,7 @@
 #define COPY_ERRORSPACE
 
 module rrsqrt
+ use covariance
 
 contains
  subroutine reduceErrorSpace(S,W,Sr)
@@ -196,6 +197,102 @@ contains
   if (present(amplitudes)) amplitudes = ampl
  end subroutine analysisIncrement
 
+ !_______________________________________________________  
+ !
+
+
+ subroutine analysisIncrement_covar(Hxf,yo,Sf,HSf,R, xa_xf, Sa, amplitudes)
+  use ufileformat
+  use matoper
+  implicit none
+
+  real, intent(in) :: Hxf(:), yo(:), &
+       Sf(:,:), HSf(:,:)
+  class(covar), intent(in) :: R
+  real, intent(out) :: xa_xf(:)
+#ifndef __GFORTRAN__ 
+  real, intent(out), optional :: Sa(:,:)
+#else
+! attribute inout is necessary in gfortran (due to a bug?)
+! because of call Sa(i1:i2,:) in locAnalysisIncrement
+  real, intent(inout), optional :: Sa(:,:)
+#endif
+  real, intent(out), optional :: amplitudes(size(Sf,2))
+
+  real :: lambda(size(Sf,2)), sqrt_lambda(size(Sf,2)), U(size(Sf,2),size(Sf,2)), &
+       ampl(size(Sf,2))
+  real :: dummy(1,1)
+  integer :: info
+#ifdef ROTATE_ENSEMBLE
+  real, dimension(size(Sf,2)) :: v,w
+  real :: rotationMatrix(size(Sf,2),size(Sf,2))
+#endif
+
+#ifdef ALLOCATE_LOCAL_VARS
+  real, allocatable :: temp(:,:) 
+  integer :: i,j
+#endif
+
+  lambda = 0
+
+  allocate(temp(size(HSf,2),size(HSf,2)))
+  temp = HSf .tx. (R%mldivide(HSf))
+  call symeig(temp,lambda,U)
+  where (lambda < 0) lambda = 0
+
+  ! lambda  = (1 + \mathbf \Lambda)^{-1} in OAK documentation
+  lambda = (1+lambda)**(-1)
+
+  ampl = (U.x.(lambda.dx.(U.tx.(HSf.tx.(R%mldivide(yo-Hxf))))))
+
+! check if any element of ampl is NaN
+  if (any(ampl /= ampl)) then
+    write (0,*) 'error in ',__FILE__,__LINE__
+    write (0,*) 'ampl ',ampl
+    ERROR_STOP
+  end if
+
+  xa_xf = Sf.x.ampl
+
+  if (present(Sa)) then
+!
+! PGI compiler need a intermediate variable with the square root of lambda
+! otherwise it produced an error
+! PGF90-F-0000-Internal compiler error. fill_argt: dimensionality doesn't match       1
+! on lines like: Sa = Sf.x.(U.x.(sqrt(lambda).dx.transpose(U)))
+!
+
+  ! sqrt_lambda  = (1 + \mathbf \Lambda)^{-1/2} in OAK documentation
+    sqrt_lambda = sqrt(lambda)
+
+#   ifndef ROTATE_ENSEMBLE
+    Sa = Sf.x.(U.x.(sqrt_lambda.dx.transpose(U)))
+#   else
+
+!
+! rotate Sa such that the sum of all columns is equal to the sum of all colums of Sf
+! If Sf is constructed directly from an emsemble by substracting the ensemble mean,
+! then the sum of the colums of Sf is zero. In the following algorithm this property is
+! maintained. An ensemble can thus be easely constructed from Sa by adding the new ensemble 
+! mean xa.
+!
+! If no ensembles are used, the this rotation is not necessary.
+!
+
+    ! v = U (1 + \mathbf \Lambda)^{1/2} U^T 1 
+    w = 1./sqrt(1.*size(Sf,2))
+    v = U.x.(sum(U,1)/sqrt_lambda)
+    v = normate(v)
+
+! RotateVector(w,v) is generally the identity matrix
+
+    Sa = Sf.x.(U.x.(sqrt_lambda.dx.(U.tx.RotateVector(w,v))))
+#   endif
+  end if
+
+  if (present(amplitudes)) amplitudes = ampl
+ end subroutine 
+
 
  !_______________________________________________________
  !
@@ -211,6 +308,23 @@ contains
   call analysisincrement(Hxf,yo,Sf,HSf,invsqrtR, xa, Sa, amplitudes)
   xa = xf+xa
  end subroutine analysis
+
+ !_______________________________________________________
+ !
+
+ subroutine analysis_covar(xf,Hxf,yo,Sf,HSf,R, xa,Sa, amplitudes)
+  use matoper
+  implicit none
+
+  real, intent(in) :: xf(:),  Hxf(:), yo(:), &
+       Sf(:,:), HSf(:,:)
+  class(Covar), intent(in) :: R
+  real, intent(out) :: xa(:)
+  real, intent(out), optional :: Sa(:,:), amplitudes(size(Sf,2))
+
+  call analysisincrement_covar(Hxf,yo,Sf,HSf,R, xa, Sa, amplitudes)
+  xa = xf+xa
+ end subroutine analysis_covar
 
  !_______________________________________________________
  !

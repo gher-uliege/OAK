@@ -357,8 +357,7 @@ end interface
       allocate(Dsub(nsub))
 
       Dsub = pack(this%diag,mask)
-
-      !call DiagCovar_init(C,Dsub)
+      call DiagCovar_init(C,Dsub)
     end select
    
    end function DiagCovar_sub
