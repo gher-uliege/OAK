@@ -1,6 +1,8 @@
 ! include the fortran preprocessor definitions
 #include "../ppdef.h"
 
+! cd ~/Assim/OAK-nonDiagR &&  make test/test_covariance && test/test_covariance
+
 #define PROFILE
 module test_suite
 

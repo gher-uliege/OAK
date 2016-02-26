@@ -40,6 +40,7 @@ type, abstract :: Covar
   procedure :: mtimes_mat => Covar_mtimes_mat
   procedure :: mldivide_vec => Covar_mldivide_vec
   procedure :: mldivide_mat => Covar_mldivide_mat
+  procedure :: sub => Covar_sub
 
   generic, public :: mtimes => mtimes_vec, mtimes_mat
   generic, public :: mldivide => mldivide_vec, mldivide_mat
@@ -74,10 +75,11 @@ end interface DiagCovar
 type, extends(Covar) :: SMWCovar
   real, allocatable :: C(:), B(:,:), D(:,:)
   contains
-        procedure :: initialize => SMWCovar_init
-        procedure :: full => SMWCovar_full
-        procedure :: mtimes_vec => SMWCovar_mtimes_vec
-        procedure :: mldivide_vec => SMWCovar_mldivide_vec
+   procedure :: initialize => SMWCovar_init
+   procedure :: full => SMWCovar_full
+   procedure :: mtimes_vec => SMWCovar_mtimes_vec
+   procedure :: mldivide_vec => SMWCovar_mldivide_vec
+   procedure :: sub => SMWCovar_sub  
 end type SMWCovar
 
 
@@ -169,6 +171,20 @@ end interface
      e(i) = 0.
    end do
   end function Covar_full
+
+!---------------------------------------------------------------------
+!
+! return subset of covariance, where mask is true
+
+  function Covar_sub(this, mask) result(C)
+   implicit none
+   class(Covar), intent(in) :: this
+   logical, intent(in) :: mask(:)
+   class(Covar), allocatable :: C
+
+   ! abstact function
+   write(6,*) 'abstact function'
+  end function Covar_sub
 
 !---------------------------------------------------------------------
  
@@ -314,6 +330,34 @@ end interface
    Q = v / this%diag
   end function DiagCovar_mldivide_vec
 
+!---------------------------------------------------------------------
+!
+! return subset of covariance, where mask is true
+
+  function DiagCovar_sub(this, mask) result(C)
+   implicit none
+   class(DiagCovar), intent(in) :: this
+   logical, intent(in) :: mask(:)
+   class(Covar), allocatable :: C
+
+   real, allocatable :: Dsub(:)
+   integer :: i,j, nsub
+
+    allocate(DiagCovar::C)
+
+    select type(C)
+    type is (DiagCovar) 
+      ! size of sub-matrix
+      nsub = count(mask)
+      allocate(Dsub(nsub))
+
+      Dsub = pack(this%diag,mask)
+
+      !call DiagCovar_init(C,Dsub)
+    end select
+   
+   end function DiagCovar_sub
+
 
 !---------------------------------------------------------------------
 ! SMWCovar: covariance matrix C +  B*B'
@@ -374,6 +418,42 @@ end interface
    Q = Q - matmul(this%B,matmul(this%D,(matmul(transpose(this%B),Q))))/this%C
   end function SMWCovar_mldivide_vec
 
+ 
+!---------------------------------------------------------------------
+!
+! return subset of covariance, where mask is true
+
+  function SMWCovar_sub(this, mask) result(C)
+   implicit none
+   class(SMWCovar), intent(in) :: this
+   logical, intent(in) :: mask(:)
+   class(Covar), allocatable :: C
+
+   real, allocatable :: Csub(:), Bsub(:,:)
+   integer :: i,j, nsub
+
+    allocate(SMWCovar::C)
+
+    select type(C)
+    type is (SMWCovar) 
+      ! size of sub-matrix
+      nsub = count(mask)
+      allocate(Csub(nsub),Bsub(nsub,size(this%B,2)))
+
+      ! extract elements
+      j = 0
+      do i = 1,this%n
+        if (mask(i)) then
+          j = j+1
+          Csub(j) = this%C(i)
+          Bsub(j,:) = this%B(i,:)
+        end if
+      end do
+
+      call SMWCovar_init(C,Csub,Bsub)
+    end select
+   
+  end function SMWCovar_sub
 
 !---------------------------------------------------------------------
 ! LocCovar: localized ensemble covariance matrix
