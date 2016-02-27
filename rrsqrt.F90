@@ -380,7 +380,9 @@ contains
   interface 
     subroutine selectObservations(i,c,relevantObs)
      integer, intent(in) :: i
+     ! weight of observation
      real, intent(out) :: c(:)
+     ! true if the observation should be used
      logical, intent(out) :: relevantObs(:)
     end subroutine selectObservations
   end interface
@@ -388,6 +390,11 @@ contains
 ! size of each zone
 ! if a zone is a vertical water column, then all zoneSize 
 ! are equal to the number of vertical layer
+! state vector is decomposed into 
+! xf(1 : zoneSize(1))
+! xf(zoneSize(1)+1 : zoneSize(1)+zoneSize(2))
+! xf(zoneSize(1)+zoneSize(2)+1 : zoneSize(1)+zoneSize(2)+zoneSize(3))
+! ...
 
   integer, intent(in) :: zoneSize(:)
 
@@ -511,6 +518,7 @@ contains
 
  !_______________________________________________________
  !
+
  subroutine locAnalysis(zoneSize,selectObservations,xf,Hxf,yo,Sf,HSf,invsqrtR, xa,Sa, amplitudes)
   use matoper
   implicit none

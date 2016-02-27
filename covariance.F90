@@ -41,6 +41,7 @@ type, abstract :: Covar
   procedure :: mldivide_vec => Covar_mldivide_vec
   procedure :: mldivide_mat => Covar_mldivide_mat
   procedure :: sub => Covar_sub
+  procedure :: diag => Covar_diag
 
   generic, public :: mtimes => mtimes_vec, mtimes_mat
   generic, public :: mldivide => mldivide_vec, mldivide_mat
@@ -57,7 +58,7 @@ end interface
 
 
 type, extends(Covar) :: DiagCovar
-  real, allocatable :: diag(:)
+  real, allocatable :: D(:)
    contains
         procedure :: init => DiagCovar_init
         procedure :: full => DiagCovar_full
@@ -187,6 +188,29 @@ end interface
   end function Covar_sub
 
 !---------------------------------------------------------------------
+!
+! return diagonal of covariance matrix
+
+  function Covar_diag(this) result(d)
+   implicit none
+   class(Covar), intent(in) :: this
+   real                     :: d(this%n)
+
+   integer :: i
+   real :: e(this%n), Ce(this%n)
+
+   ! apply Covar to a unit vector
+   e = 0
+   do i = 1,this%n
+     e(i) = 1.
+     Ce = this%mtimes_vec(e)
+     d(i) = Ce(i)
+     ! reset
+     e(i) = 0.
+   end do
+  end function Covar_diag
+
+!---------------------------------------------------------------------
  
   function Covar_mtimes_mat(this,A) result(Q)
    implicit none
@@ -280,27 +304,27 @@ end interface
 ! DiagCovar: diagonal covariance matrix
 !---------------------------------------------------------------------
 
-  function newDiagCovar(diag) result(this)
+  function newDiagCovar(D) result(this)
    implicit none
    type(DiagCovar) :: this
-   real :: diag(:)
+   real :: D(:)
 
-   this%n = size(diag)
-   allocate(this%diag(this%n))
-   this%diag = diag
-   !this%diag => diag 
+   this%n = size(D)
+   allocate(this%D(this%n))
+   this%D = D
+   !this%D => D 
   end function newDiagCovar
 
 !---------------------------------------------------------------------
 
-  subroutine DiagCovar_init(this,diag)
+  subroutine DiagCovar_init(this,D)
    implicit none
    class(DiagCovar) :: this
-   real :: diag(:)
+   real :: D(:)
    
-   this%n = size(diag)
-   allocate(this%diag(this%n))
-   this%diag = diag
+   this%n = size(D)
+   allocate(this%D(this%n))
+   this%D = D
   end subroutine DiagCovar_init
 
 !---------------------------------------------------------------------
@@ -310,7 +334,7 @@ end interface
    class(DiagCovar), intent(in) :: this
    real :: M(this%n,this%n)
 
-   M = diag(this%diag)
+   M = diag(this%D)
   end function
 
 !---------------------------------------------------------------------
@@ -321,7 +345,7 @@ end interface
    real, intent(in) :: x(:)
    real :: C(size(x,1))
 
-   C = this%diag*x    
+   C = this%D*x    
   end function DiagCovar_mtimes_vec
 
 !---------------------------------------------------------------------
@@ -332,7 +356,7 @@ end interface
    real, intent(in) :: v(:)
    real :: Q(size(v))
 
-   Q = v / this%diag
+   Q = v / this%D
   end function DiagCovar_mldivide_vec
 
 !---------------------------------------------------------------------
@@ -356,7 +380,7 @@ end interface
       nsub = count(mask)
       allocate(Dsub(nsub))
 
-      Dsub = pack(this%diag,mask)
+      Dsub = pack(this%D,mask)
       call DiagCovar_init(C,Dsub)
     end select
    

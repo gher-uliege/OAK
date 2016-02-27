@@ -5,6 +5,8 @@
 program test_rrsqrt
  use matoper
  implicit none
+ ! tolerance for checking
+ real, parameter :: tol = 1e-8
 
  call test_analysis
  call test_analysis_covar
@@ -34,9 +36,7 @@ contains
   real :: HSf(m,dim_ens) ! Observed S
   real :: Hxf(m)         ! Observed forecast
   real :: Sa(n,dim_ens)  ! 
-  real :: Ea(n,dim_ens)  ! Analysis ensemble 
   real :: xa(n)          ! Analysis state (ensemble mean)
-  real :: Eap(n,dim_ens) ! Analysis ensemble perturbations
   real :: Efp(n,dim_ens) ! Forecast ensemble perturbations
 
   real :: invsqrtR(m)
@@ -52,9 +52,6 @@ contains
   ! tolerance for checking
   real, parameter :: tol = 1e-8
   
-  ! if debug is true, then internal checks are activated
-  logical :: debug = .true. 
-
 
   ! index 
   integer :: i
@@ -104,6 +101,137 @@ contains
   
  end subroutine test_analysis
 
+
+ !_______________________________________________________
+ !
+
+ subroutine testing_analysis_covar(xf,Sf,H,yo,CovarR)
+  use covariance
+  use matoper
+  use rrsqrt
+  implicit none
+
+  real, intent(in) :: xf(:),  H(:,:), yo(:), &
+       Sf(:,:)
+  class(Covar), intent(in) :: CovarR
+
+  ! Observation error covariance matrix
+  real :: R(size(yo),size(yo))
+  real :: Pf(size(xf),size(xf))
+  real :: K(size(xf),size(yo))
+  real :: xa(size(xf))
+  real :: Sa(size(xf),size(Sf,2))
+  real :: Hxf(size(yo))
+  real :: HSf(size(yo),size(Sf,2))
+
+  real :: Pa_check(size(xf),size(xf))
+  real :: xa_check(size(xf))
+
+  ! Observed part
+  HSf = matmul(H,Sf)
+  Hxf = matmul(H,xf)
+  R = CovarR%full()
+
+  ! For verification, compute ensemble covariance and Kalman gain
+  Pf = matmul(Sf,transpose(Sf))
+
+  K = matmul( &
+       matmul(Pf, transpose(H)), &
+       inv(matmul(H,matmul(Pf,transpose(H))) + R))
+  
+  ! Analyzed covariance and mean state
+  Pa_check = Pf - matmul(K,matmul(H,Pf))
+  xa_check = xf + matmul(K,(yo - matmul(H,xf)))
+
+  call analysis_covar(xf,Hxf,yo,Sf,HSf, CovarR, xa,Sa)
+
+  ! check results
+  call assert(xa,xa_check,tol,'analysis ensemble mean')
+
+!  write(6,*) 'xa',xa
+!  write(6,*) 'xa',xa_check
+  
+  call assert(matmul(Sa,transpose(Sa)),Pa_check, tol, &
+       'analysis ensemble variance')
+
+
+ end subroutine testing_analysis_covar
+
+ !_______________________________________________________
+ !
+
+ subroutine testing_local_analysis_covar(xf,Sf,H,yo,CovarR)
+  use covariance
+  use matoper
+  use rrsqrt
+  implicit none
+
+  real, intent(in) :: xf(:),  H(:,:), yo(:), &
+       Sf(:,:)
+  class(Covar), intent(in) :: CovarR
+
+  ! Observation error covariance matrix
+  real :: R(size(yo),size(yo))
+  real :: Pf(size(xf),size(xf))
+  real :: K(size(xf),size(yo))
+  real :: xa(size(xf))
+  real :: Sa(size(xf),size(Sf,2))
+  real :: Hxf(size(yo))
+  real :: HSf(size(yo),size(Sf,2))
+
+  real :: Pa_check(size(xf),size(xf))
+  real :: xa_check(size(xf))
+
+  ! allocate maximum size
+  integer :: zoneSize(size(xf)) 
+
+
+  ! Observed part
+  HSf = matmul(H,Sf)
+  Hxf = matmul(H,xf)
+  R = CovarR%full()
+
+  ! For verification, compute ensemble covariance and Kalman gain
+  Pf = matmul(Sf,transpose(Sf))
+
+  K = matmul( &
+       matmul(Pf, transpose(H)), &
+       inv(matmul(H,matmul(Pf,transpose(H))) + R))
+  
+  ! Analyzed covariance and mean state
+  Pa_check = Pf - matmul(K,matmul(H,Pf))
+  xa_check = xf + matmul(K,(yo - matmul(H,xf)))
+
+  call analysis(xf,Hxf,yo,Sf,HSf, 1/sqrt(CovarR%diag()), xa,Sa)
+
+  ! single zone
+  zoneSize(1) = size(xf)
+  call locAnalysis(zoneSize(1:1),selectAllObservations,xf,Hxf,yo,Sf,HSf, 1/sqrt(CovarR%diag()), xa,Sa)
+
+  ! check results
+  call assert(xa,xa_check,tol,'analysis ensemble mean')
+
+!  write(6,*) 'xa',xa
+!  write(6,*) 'xa',xa_check
+  
+  call assert(matmul(Sa,transpose(Sa)),Pa_check, tol, &
+       'analysis ensemble variance')
+
+
+ end subroutine testing_local_analysis_covar
+
+ !_______________________________________________________  
+ !
+
+ subroutine selectAllObservations(i,c,relevantObs)
+  integer, intent(in) :: i
+  real, intent(out) :: c(:)
+  logical, intent(out) :: relevantObs(:)
+  
+  c = 1.
+  relevantObs = .true.
+ end subroutine selectAllObservations
+
  !_______________________________________________________  
  !
 
@@ -127,32 +255,13 @@ contains
   real :: Ef(n,dim_ens)  ! Forecast ensemble
   real :: xf(n)          ! Initial state (ensemble mean)
   real :: H(m,n)         ! Observation operator
-  real :: HEf(m,dim_ens) ! Observed forecast ensemble
-  real :: HSf(m,dim_ens) ! Observed S
-  real :: Hxf(m)         ! Observed forecast
-  real :: Sa(n,dim_ens)  ! 
-  real :: Ea(n,dim_ens)  ! Analysis ensemble 
-  real :: xa(n)          ! Analysis state (ensemble mean)
-  real :: Eap(n,dim_ens) ! Analysis ensemble perturbations
   real :: Efp(n,dim_ens) ! Forecast ensemble perturbations
 
-  real :: invsqrtR(m)
   ! Observation error covariance matrix
-  real :: R(m,m)
-  type(DiagCovar) :: CovarR
+  type(DiagCovar) :: DiagCovarR
+  type(SMWCovar) :: SMWCovarR
 
-  ! variables for verification
-  real :: Pf(n,n)        ! Forecast Ensemble covariance
-  real :: K(n,m)         ! Kalman gain
-  real :: Pa_check(n,n)  ! Analysis ensemble covariance
-  real :: xa_check(n)    ! Analysis state (ensemble mean)
-  
-  ! tolerance for checking
-  real, parameter :: tol = 1e-8
-  
-  ! if debug is true, then internal checks are activated
-  logical :: debug = .true. 
-
+    
 
   ! index 
   integer :: i
@@ -162,45 +271,33 @@ contains
   Ef = reshape([(sin(3.*i),i=1,n*dim_ens)],[n,dim_ens])
   H = reshape([(i,i=1,m*n)],[m,n])
   
-  ! R: diagonal matrix with diagonal elements equal to 2
-  call DiagCovar_init(CovarR,[(2.,i=1,m)])
-  R = CovarR%full()
-  invsqrtR = 1./sqrt(2.)
-
   ! Compute initial ensemble mean state
   xf = sum(Ef,2)/dim_ens
   Efp = Ef - spread(xf,2,dim_ens)
   Sf = Efp / sqrt(dim_ens-1.)
 
-  ! Observed part
-  HEf = matmul(H,Ef)
-  HSf = matmul(H,Sf)
-  Hxf = matmul(H,xf)
-  
-  ! For verification, compute ensemble covariance and Kalman gain
-  Pf = matmul(Efp,transpose(Efp)) / (dim_ens-1)
 
-  K = matmul( &
-       matmul(Pf, transpose(H)), &
-       inv(matmul(H,matmul(Pf,transpose(H))) + R))
-  
-  ! Analyzed covariance and mean state
-  Pa_check = Pf - matmul(K,matmul(H,Pf))
-  xa_check = xf + matmul(K,(y - matmul(H,xf)))
+  ! Testing analysis step
 
-  ! Perform analysis step
-  call analysis_covar(xf,Hxf,y,Sf,HSf, CovarR, xa,Sa)
-  
-  ! check results
-  call assert(xa,xa_check,tol,'analysis ensemble mean')
+  write(6,*) '= Diagonal error observation covariance = '
+  ! R: diagonal matrix with diagonal elements equal to 2
+  call DiagCovar_init(DiagCovarR,[(2.,i=1,m)])
 
-!  write(6,*) 'xa',xa
-!  write(6,*) 'xa',xa_check
-  
-  call assert(matmul(Sa,transpose(Sa)),Pa_check, tol, &
-       'analysis ensemble variance')
+  call testing_analysis_covar(xf,Sf,H,y,DiagCovarR)
 
+  write(6,*) '= SMWCovar error observation covariance = '
+  ! R: diagonal matrix with diagonal elements equal to 2
   
+  call SMWCovar_init(SMWCovarR, &
+       [(2.,i=1,m)], &
+       reshape([(sin(3.*i),i=1,m*dim_ens)],[m,dim_ens]) &
+       )
+
+  call testing_analysis_covar(xf,Sf,H,y,SMWCovarR)
+  
+  write(6,*) '= Diagonal error observation covariance (local) = '  
+  call testing_local_analysis_covar(xf,Sf,H,y,DiagCovarR)
+
  end subroutine test_analysis_covar
 
 end program test_rrsqrt
