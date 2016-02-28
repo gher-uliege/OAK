@@ -2,6 +2,7 @@
 ! for a two dimensional grid
 
 program test_ndgrid
+ use matoper
  use ndgrid
  implicit none
 
@@ -97,12 +98,8 @@ contains
     fi = fi + coeff(i) * f(indexes(1,i),indexes(2,i))
   end do
 
-  if (abs(ref-fi) > 1e-6 .or. out) then
-    write(6,*) 'domain ',m,n,'FAILED'
-    stop
-  end if
-  write(6,*) 'domain ',m,n,'OK'
-
+  call assert(.not.out,'interp domain '//trim(fmtsize([m,n])) // ' out')
+  call assert(ref,fi,1e-6,'interp domain '//trim(fmtsize([m,n])) // ' interpolation')
 
  end subroutine test_ndgrid_2d
 
@@ -116,7 +113,29 @@ contains
  end function fun_nd
 
 
+ ! output a string from vector of integer size
+ ! e.g. is size = [12,13,10] the output will be 
+ ! '12x13x10'
+
+ function fmtsize(sz) result(s)
+  implicit none
+  integer, intent(in) :: sz(:)
+  character(len=80) :: s, tmp
+  integer :: i
+
+  do i = 1,size(sz)
+    write(tmp,*) sz(i)
+    if (i == 1) then
+      s = adjustl(tmp)
+    else
+      s = trim(s)//'x'//adjustl(tmp)
+    end if
+  end do
+
+ end function fmtsize
+
  subroutine test_ndgrid_nd(sz)
+  implicit none
 
   ! size of the domain
   integer, intent(in) :: sz(:)
@@ -143,7 +162,7 @@ contains
   ! number of dimensions
   n = size(sz)
 
-  write(6,*) 'Testing domain ',sz
+  write(6,*) 'Testing domain ',trim(fmtsize(sz))
 
   ! initialize coordinate, field and mask
 
@@ -188,16 +207,8 @@ contains
 
   ref = fun_nd(xi)
 
-
-  if (abs(ref-fi) > 1e-6 .or. out) then
-    write(6,*) 'fi ',fi
-    write(6,*) 'ref ',ref ! should be the same as fi
-    write(6,*) 'out ',out        ! should be .false.
-    write(6,*) 'domain ',sz,'FAILED'
-    stop
-  end if
-
-  write(6,*) 'interp: OK'
+  call assert(.not.out,'interp domain '//trim(fmtsize(sz)) // ' out')
+  call assert(ref,fi,1e-6,'interp domain '//trim(fmtsize(sz)) // ' interpolation')
 
   ! get interpolation coefficients  
   call cinterp(g,xi,indexes,coeff,nbp)
@@ -206,12 +217,7 @@ contains
     fi = fi + coeff(i) * f(sum((indexes(:,i)-1) * ioffset)+1)
   end do
 
-  if (abs(ref-fi) > 1e-6 .or. out) then
-    write(6,*) 'cinterp: FAILED'
-    write(6,*) 'ref, fi',ref,fi
-    stop
-  end if
-  write(6,*) 'cinterp: OK'
+  call assert(ref,fi,1e-6,'cinterp domain '//trim(fmtsize(sz)) // ' interpolation')
 
 
  end subroutine test_ndgrid_nd

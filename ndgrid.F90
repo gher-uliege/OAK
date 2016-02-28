@@ -1739,6 +1739,8 @@ end subroutine
 
  ! check results with exhaustive search
  subroutine checknear(cg,x,xpos,distfun,maxdist,ind)
+  use matoper
+  implicit none
   type(cellgrid), intent(in) :: cg
   real, intent(in) :: x(:),xpos(:,:)
   procedure(distind) :: distfun
@@ -1747,7 +1749,9 @@ end subroutine
 
   integer :: found,l
   real :: distl
+  logical :: success 
 
+  success = .true.
   found = 0
   do l = 1,size(xpos,1)
     !if (mod(l,1000) == 0) write(6,*) 'l ',l,size(xpos,1)
@@ -1759,12 +1763,15 @@ end subroutine
         found = found+1
       else
         write(6,*) 'not found ',l,distl,maxdist,x,xpos(l,:),'FAIL'
+        success = .false.
+        exit
         stop
       end if
     end if
   end do
-
-  write(6,*) 'found all ',found,size(ind),'OK'
+  
+  call assert(success,'find all')
+  !write(6,*) 'found all ',found,size(ind),'OK'
 
  end subroutine checknear
 
