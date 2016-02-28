@@ -1405,18 +1405,18 @@ end function nchoosek
   !_______________________________________________________
   !
 
-  subroutine assert_bool(cond,msg)
+  subroutine assert_bool(success,msg)
     
-    ! Produce an error if the specified condition is no true
+    ! Produce an error if the specified condition is not true
 
     implicit none
     
     ! Inputs
-    logical, intent(in) :: cond  ! condition to check   
-    character(len=*) :: msg      ! message to print while checking
+    logical, intent(in) :: success  ! condition to check   
+    character(len=*)    :: msg      ! message to print while checking
 
-    call assert_message(cond,msg)
-    if (.not.cond) then
+    call assert_message(success,msg)
+    if (.not.success) then
        stop
     end if
   end subroutine assert_bool

@@ -98,20 +98,21 @@ program test_matoper
    integer :: ind(n), ind2(n), i, nu
    integer, dimension(1:n) :: A = &  
         (/0, 20, 20, 25, 90, 10, 5, 20, 90, 75/), uA
+   logical :: success
    
    uA = A
    call unique(uA,nu,ind,ind2)
 
+   success = .true.
    ! all elements in A must be one time in uA
    do i = 1,n
      if (count(A(i) == uA(1:nu)) /= 1) then
-       write(6,*) 'unique (1): FAILED'
-       stop
+       success = .false.
+       exit
      end if
    end do
 
-   write(6,*) 'unique (1): OK'
-
+   call assert(success,'unique (1)')
    call assert(all(uA(1:nu) == A(ind(1:nu))),'unique (2)')
    call assert(all(A == uA(ind2)),'unique (3)')
 
