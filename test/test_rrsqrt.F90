@@ -2,8 +2,14 @@
 
 ! cd ~/Assim/OAK-nonDiagR &&  make test/test_rrsqrt && test/test_rrsqrt
 
+module testing_rrsqrt
+
+end module testing_rrsqrt
+
+
 program test_rrsqrt
  use matoper
+ use testing_rrsqrt
  implicit none
  ! tolerance for checking
  real, parameter :: tol = 1e-8
@@ -185,6 +191,7 @@ contains
   ! allocate maximum size
   integer :: zoneSize(size(xf)) 
 
+  integer :: i
 
   ! Observed part
   HSf = matmul(H,Sf)
@@ -217,6 +224,16 @@ contains
   call assert(matmul(Sa,transpose(Sa)),Pa_check, tol, &
        'analysis ensemble variance')
 
+  ! every grid point a separate zone
+  zoneSize = [(1,i=1,size(xf))]
+  call locAnalysis(zoneSize,selectAllObservations,xf,Hxf,yo,Sf,HSf, 1/sqrt(CovarR%diag()), xa,Sa)
+  
+  ! check results
+  call assert(xa,xa_check,tol,'analysis ensemble mean')
+  call assert(matmul(Sa,transpose(Sa)),Pa_check, tol, &
+       'analysis ensemble variance')
+
+
 
  end subroutine testing_local_analysis_covar
 
@@ -231,6 +248,18 @@ contains
   c = 1.
   relevantObs = .true.
  end subroutine selectAllObservations
+
+ !_______________________________________________________  
+ !
+
+ subroutine selectObservations(i,c,relevantObs)
+  integer, intent(in) :: i
+  real, intent(out) :: c(:)
+  logical, intent(out) :: relevantObs(:)
+  
+  c = 1.
+  relevantObs = .true.
+ end subroutine selectObservations
 
  !_______________________________________________________  
  !
