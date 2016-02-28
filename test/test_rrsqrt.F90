@@ -232,9 +232,7 @@ contains
   call assert(xa,xa_check,tol,'analysis ensemble mean')
   call assert(matmul(Sa,transpose(Sa)),Pa_check, tol, &
        'analysis ensemble variance')
-
-
-
+ 
  end subroutine testing_local_analysis_covar
 
  !_______________________________________________________  

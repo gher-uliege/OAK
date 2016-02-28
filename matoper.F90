@@ -1372,6 +1372,36 @@ end function nchoosek
 #include "matoper_inc.F90"
 
 
+
+  !_______________________________________________________
+  !
+
+  subroutine assert_message(cond,msg)
+    
+    ! Writes an error message if the specified condition is no true
+
+    implicit none
+    
+    ! Inputs
+    logical, intent(in) :: cond  ! condition to check   
+    character(len=*) :: msg      ! message to print while checking
+    character(len=7), parameter :: fmt = '(A40,A)'
+
+    character(len=5) :: color_reset = '', color_ok = '', color_fail = ''
+
+#ifdef COLOR
+    color_ok    = achar(27)//'[32m'
+    color_fail  = achar(27)//'[31m'
+    color_reset = achar(27)//'[0m'
+#endif
+
+    if (cond) then
+      write(6,fmt) msg, ': ' // color_ok   // '  OK  ' // color_reset
+    else
+      write(6,fmt) msg, ': ' // color_fail // ' FAIL ' // color_reset
+    end if    
+   end subroutine assert_message
+
   !_______________________________________________________
   !
 
@@ -1385,10 +1415,8 @@ end function nchoosek
     logical, intent(in) :: cond  ! condition to check   
     character(len=*) :: msg      ! message to print while checking
 
-    if (cond) then
-       write(6,*) msg, ': OK '
-    else
-       write(6,*) msg, ': FAIL '
+    call assert_message(cond,msg)
+    if (.not.cond) then
        stop
     end if
   end subroutine assert_bool
@@ -1413,10 +1441,9 @@ end function nchoosek
     real :: maxdiff
     maxdiff = abs(found - expected)
 
-    if (maxdiff < tol) then
-       write(6,*) msg, ': OK '
-    else
-       write(6,*) msg, ': FAIL ', maxdiff
+    call assert_message(maxdiff < tol,msg)
+
+    if (maxdiff >= tol) then
        write(6,*) 'found ',found
        write(6,*) 'expected ',expected
        stop
@@ -1442,10 +1469,9 @@ end function nchoosek
     ! Local variable
     real :: maxdiff
 
-    if (found == expected) then
-       write(6,*) msg, ': OK '
-    else
-       write(6,*) msg, ': FAIL ', maxdiff
+    call assert_message(found == expected,msg)
+
+    if (found /= expected) then
        write(6,*) 'found ',found
        write(6,*) 'expected ',expected
        stop
@@ -1472,10 +1498,9 @@ end function nchoosek
     real :: maxdiff
     maxdiff = maxval(abs(found - expected))
 
-    if (maxdiff < tol) then
-       write(6,*) msg, ': OK '
-    else
-       write(6,*) msg, ': FAIL ', maxdiff
+    call assert_message(maxdiff < tol,msg)
+
+    if (maxdiff >= tol) then
        write(6,*) 'found ',found
        write(6,*) 'expected ',expected
        stop
@@ -1504,10 +1529,9 @@ end function nchoosek
     real :: maxdiff
     maxdiff = maxval(abs(found - expected))
 
-    if (maxdiff < tol) then
-       write(6,*) msg, ': OK '
-    else
-       write(6,*) msg, ': FAIL ', maxdiff
+    call assert_message(maxdiff < tol,msg)
+
+    if (maxdiff >= tol) then
        ! often too large to print
        !     write(6,*) 'found ',found
        !     write(6,*) 'expected ',expected
@@ -1537,17 +1561,14 @@ end function nchoosek
     real :: maxdiff
     maxdiff = maxval(abs(found - expected))
 
-    if (maxdiff < tol) then
-       write(6,*) msg, ': OK '
-    else
-       write(6,*) msg, ': FAIL ', maxdiff
+    call assert_message(maxdiff < tol,msg)
+
+    if (maxdiff >= tol) then
        ! often too large to print
        !     write(6,*) 'found ',found
        !     write(6,*) 'expected ',expected
        stop
     end if
-
-
   end subroutine assert_array3
 
 
