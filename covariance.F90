@@ -253,8 +253,8 @@ end interface
 
   function Covar_mldivide_mat(this,A) result(Q)
    implicit none
-   class(Covar) :: this
-   real, intent(in) :: A(:,:)
+   class(Covar), intent(in) :: this
+   real, intent(in)         :: A(:,:)
    real :: Q(size(A,1),size(A,2))
    integer :: i
 
@@ -266,14 +266,14 @@ end interface
 
 !---------------------------------------------------------------------
 
-  function Covar_mldivide_vec(this,v) result(Q)
+  function Covar_mldivide_vec(this,x) result(Q)
    use matoper
    implicit none
-   class(Covar) :: this
-   real, intent(in) :: v(:)
-   real :: Q(size(v))
+   class(Covar), intent(in) :: this
+   real, intent(in) :: x(:)
+   real :: Q(size(x))
 
-   Q = pcg(fun,v)
+   Q = pcg(fun,x)
 
    contains
     function fun(x) result(y)
@@ -385,13 +385,13 @@ end interface
 
 !---------------------------------------------------------------------
  
-  function DiagCovar_mldivide_vec(this,v) result(Q)
+  function DiagCovar_mldivide_vec(this,x) result(Q)
    implicit none
-   class(DiagCovar) :: this
-   real, intent(in) :: v(:)
-   real :: Q(size(v))
+   class(DiagCovar), intent(in) :: this
+   real, intent(in) :: x(:)
+   real :: Q(size(x))
 
-   Q = v / this%D
+   Q = x / this%D
   end function DiagCovar_mldivide_vec
 
 !---------------------------------------------------------------------
@@ -483,13 +483,13 @@ end interface
 
 !---------------------------------------------------------------------
  
-  function SMWCovar_mldivide_vec(this,v) result(Q)
+  function SMWCovar_mldivide_vec(this,x) result(Q)
    implicit none
-   class(SMWCovar) :: this
-   real, intent(in) :: v(:)
-   real :: Q(size(v))
+   class(SMWCovar), intent(in) :: this
+   real, intent(in) :: x(:)
+   real :: Q(size(x))
 
-   Q = v / this%C
+   Q = x / this%C
 
    Q = Q - matmul(this%B,matmul(this%D,(matmul(transpose(this%B),Q))))/this%C
   end function SMWCovar_mldivide_vec
@@ -571,13 +571,13 @@ end interface
 
 !---------------------------------------------------------------------
 
-  function DCDCovar_mldivide_vec(this,v) result(C)
+  function DCDCovar_mldivide_vec(this,x) result(C)
    implicit none
-   class(DCDCovar) :: this
-   real, intent(in) :: v(:)
-   real :: C(size(v,1))
+   class(DCDCovar), intent(in) :: this
+   real, intent(in) :: x(:)
+   real :: C(size(x,1))
    
-   C = this%D*this%C%mldivide(this%D*v)
+   C = this%D * this%C%mldivide(this%D*x)
   end function DCDCovar_mldivide_vec
 
 !---------------------------------------------------------------------
