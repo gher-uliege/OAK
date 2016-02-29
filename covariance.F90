@@ -80,7 +80,7 @@ end interface DiagCovar
 type, extends(Covar) :: SMWCovar
   real, allocatable :: C(:), B(:,:), D(:,:)
   contains
-   procedure :: initialize => SMWCovar_init
+   procedure :: init => SMWCovar_init
    procedure :: full => SMWCovar_full
    procedure :: mtimes_vec => SMWCovar_mtimes_vec
    procedure :: mldivide_vec => SMWCovar_mldivide_vec
@@ -97,7 +97,7 @@ type, extends(Covar) :: DCDCovar
   real, allocatable :: D(:)
   class(covar), allocatable :: C
   contains
-   procedure :: initialize => DCDCovar_init
+   procedure :: init => DCDCovar_init
    procedure :: mtimes_vec => DCDCovar_mtimes_vec
    procedure :: mldivide_vec => DCDCovar_mldivide_vec
 end type DCDCovar
@@ -136,7 +136,7 @@ type, extends(Covar) :: ConsCovar
 !  class(LocCovar), pointer :: C
   class(Covar), pointer :: C
    contains
-        procedure :: initialize => ConsCovar_init
+        procedure :: init => ConsCovar_init
         procedure :: mtimes_vec => ConsCovar_mtimes_vec
         procedure :: mtimes_mat => ConsCovar_mtimes_mat
 end type ConsCovar
