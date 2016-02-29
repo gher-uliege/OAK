@@ -73,6 +73,10 @@ end interface DiagCovar
 #endif
 
 
+!---------------------------------------------------------------------
+! SMWCovar: covariance matrix of the type C +  B*B'
+!---------------------------------------------------------------------
+
 type, extends(Covar) :: SMWCovar
   real, allocatable :: C(:), B(:,:), D(:,:)
   contains
@@ -82,6 +86,23 @@ type, extends(Covar) :: SMWCovar
    procedure :: mldivide_vec => SMWCovar_mldivide_vec
    procedure :: sub => SMWCovar_sub  
 end type SMWCovar
+
+
+!---------------------------------------------------------------------
+! DCDCovar: covariance matrix of the type inv(D) C inv(D)
+! where D is a diagonal matrix and C a covariance matrix
+!---------------------------------------------------------------------
+
+type, extends(Covar) :: DCDCovar
+  real, allocatable :: D(:)
+  class(covar), allocatable :: C
+  contains
+   procedure :: initialize => DCDCovar_init
+   procedure :: mtimes_vec => DCDCovar_mtimes_vec
+   procedure :: mldivide_vec => DCDCovar_mldivide_vec
+end type DCDCovar
+
+!---------------------------------------------------------------------
 
 
 interface
@@ -328,6 +349,15 @@ end interface
   end subroutine DiagCovar_init
 
 !---------------------------------------------------------------------
+
+  subroutine DiagCovar_done(this)
+   implicit none
+   class(DiagCovar) :: this
+   
+   deallocate(this%D)
+  end subroutine DiagCovar_done
+
+!---------------------------------------------------------------------
  
   function DiagCovar_full(this) result(M)
    implicit none
@@ -482,6 +512,44 @@ end interface
     end select
    
   end function SMWCovar_sub
+
+!---------------------------------------------------------------------
+
+  subroutine DCDCovar_init(this,D,C)
+   use matoper
+   implicit none   
+   class(DCDCovar) :: this
+   class(Covar), intent(in) :: C
+   real, intent(in) :: D(:)
+
+   allocate(this%D(size(D)))
+
+   this%n = size(D)
+   this%D = D
+   allocate(this%C, source=C)
+  end subroutine 
+
+!---------------------------------------------------------------------
+
+  function DCDCovar_mtimes_vec(this,x) result(C)
+   implicit none
+   class(DCDCovar), intent(in) :: this
+   real, intent(in) :: x(:)
+   real :: C(size(x,1))
+   
+   C = this%C%mtimes(x/this%D)/this%D
+  end function DCDCovar_mtimes_vec
+
+!---------------------------------------------------------------------
+
+  function DCDCovar_mldivide_vec(this,v) result(C)
+   implicit none
+   class(DCDCovar) :: this
+   real, intent(in) :: v(:)
+   real :: C(size(v,1))
+   
+   C = this%D*this%C%mldivide(this%D*v)
+  end function DCDCovar_mldivide_vec
 
 !---------------------------------------------------------------------
 ! LocCovar: localized ensemble covariance matrix

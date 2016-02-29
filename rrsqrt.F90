@@ -549,6 +549,203 @@ contains
 !$omp end master
 
  end subroutine locAnalysis
+
+
+ !_______________________________________________________
+ !
+
+ subroutine locAnalysisIncrement_covar(zoneSize,selectObservations,Hxf,yo,Sf, &
+       HSf,invsqrtR,xa_xf, Sa, amplitudes) 
+  use matoper
+  use covariance
+# ifdef ASSIM_PARALLEL
+  use parall
+# endif 
+  implicit none
+
+  ! interface of the function computing the horizontal correlation between 
+  ! the ith component of xf and the jth component of yo
+
+  interface 
+    subroutine selectObservations(i,c,relevantObs)
+     integer, intent(in) :: i
+     ! weight of observation
+     real, intent(out) :: c(:)
+     ! true if the observation should be used
+     logical, intent(out) :: relevantObs(:)
+    end subroutine selectObservations
+  end interface
+
+! size of each zone
+! if a zone is a vertical water column, then all zoneSize 
+! are equal to the number of vertical layer
+! state vector is decomposed into 
+! xf(1 : zoneSize(1))
+! xf(zoneSize(1)+1 : zoneSize(1)+zoneSize(2))
+! xf(zoneSize(1)+zoneSize(2)+1 : zoneSize(1)+zoneSize(2)+zoneSize(3))
+! ...
+
+  integer, intent(in) :: zoneSize(:)
+
+
+  real, intent(in) :: Hxf(:), yo(:), &
+       Sf(:,:), HSf(:,:)
+  real, intent(in) :: invsqrtR(:)
+!  type(Covar), intent(in) :: R
+  type(DiagCovar) :: R
+  real, intent(out) :: xa_xf(:)
+  real, intent(out), optional :: Sa(:,:), amplitudes(size(Sf,2),size(zoneSize))
+
+  real, dimension(size(yo)) :: invsqrtRzone,weight
+
+  logical :: noRelevantObs,relevantObs(size(yo))
+  integer :: zi, zi1,zi2,i,j, NZones, nbselectedZones,nbObservations
+
+  integer, dimension(size(zoneSize)) :: startIndex,endIndex
+
+# ifdef OPTIM_ZONE_OBS
+  real, dimension(size(yo)) :: yozone
+  real, dimension(size(yo),size(Sf,2)) :: HSfzone
+  integer :: nObs
+# endif
+
+  integer :: baseIndex = 1, i1,i2
+  real,allocatable :: temp(:)
+
+!$omp single
+  xa_xf = 0
+  if (present(amplitudes)) amplitudes = 0
+  if (present(Sa)) Sa = Sf
+!$omp end single
+
+  NZones = size(zoneSize)
+  startIndex(1) = 1
+  endIndex(1) = zoneSize(1)
+
+  do zi=2,NZones
+    startIndex(zi) = endIndex(zi-1)+1
+    endIndex(zi)   = endIndex(zi-1)+zoneSize(zi)
+  end do
+
+
+  nbselectedZones = 0
+
+# ifdef ASSIM_PARALLEL
+  zi1 = startZIndex(procnum)
+  zi2 =   endZIndex(procnum)
+
+  ! if every vector contains only the local subset
+  baseIndex = -startIndex(zi1)+1
+# else
+  zi1 = 1
+  zi2 = Nzones
+
+  ! if every vector is a global vector
+  baseIndex = 0
+# endif
+
+  ! loop over each zone    
+!$omp do schedule(dynamic)
+  zonesLoop: do zi=zi1,zi2
+    i1 = startIndex(zi) + baseIndex
+    i2 =   endIndex(zi) + baseIndex
+
+!$omp critical
+!    write(stdout,*) 'zi ',zi
+!$omp end critical
+
+    call selectObservations(startIndex(zi),weight,relevantObs)
+
+    nbObservations = count(relevantObs)
+    if (nbObservations.eq.0) cycle zonesLoop
+
+
+#   ifndef OPTIM_ZONE_OBS
+    write(6,*) 'here'
+    call R%init(1./invsqrtR**2)
+
+    invsqrtRzone = invsqrtR * weight
+    if (present(amplitudes)) then
+      call analysisIncrement(Hxf,yo,Sf(i1:i2,:),HSf,invsqrtRzone,  &
+           xa_xf(i1:i2),Sa(i1:i2,:),amplitudes(:,zi))
+    else
+      call analysisIncrement(Hxf,yo,Sf(i1:i2,:),HSf,invsqrtRzone,xa_xf(i1:i2),Sa(i1:i2,:))
+    end if
+    
+    call DiagCovar_done(R)
+#   else
+
+    if (nbObservations.eq.size(yo)) then
+      invsqrtRzone = invsqrtR * weight
+      call analysisIncrement(Hxf,yo,Sfzone,HSf,invsqrtRzone,xa_xf(i1:i2),Sa(i1:i2,:))
+    else
+      ! selecting only the relevant observations
+      nObs = 0
+      do j=1,size(yo)
+        if (relevantObs(j)) then
+          nObs = nObs+1
+          yozone(nObs) = yo(j)
+          HSfzone(nObs,:) = HSf(j,:)
+          invsqrtRzone(nObs) = invsqrtR(j) * weight(j)
+        end if
+      end do
+
+      call analysisIncrement(Hxf,yozone(1:nObs),Sfzone,HSfzone(1:nObs,:),invsqrtRzone(1:nObs),xa_xf(i1:i2),Sa(i1:i2,:))
+      !        write(stdout,*) 'nObs ',nObs,sum(yozone),sum(yo),sum(invsqrtRzone),sum(invsqrtR * weight),sum(HSfzone),sum(HSf)
+
+    end if
+#   endif
+
+
+!$omp critical
+    nbselectedZones = nbselectedZones+1
+!$omp end critical
+  end do zonesLoop
+
+!$omp master
+  write(stdout,*) 'nbselectedZones ',nbselectedZones,NZones,sum(xa_xf)
+!$omp end master
+
+!$omp barrier
+
+ end subroutine locAnalysisIncrement_covar
+
+
+
+ !_______________________________________________________
+ !
+
+ subroutine locAnalysis_covar(zoneSize,selectObservations,xf,Hxf,yo,Sf,HSf,invsqrtR, xa,Sa, amplitudes)
+  use matoper
+  implicit none
+
+  ! interface of the function computing the horizontal correlation between 
+  ! the ith component of xf and the jth component of yo
+
+  interface 
+    subroutine selectObservations(i,c,relevantObs)
+     integer, intent(in) :: i
+     real, intent(out) :: c(:)
+     logical, intent(out) :: relevantObs(:)
+    end subroutine selectObservations
+  end interface
+
+  integer :: zoneSize(:)
+
+  real, intent(in) :: xf(:),  Hxf(:), yo(:), &
+       Sf(:,:), HSf(:,:), invsqrtR(:)
+  real, intent(out) :: xa(:)
+  real, intent(out), optional :: Sa(:,:), amplitudes(size(Sf,2),size(zoneSize))
+
+  call locAnalysisIncrement_covar(zoneSize,selectObservations,Hxf,yo,Sf,HSf,invsqrtR,xa,Sa,amplitudes)
+
+
+!$omp master
+  xa = xf + xa
+!$omp end master
+
+ end subroutine locAnalysis_covar
+
  !_______________________________________________________
  !
  ! biasedLocAnalysis:

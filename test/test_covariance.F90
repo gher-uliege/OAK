@@ -589,6 +589,7 @@ program test
 
  call test_DiagCovar
  call test_SMWCovar
+ call test_DCDCovar
  call test_locfun 
 
  ! same results as matlab code test_covariance_fortran
@@ -653,14 +654,38 @@ contains
    
    call SMWCovar_init(Cov,C,B)
 
-   F = matmul(B,transpose(B))
-   do i = 1,m
-     F(i,i) = F(i,i) + C(i)
-   end do
+   F = matmul(B,transpose(B)) + diag(C)
 
    call test_covariance_matrix(m,F,Cov)
   end subroutine test_SMWCovar
 
+!---------------------------------------------------------------------
+
+  subroutine test_DCDCovar
+   use matoper
+   implicit none
+   integer, parameter :: m = 3, N = 2
+   real :: C(m), B(m,N), F(m,m), D(m)
+   type(SMWCovar) :: innerCov
+   type(DCDCovar) :: Cov
+   integer :: i
+
+   write(6,*) '# Testing DCDCovar matrix'
+
+   C = [(mod(i,5)+1., i=1,m)]
+   B = reshape([(mod(i,5)+1., i=1,m*N)],[m,N])
+   D = [(mod(10*i,5)+1., i=1,m)]
+   
+   call SMWCovar_init(innerCov,C,B)
+   call DCDCovar_init(Cov,D,innerCov)
+
+   F = matmul(B,transpose(B)) + diag(C)
+   F = matmul(diag(1./D),matmul(F,diag(1./D)))
+
+   call test_covariance_matrix(m,F,Cov)
+  end subroutine 
+
+!---------------------------------------------------------------------
 
   subroutine test_covariance_matrix(m,F,Cov)
    use matoper
