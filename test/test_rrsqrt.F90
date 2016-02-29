@@ -246,7 +246,8 @@ contains
   ! every grid point a separate zone
   zoneSize = [(1,i=1,size(xf))]
 !  call locAnalysis(zoneSize,selectObservations,xf,Hxf,yo,Sf,HSf, 1/sqrt(CovarR%diag()), xa,Sa)
-  call locAnalysis_covar(zoneSize,selectObservations,xf,Hxf,yo,Sf,HSf, 1/sqrt(CovarR%diag()), xa,Sa)
+  call locAnalysis_covar(zoneSize,selectObservations,xf,Hxf,yo,Sf,HSf, &
+       CovarR,xa,Sa)
   
   ! loop over zones
   j = 1

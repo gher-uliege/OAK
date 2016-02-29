@@ -20,7 +20,7 @@
 ! include the fortran preprocessor definitions
 #include "ppdef.h"
 
-#define OPTIM_ZONE_OBS
+!#define OPTIM_ZONE_OBS
 #define ROTATE_ENSEMBLE
 #define COPY_ERRORSPACE
 
@@ -555,7 +555,7 @@ contains
  !
 
  subroutine locAnalysisIncrement_covar(zoneSize,selectObservations,Hxf,yo,Sf, &
-       HSf,invsqrtR,xa_xf, Sa, amplitudes) 
+       HSf, R,xa_xf, Sa, amplitudes) 
   use matoper
   use covariance
 # ifdef ASSIM_PARALLEL
@@ -590,14 +590,14 @@ contains
 
   real, intent(in) :: Hxf(:), yo(:), &
        Sf(:,:), HSf(:,:)
-  real, intent(in) :: invsqrtR(:)
-!  type(Covar), intent(in) :: R
-  type(DiagCovar) :: R
+!  real, intent(in) :: invsqrtR(:)
+  class(Covar), intent(in) :: R
+!  type(DiagCovar) :: R
   type(DCDCovar) :: DRD
   real, intent(out) :: xa_xf(:)
   real, intent(out), optional :: Sa(:,:), amplitudes(size(Sf,2),size(zoneSize))
 
-  real, dimension(size(yo)) :: invsqrtRzone,weight
+  real, dimension(size(yo)) :: weight
 
   logical :: noRelevantObs,relevantObs(size(yo))
   integer :: zi, zi1,zi2,i,j, NZones, nbselectedZones,nbObservations
@@ -645,7 +645,7 @@ contains
   baseIndex = 0
 # endif
 
-  call R%init(1./invsqrtR**2)
+!  call R%init(1./invsqrtR**2)
 
   ! loop over each zone    
 !$omp do schedule(dynamic)
@@ -666,15 +666,10 @@ contains
 #   ifndef OPTIM_ZONE_OBS
     call DRD%init(weight,R)
 
-    invsqrtRzone = invsqrtR * weight
     if (present(amplitudes)) then
-!      call analysisIncrement(Hxf,yo,Sf(i1:i2,:),HSf,invsqrtRzone,  &
-!           xa_xf(i1:i2),Sa(i1:i2,:),amplitudes(:,zi))
       call analysisIncrement_covar(Hxf,yo,Sf(i1:i2,:),HSf,DRD,  &
            xa_xf(i1:i2),Sa(i1:i2,:),amplitudes(:,zi))
     else
-      write(6,*) 'here'
-!      call analysisIncrement(Hxf,yo,Sf(i1:i2,:),HSf,invsqrtRzone,xa_xf(i1:i2),Sa(i1:i2,:))
       call analysisIncrement_covar(Hxf,yo,Sf(i1:i2,:),HSf,DRD,xa_xf(i1:i2),Sa(i1:i2,:))
     end if
     
@@ -682,7 +677,6 @@ contains
 #   else
 
     if (nbObservations.eq.size(yo)) then
-      !invsqrtRzone = invsqrtR * weight
       call DRD%init(weight,R)
       call analysisIncrement_covar(Hxf,yo,Sf(i1:i2,:),HSf,DRD,xa_xf(i1:i2),Sa(i1:i2,:))
       call DRD%done
@@ -697,14 +691,10 @@ contains
           nObs = nObs+1
           yozone(nObs) = yo(j)
           HSfzone(nObs,:) = HSf(j,:)
-          invsqrtRzone(nObs) = invsqrtR(j) * weight(j)
         end if
       end do
 
       write(6,*) 'pack ',nObs
-!      call analysisIncrement(pack(Hxf,relevantObs),yozone(1:nObs), &
-!           Sf(i1:i2,:),HSfzone(1:nObs,:),invsqrtRzone(1:nObs),xa_xf(i1:i2),Sa(i1:i2))
-
       call analysisIncrement_covar(pack(Hxf,relevantObs),yozone(1:nObs), &
            Sf(i1:i2,:),HSfzone(1:nObs,:),DRD,xa_xf(i1:i2),Sa(i1:i2,:))
       !        write(stdout,*) 'nObs ',nObs,sum(yozone),sum(yo),sum(invsqrtRzone),sum(invsqrtR * weight),sum(HSfzone),sum(HSf)
@@ -719,8 +709,6 @@ contains
 !$omp end critical
   end do zonesLoop
 
-  call R%done
-
 !$omp master
   write(stdout,*) 'nbselectedZones ',nbselectedZones,NZones,sum(xa_xf)
 !$omp end master
@@ -734,8 +722,10 @@ contains
  !_______________________________________________________
  !
 
- subroutine locAnalysis_covar(zoneSize,selectObservations,xf,Hxf,yo,Sf,HSf,invsqrtR, xa,Sa, amplitudes)
+ subroutine locAnalysis_covar(zoneSize,selectObservations,xf,Hxf,yo,Sf,HSf, & 
+      R, xa,Sa, amplitudes)
   use matoper
+  use covariance
   implicit none
 
   ! interface of the function computing the horizontal correlation between 
@@ -752,12 +742,13 @@ contains
   integer :: zoneSize(:)
 
   real, intent(in) :: xf(:),  Hxf(:), yo(:), &
-       Sf(:,:), HSf(:,:), invsqrtR(:)
+       Sf(:,:), HSf(:,:)
+  class(covar), intent(in) :: R
   real, intent(out) :: xa(:)
   real, intent(out), optional :: Sa(:,:), amplitudes(size(Sf,2),size(zoneSize))
 
-  call locAnalysisIncrement_covar(zoneSize,selectObservations,Hxf,yo,Sf,HSf,invsqrtR,xa,Sa,amplitudes)
-
+  call locAnalysisIncrement_covar(zoneSize,selectObservations,Hxf,yo,Sf,HSf, & 
+       R, xa,Sa,amplitudes)
 
 !$omp master
   xa = xf + xa
