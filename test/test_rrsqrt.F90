@@ -188,10 +188,20 @@ contains
   real :: Pa_check(size(xf),size(xf))
   real :: xa_check(size(xf))
 
+  ! local assimilation
   ! allocate maximum size
   integer :: zoneSize(size(xf)) 
-
-  integer :: i
+  real :: weight(size(yo))
+  logical :: relevantObs(size(yo))
+  real, allocatable :: Rloc(:,:)
+  
+  integer :: i, j, l
+  ! number of local observations
+  integer :: mloc
+  ! index of local observations
+  integer, allocatable :: iloc(:)
+  ! obs. oper for local observations
+  real, allocatable :: Hloc(:,:)
 
   ! Observed part
   HSf = matmul(H,Sf)
@@ -232,7 +242,41 @@ contains
   call assert(xa,xa_check,tol,'analysis ensemble mean')
   call assert(matmul(Sa,transpose(Sa)),Pa_check, tol, &
        'analysis ensemble variance')
- 
+
+  ! every grid point a separate zone
+  zoneSize = [(1,i=1,size(xf))]
+  call locAnalysis(zoneSize,selectObservations,xf,Hxf,yo,Sf,HSf, 1/sqrt(CovarR%diag()), xa,Sa)
+  
+  ! loop over zones
+  j = 1
+  do i = 1,size(zoneSize)
+    call selectObservations(i,weight,relevantObs)
+    l = j+zoneSize(i)-1
+
+    mloc = count(relevantObs)
+    allocate(iloc(mloc),Hloc(mloc,size(xf)),Rloc(mloc,mloc))
+    ! local indices    
+    iloc = pack([(i,i=1,size(yo))],relevantObs)
+
+    Rloc = R(iloc,iloc) * diag(1./(weight(iloc)**2))
+    Hloc = H(iloc,:)
+    xa_check(j:l) = &
+         xf(j:l) & 
+         + matmul(                           &
+             ! Kalmain gain                    &
+             matmul( &
+               matmul(Pf(j:l,:), transpose(Hloc)), &
+               inv(matmul(Hloc,matmul(Pf,transpose(Hloc))) + Rloc)), &
+             ! innovation vector                               &
+             yo(iloc) - matmul(Hloc,xf)) 
+  
+    
+    deallocate(iloc,Hloc,Rloc)
+    j = j+zoneSize(i)
+  end do
+
+  ! check results
+  call assert(xa,xa_check,tol,'analysis ensemble mean')
  end subroutine testing_local_analysis_covar
 
  !_______________________________________________________  
@@ -251,12 +295,22 @@ contains
  !
 
  subroutine selectObservations(i,c,relevantObs)
+  use covariance
+  implicit none
   integer, intent(in) :: i
   real, intent(out) :: c(:)
   logical, intent(out) :: relevantObs(:)
-  
-  c = 1.
-  relevantObs = .true.
+ 
+  ! need to be consitent with test_analysis_covar
+  real :: xmod(10), xobs(size(c)), dist
+  integer :: j
+  xmod = [((j-1.)/(size(xmod)-1.),j=1,size(xmod))]
+  xobs = [((j-1.)/(size(xobs)-1.),j=1,size(xobs))]
+
+  ! every grid point is it own zone
+  c = locfun(abs(xmod(i) - xobs) / 0.2)
+  relevantObs = c /= 0
+!  write(6,*) 'i ',i,c
  end subroutine selectObservations
 
  !_______________________________________________________  

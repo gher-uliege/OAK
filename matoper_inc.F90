@@ -38,6 +38,23 @@
 
 !_______________________________________________________
 !
+! extract diagonal elements from a matrix
+!
+
+ function diag_TYPE_mat(A) result(d)
+  implicit none
+  REAL_TYPE, intent(in) :: A(:,:)
+  REAL_TYPE :: d(min(size(A,1),size(A,2)))
+  integer :: i
+
+  do i=1,size(d)
+    d(i) = A(i,i)
+  end do
+
+ end function 
+
+!_______________________________________________________
+!
 ! computes the trace of a matrix
 !
 

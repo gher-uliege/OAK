@@ -227,11 +227,12 @@ test/test_cholmod_wrapper: test/test_cholmod_wrapper.o cholmod_wrapper.o
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $+ $(LIBS) $(EXTRA_LDFLAGS)
 
 test: test/test_covariance test/test_ndgrid test/test_cellgrid test/assimtest2 test/test_matoper test/test_rrsqrt test/toymodel test/test_nondiag test/test_cholmod test/test_cholmod_wrapper
-	test/test_ndgrid
-	test/test_toymodel
-	test/test_covariance
-	test/test_cellgrid
 	test/test_matoper
+	test/test_ndgrid
+	test/test_covariance
+	test/test_rrsqrt
+	test/test_toymodel
+	test/test_cellgrid
 	test/test_nondiag
 	test/test_cholmod_wrapper
 	test/test_cholmod

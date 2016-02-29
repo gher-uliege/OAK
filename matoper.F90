@@ -212,9 +212,11 @@ end interface
 
 interface diag
   module procedure &
-    sdiag, &
-    ddiag, &
-    cdiag    
+    sdiag,     &
+    ddiag,     &
+    cdiag,     &
+    sdiag_mat, &
+    ddiag_mat
 end interface
 
 !----------------------------------------------------------
@@ -717,7 +719,7 @@ function ssparsemat_mult_ssparsemat_old(A,B) result(C)
    write(stderr,*) 'ssparsemat_mult_ssparsemat: size not conform: A.x.B '
    write(stderr,*) 'shape(A) ',A%m,A%n
    write(stderr,*) 'shape(B) ',B%m,B%n
-   stop
+   ERROR_STOP
  end if
 
  C%m = A%m
@@ -793,7 +795,7 @@ function ssparsemat_mult_ssparsemat_old(A,B) result(C)
 
        if (nz.gt.size(C%i)) then
          write(stderr,*) 'Error: sorry buffer to small'
-         stop
+         ERROR_STOP
        end if
        C%i(nz) = A%i(k)
        C%j(nz) = B%j(l)
@@ -815,7 +817,7 @@ function ssparsemat_mult_ssparsemat_old(A,B) result(C)
 
          if (nz == size(C%s)) then
            write(stderr,*) 'Error: sorry buffer to small'
-           stop
+           ERROR_STOP
          end if
 
          nz = nz+1
@@ -853,7 +855,7 @@ function ssparsemat_mult_ssparsemat(A,B) result(C)
    write(stderr,*) 'ssparsemat_mult_ssparsemat: size not conform: A.x.B '
    write(stderr,*) 'shape(A) ',A%m,A%n
    write(stderr,*) 'shape(B) ',B%m,B%n
-   stop
+   ERROR_STOP
  end if
 
  C%m = A%m
@@ -899,7 +901,7 @@ function ssparsemat_mult_ssparsemat(A,B) result(C)
 
      if (nz > size(C%i)) then
        write(stderr,*) 'Error: sorry buffer to small'
-       stop
+       ERROR_STOP
      end if
      C%i(nz) = A%i(k)
      C%j(nz) = Bj(l)
@@ -1015,7 +1017,7 @@ function ssparsemat_add_ssparsemat(A,B) result(C)
    write(stderr,*) 'ssparsemat_add_ssparsemat: size not conform: A + B '
    write(stderr,*) 'shape(A) ',A%m,A%n
    write(stderr,*) 'shape(B) ',B%m,B%n
-   stop
+   ERROR_STOP
  end if
 
  C%m = A%m
@@ -1178,6 +1180,7 @@ end function nchoosek
 #define spotrf_TYPE spotrf
 
 #define diag_TYPE sdiag
+#define diag_TYPE_mat sdiag_mat
 #define trace_TYPE strace
 
 ! operators
@@ -1241,6 +1244,7 @@ end function nchoosek
 #undef spotrf_TYPE
 
 #undef diag_TYPE
+#undef diag_TYPE_mat
 #undef trace_TYPE
 
 ! operators
@@ -1329,6 +1333,7 @@ end function nchoosek
 #define spotrf_TYPE dpotrf
 
 #define diag_TYPE ddiag
+#define diag_TYPE_mat ddiag_mat
 #define trace_TYPE dtrace
 
 ! operators
@@ -1417,7 +1422,7 @@ end function nchoosek
 
     call assert_message(success,msg)
     if (.not.success) then
-       stop
+       ERROR_STOP
     end if
   end subroutine assert_bool
 
@@ -1446,7 +1451,7 @@ end function nchoosek
     if (maxdiff >= tol) then
        write(6,*) 'found ',found
        write(6,*) 'expected ',expected
-       stop
+       ERROR_STOP
     end if
 
 
@@ -1474,7 +1479,7 @@ end function nchoosek
     if (found /= expected) then
        write(6,*) 'found ',found
        write(6,*) 'expected ',expected
-       stop
+       ERROR_STOP
     end if
   end subroutine 
 
@@ -1503,7 +1508,7 @@ end function nchoosek
     if (maxdiff >= tol) then
        write(6,*) 'found ',found
        write(6,*) 'expected ',expected
-       stop
+       ERROR_STOP
     end if
 
 
@@ -1535,7 +1540,7 @@ end function nchoosek
        ! often too large to print
        !     write(6,*) 'found ',found
        !     write(6,*) 'expected ',expected
-       stop
+       ERROR_STOP
     end if
 
 
@@ -1567,7 +1572,7 @@ end function nchoosek
        ! often too large to print
        !     write(6,*) 'found ',found
        !     write(6,*) 'expected ',expected
-       stop
+       ERROR_STOP
     end if
   end subroutine assert_array3
 

@@ -487,8 +487,11 @@ end interface
 ! LocCovar: localized ensemble covariance matrix
 !---------------------------------------------------------------------
 
-  function locfun(r) result(fun)
-   real :: r,fun
+  elemental function locfun(r) result(fun)
+   implicit none
+   ! distance
+   real, intent(in) :: r
+   real             :: fun
 
    ! optim
    if (r <= 1.) then
