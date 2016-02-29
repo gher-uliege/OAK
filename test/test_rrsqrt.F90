@@ -310,7 +310,7 @@ contains
   xobs = [((j-1.)/(size(xobs)-1.),j=1,size(xobs))]
 
   ! every grid point is it own zone
-  c = locfun(abs(xmod(i) - xobs) / 0.2)
+  c = locfun(abs(xmod(i) - xobs) / 0.21)
   relevantObs = c /= 0
 !  write(6,*) 'i ',i,c
  end subroutine selectObservations
