@@ -61,7 +61,9 @@ type, extends(Covar) :: DiagCovar
   real, allocatable :: D(:)
    contains
         procedure :: init => DiagCovar_init
+        procedure :: done => DiagCovar_done
         procedure :: full => DiagCovar_full
+        procedure :: sub  => DiagCovar_sub
         procedure :: mtimes_vec => DiagCovar_mtimes_vec
         procedure :: mldivide_vec => DiagCovar_mldivide_vec
 end type DiagCovar
@@ -81,6 +83,7 @@ type, extends(Covar) :: SMWCovar
   real, allocatable :: C(:), B(:,:), D(:,:)
   contains
    procedure :: init => SMWCovar_init
+   procedure :: done => SMWCovar_done
    procedure :: full => SMWCovar_full
    procedure :: mtimes_vec => SMWCovar_mtimes_vec
    procedure :: mldivide_vec => SMWCovar_mldivide_vec
@@ -98,6 +101,7 @@ type, extends(Covar) :: DCDCovar
   class(covar), allocatable :: C
   contains
    procedure :: init => DCDCovar_init
+   procedure :: done => DCDCovar_done
    procedure :: mtimes_vec => DCDCovar_mtimes_vec
    procedure :: mldivide_vec => DCDCovar_mldivide_vec
 end type DCDCovar
@@ -367,6 +371,7 @@ end interface
    M = diag(this%D)
   end function
 
+
 !---------------------------------------------------------------------
 
   function DiagCovar_mtimes_vec(this,x) result(C)
@@ -411,7 +416,7 @@ end interface
       allocate(Dsub(nsub))
 
       Dsub = pack(this%D,mask)
-      call DiagCovar_init(C,Dsub)
+      call C%init(Dsub)
     end select
    
    end function DiagCovar_sub
@@ -441,6 +446,19 @@ end interface
    this%B = B
    this%D = inv(matmul(transpose(B), (1/C) .dx. B) + eye(size(B,2)))
   end subroutine SMWCovar_init
+
+
+!---------------------------------------------------------------------
+
+  subroutine SMWCovar_done(this)
+   use matoper
+   implicit none   
+   class(SMWCovar) :: this
+
+   deallocate(this%C,this%B, &
+        this%D)
+
+  end subroutine SMWCovar_done
 
 
 !---------------------------------------------------------------------
@@ -528,6 +546,17 @@ end interface
    this%D = D
    allocate(this%C, source=C)
   end subroutine 
+
+!---------------------------------------------------------------------
+
+  subroutine DCDCovar_done(this)
+   use matoper
+   implicit none   
+   class(DCDCovar) :: this
+
+   deallocate(this%D,this%C)
+
+  end subroutine DCDCovar_done
 
 !---------------------------------------------------------------------
 

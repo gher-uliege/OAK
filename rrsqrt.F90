@@ -20,7 +20,7 @@
 ! include the fortran preprocessor definitions
 #include "ppdef.h"
 
-!#define OPTIM_ZONE_OBS
+#define OPTIM_ZONE_OBS
 #define ROTATE_ENSEMBLE
 #define COPY_ERRORSPACE
 
@@ -481,7 +481,7 @@ contains
 
     if (nbObservations.eq.size(yo)) then
       invsqrtRzone = invsqrtR * weight
-      call analysisIncrement(Hxf,yo,Sfzone,HSf,invsqrtRzone,xa_xf(i1:i2),Sa(i1:i2,:))
+      call analysisIncrement(Hxf,yo,Sf(i1:i2,:),HSf,invsqrtRzone,xa_xf(i1:i2),Sa(i1:i2,:))
     else
       ! selection only the relevant observations
       nObs = 0
@@ -494,7 +494,7 @@ contains
         end if
       end do
 
-      call analysisIncrement(Hxf,yozone(1:nObs),Sfzone,HSfzone(1:nObs,:),invsqrtRzone(1:nObs),xa_xf(i1:i2),Sa(i1:i2,:))
+      call analysisIncrement(Hxf,yozone(1:nObs),Sf(i1:i2,:),HSfzone(1:nObs,:),invsqrtRzone(1:nObs),xa_xf(i1:i2),Sa(i1:i2,:))
       !        write(stdout,*) 'nObs ',nObs,sum(yozone),sum(yo),sum(invsqrtRzone),sum(invsqrtR * weight),sum(HSfzone),sum(HSf)
 
     end if
@@ -593,6 +593,7 @@ contains
   real, intent(in) :: invsqrtR(:)
 !  type(Covar), intent(in) :: R
   type(DiagCovar) :: R
+  type(DCDCovar) :: DRD
   real, intent(out) :: xa_xf(:)
   real, intent(out), optional :: Sa(:,:), amplitudes(size(Sf,2),size(zoneSize))
 
@@ -644,6 +645,8 @@ contains
   baseIndex = 0
 # endif
 
+  call R%init(1./invsqrtR**2)
+
   ! loop over each zone    
 !$omp do schedule(dynamic)
   zonesLoop: do zi=zi1,zi2
@@ -661,25 +664,33 @@ contains
 
 
 #   ifndef OPTIM_ZONE_OBS
-    write(6,*) 'here'
-    call R%init(1./invsqrtR**2)
+    call DRD%init(weight,R)
 
     invsqrtRzone = invsqrtR * weight
     if (present(amplitudes)) then
-      call analysisIncrement(Hxf,yo,Sf(i1:i2,:),HSf,invsqrtRzone,  &
+!      call analysisIncrement(Hxf,yo,Sf(i1:i2,:),HSf,invsqrtRzone,  &
+!           xa_xf(i1:i2),Sa(i1:i2,:),amplitudes(:,zi))
+      call analysisIncrement_covar(Hxf,yo,Sf(i1:i2,:),HSf,DRD,  &
            xa_xf(i1:i2),Sa(i1:i2,:),amplitudes(:,zi))
     else
-      call analysisIncrement(Hxf,yo,Sf(i1:i2,:),HSf,invsqrtRzone,xa_xf(i1:i2),Sa(i1:i2,:))
+      write(6,*) 'here'
+!      call analysisIncrement(Hxf,yo,Sf(i1:i2,:),HSf,invsqrtRzone,xa_xf(i1:i2),Sa(i1:i2,:))
+      call analysisIncrement_covar(Hxf,yo,Sf(i1:i2,:),HSf,DRD,xa_xf(i1:i2),Sa(i1:i2,:))
     end if
     
-    call DiagCovar_done(R)
+    call DRD%done
 #   else
 
     if (nbObservations.eq.size(yo)) then
-      invsqrtRzone = invsqrtR * weight
-      call analysisIncrement(Hxf,yo,Sfzone,HSf,invsqrtRzone,xa_xf(i1:i2),Sa(i1:i2,:))
+      !invsqrtRzone = invsqrtR * weight
+      call DRD%init(weight,R)
+      call analysisIncrement_covar(Hxf,yo,Sf(i1:i2,:),HSf,DRD,xa_xf(i1:i2),Sa(i1:i2,:))
+      call DRD%done
     else
       ! selecting only the relevant observations
+
+      call DRD%init(pack(weight,relevantObs),R%sub(relevantObs))
+
       nObs = 0
       do j=1,size(yo)
         if (relevantObs(j)) then
@@ -690,9 +701,15 @@ contains
         end if
       end do
 
-      call analysisIncrement(Hxf,yozone(1:nObs),Sfzone,HSfzone(1:nObs,:),invsqrtRzone(1:nObs),xa_xf(i1:i2),Sa(i1:i2,:))
+      write(6,*) 'pack ',nObs
+!      call analysisIncrement(pack(Hxf,relevantObs),yozone(1:nObs), &
+!           Sf(i1:i2,:),HSfzone(1:nObs,:),invsqrtRzone(1:nObs),xa_xf(i1:i2),Sa(i1:i2))
+
+      call analysisIncrement_covar(pack(Hxf,relevantObs),yozone(1:nObs), &
+           Sf(i1:i2,:),HSfzone(1:nObs,:),DRD,xa_xf(i1:i2),Sa(i1:i2,:))
       !        write(stdout,*) 'nObs ',nObs,sum(yozone),sum(yo),sum(invsqrtRzone),sum(invsqrtR * weight),sum(HSfzone),sum(HSf)
 
+      call DRD%done
     end if
 #   endif
 
@@ -701,6 +718,8 @@ contains
     nbselectedZones = nbselectedZones+1
 !$omp end critical
   end do zonesLoop
+
+  call R%done
 
 !$omp master
   write(stdout,*) 'nbselectedZones ',nbselectedZones,NZones,sum(xa_xf)
