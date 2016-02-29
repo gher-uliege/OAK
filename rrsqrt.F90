@@ -694,7 +694,7 @@ contains
         end if
       end do
 
-      write(6,*) 'pack ',nObs
+      !write(6,*) 'pack ',nObs
       call analysisIncrement_covar(pack(Hxf,relevantObs),yozone(1:nObs), &
            Sf(i1:i2,:),HSfzone(1:nObs,:),DRD,xa_xf(i1:i2),Sa(i1:i2,:))
       !        write(stdout,*) 'nObs ',nObs,sum(yozone),sum(yo),sum(invsqrtRzone),sum(invsqrtR * weight),sum(HSfzone),sum(HSf)
