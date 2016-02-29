@@ -571,13 +571,13 @@ end interface
 
 !---------------------------------------------------------------------
 
-  function DCDCovar_mldivide_vec(this,x) result(C)
+  function DCDCovar_mldivide_vec(this,x) result(Q)
    implicit none
    class(DCDCovar), intent(in) :: this
    real, intent(in) :: x(:)
-   real :: C(size(x,1))
+   real :: Q(size(x))
    
-   C = this%D * this%C%mldivide(this%D*x)
+   Q = this%D * this%C%mldivide(this%D*x)
   end function DCDCovar_mldivide_vec
 
 !---------------------------------------------------------------------
