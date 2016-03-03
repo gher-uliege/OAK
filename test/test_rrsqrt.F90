@@ -387,6 +387,8 @@ contains
   write(6,*) '= Diagonal error observation covariance (local) = '  
   call testing_local_analysis_covar(xf,Sf,H,y,DiagCovarR)
 
+!  call testing_local_analysis_covar(xf,Sf,H,y,SMWCovarR)
+
  end subroutine test_analysis_covar
 
 end program test_rrsqrt
