@@ -370,14 +370,14 @@ contains
 
   write(6,*) '= Diagonal error observation covariance = '
   ! R: diagonal matrix with diagonal elements equal to 2
-  call DiagCovar_init(DiagCovarR,[(2.,i=1,m)])
+  call DiagCovarR%init([(2.,i=1,m)])
 
   call testing_analysis_covar(xf,Sf,H,y,DiagCovarR)
 
   write(6,*) '= SMWCovar error observation covariance = '
   ! R: diagonal matrix with diagonal elements equal to 2
   
-  call SMWCovar_init(SMWCovarR, &
+  call SMWCovarR%init( &
        [(2.,i=1,m)], &
        reshape([(sin(3.*i),i=1,m*dim_ens)],[m,dim_ens]) &
        )
