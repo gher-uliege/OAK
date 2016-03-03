@@ -223,7 +223,7 @@ contains
 
   ! single zone
   zoneSize(1) = size(xf)
-  call locAnalysis(zoneSize(1:1),selectAllObservations,xf,Hxf,yo,Sf,HSf, 1/sqrt(CovarR%diag()), xa,Sa)
+  call locAnalysis_covar(zoneSize(1:1),selectAllObservations,xf,Hxf,yo,Sf,HSf, CovarR, xa,Sa)
 
   ! check results
   call assert(xa,xa_check,tol,'analysis ensemble mean')
@@ -236,7 +236,7 @@ contains
 
   ! every grid point a separate zone
   zoneSize = [(1,i=1,size(xf))]
-  call locAnalysis(zoneSize,selectAllObservations,xf,Hxf,yo,Sf,HSf, 1/sqrt(CovarR%diag()), xa,Sa)
+  call locAnalysis_covar(zoneSize,selectAllObservations,xf,Hxf,yo,Sf,HSf, CovarR, xa,Sa)
   
   ! check results
   call assert(xa,xa_check,tol,'analysis ensemble mean')
@@ -245,7 +245,6 @@ contains
 
   ! every grid point a separate zone
   zoneSize = [(1,i=1,size(xf))]
-!  call locAnalysis(zoneSize,selectObservations,xf,Hxf,yo,Sf,HSf, 1/sqrt(CovarR%diag()), xa,Sa)
   call locAnalysis_covar(zoneSize,selectObservations,xf,Hxf,yo,Sf,HSf, &
        CovarR,xa,Sa)
   
