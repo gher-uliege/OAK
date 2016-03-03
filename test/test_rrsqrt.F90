@@ -262,15 +262,21 @@ contains
 
     Rloc = R(iloc,iloc) * diag(1./(weight(iloc)**2))
     Hloc = H(iloc,:)
-    xa_check(j:l) = &
-         xf(j:l) & 
-         + matmul(                           &
-             ! Kalmain gain                    &
-             matmul( &
-               matmul(Pf(j:l,:), transpose(Hloc)), &
-               inv(matmul(Hloc,matmul(Pf,transpose(Hloc))) + Rloc)), &
-             ! innovation vector                               &
-             yo(iloc) - matmul(Hloc,xf)) 
+
+    ! ifort 14.0.1 produces wrong results with -O3
+    ! xa_check(j:l) = &
+    !      xf(j:l) & 
+    !      + matmul(                           &
+    !          ! Kalmain gain                    &
+    !          matmul( &
+    !            matmul(Pf(j:l,:), transpose(Hloc)), &
+    !            inv(matmul(matmul(Hloc,Pf),transpose(Hloc)) + Rloc)), &
+    !          ! innovation vector                               &
+    !          yo(iloc) - matmul(Hloc,xf)) 
+
+    xa_check(j:l) = xf(j:l) +  &
+         ((Pf(j:l,:).xt.Hloc).x.(inv(((Hloc.x.Pf).xt.Hloc) + Rloc).x. &
+         (yo(iloc) - (Hloc.x.xf))))
   
     
     deallocate(iloc,Hloc,Rloc)
