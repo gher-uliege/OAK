@@ -1448,7 +1448,8 @@ end function nchoosek
 
     call assert_message(maxdiff < tol,msg)
 
-    if (maxdiff >= tol) then
+    ! maxdiff can be NaN
+    if (.not.(maxdiff < tol)) then
        write(6,*) 'found ',found
        write(6,*) 'expected ',expected
        ERROR_STOP
@@ -1505,7 +1506,7 @@ end function nchoosek
 
     call assert_message(maxdiff < tol,msg)
 
-    if (maxdiff >= tol) then
+    if (.not.(maxdiff < tol)) then
        write(6,*) 'found ',found
        write(6,*) 'expected ',expected
        ERROR_STOP
@@ -1536,7 +1537,7 @@ end function nchoosek
 
     call assert_message(maxdiff < tol,msg)
 
-    if (maxdiff >= tol) then
+    if (.not.(maxdiff < tol)) then
        ! often too large to print
        !     write(6,*) 'found ',found
        !     write(6,*) 'expected ',expected
@@ -1568,7 +1569,7 @@ end function nchoosek
 
     call assert_message(maxdiff < tol,msg)
 
-    if (maxdiff >= tol) then
+    if (.not.(maxdiff < tol)) then
        ! often too large to print
        !     write(6,*) 'found ',found
        !     write(6,*) 'expected ',expected

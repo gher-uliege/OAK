@@ -246,7 +246,7 @@ contains
   ! every grid point a separate zone
   zoneSize = [(1,i=1,size(xf))]
   call locAnalysis_covar(zoneSize,selectObservations,xf,Hxf,yo,Sf,HSf, &
-       CovarR,xa,Sa)
+       CovarR,xa,Sa,localise_obs = .true.)
   
   ! loop over zones
   j = 1
@@ -254,12 +254,22 @@ contains
     call selectObservations(i,weight,relevantObs)
     l = j+zoneSize(i)-1
 
+    ! debugging
+    !relevantObs = .true.
+
     mloc = count(relevantObs)
     allocate(iloc(mloc),Hloc(mloc,size(xf)),Rloc(mloc,mloc))
     ! local indices    
     iloc = pack([(i,i=1,size(yo))],relevantObs)
+    !write(6,*) 'relevantObs',count(relevantObs)
+    !write(6,*) 'relevantObs',relevantObs
 
-    Rloc = R(iloc,iloc) * diag(1./(weight(iloc)**2))
+!    Rloc = R(iloc,iloc) * diag(1./(weight(iloc)**2))
+
+    !Rloc = inv(inv(R(iloc,iloc)) * spread(weight(iloc),dim=2,ncopies=mloc) * spread(weight(iloc),dim=1,ncopies=mloc))
+    Rloc = (diag(1./weight(iloc)).x.R(iloc,iloc)).x.diag(1./weight(iloc))
+    !Rloc = R(iloc,iloc)
+
     Hloc = H(iloc,:)
 
     ! ifort 14.0.1 produces wrong results with -O3
@@ -283,7 +293,9 @@ contains
   end do
 
   ! check results
-  call assert(xa,xa_check,tol,'analysis ensemble mean')
+  call assert(xa,xa_check,tol,'analysis ensemble mean (non-diag)')
+  !write(6,*) 'xa ',xa
+  !write(6,*) 'xa_check ',xa_check
  end subroutine testing_local_analysis_covar
 
  !_______________________________________________________  
@@ -386,7 +398,8 @@ contains
   write(6,*) '= Diagonal error observation covariance (local) = '  
   call testing_local_analysis_covar(xf,Sf,H,y,DiagCovarR)
 
-!  call testing_local_analysis_covar(xf,Sf,H,y,SMWCovarR)
+  write(6,*) '= SMW error observation covariance (local) = '  
+  call testing_local_analysis_covar(xf,Sf,H,y,SMWCovarR)
 
  end subroutine test_analysis_covar
 

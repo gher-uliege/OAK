@@ -555,7 +555,7 @@ contains
  !
 
  subroutine locAnalysisIncrement_covar(zoneSize,selectObservations,Hxf,yo,Sf, &
-       HSf, R,xa_xf, Sa, amplitudes) 
+       HSf, R,xa_xf, Sa, amplitudes, localise_obs) 
   use matoper
   use covariance
 # ifdef ASSIM_PARALLEL
@@ -596,6 +596,7 @@ contains
   type(DCDCovar) :: DRD
   real, intent(out) :: xa_xf(:)
   real, intent(out), optional :: Sa(:,:), amplitudes(size(Sf,2),size(zoneSize))
+  logical, intent(in), optional :: localise_obs
 
   real, dimension(size(yo)) :: weight
 
@@ -604,14 +605,17 @@ contains
 
   integer, dimension(size(zoneSize)) :: startIndex,endIndex
 
-# ifdef OPTIM_ZONE_OBS
+  ! wheter observation have to be localised
+  logical :: local_obs
   real, dimension(size(yo)) :: yozone
   real, dimension(size(yo),size(Sf,2)) :: HSfzone
   integer :: nObs
-# endif
 
   integer :: baseIndex = 1, i1,i2
   real,allocatable :: temp(:)
+
+  local_obs = .false.
+  if (present(localise_obs)) local_obs = localise_obs
 
 !$omp single
   xa_xf = 0
@@ -663,46 +667,46 @@ contains
     if (nbObservations.eq.0) cycle zonesLoop
 
 
-#   ifndef OPTIM_ZONE_OBS
-    call DRD%init(weight,R)
-
-    if (present(amplitudes)) then
-      call analysisIncrement_covar(Hxf,yo,Sf(i1:i2,:),HSf,DRD,  &
-           xa_xf(i1:i2),Sa(i1:i2,:),amplitudes(:,zi))
-    else
-      call analysisIncrement_covar(Hxf,yo,Sf(i1:i2,:),HSf,DRD,xa_xf(i1:i2),Sa(i1:i2,:))
-    end if
-    
-    call DRD%done
-#   else
-
-    if (nbObservations.eq.size(yo)) then
+    if (.not.local_obs) then
       call DRD%init(weight,R)
-      call analysisIncrement_covar(Hxf,yo,Sf(i1:i2,:),HSf,DRD,xa_xf(i1:i2),Sa(i1:i2,:))
+      !call DRD%init(0*weight+1,R)
+      
+      if (present(amplitudes)) then
+        call analysisIncrement_covar(Hxf,yo,Sf(i1:i2,:),HSf,DRD,  &
+             xa_xf(i1:i2),Sa(i1:i2,:),amplitudes(:,zi))
+      else
+        call analysisIncrement_covar(Hxf,yo,Sf(i1:i2,:),HSf,DRD,xa_xf(i1:i2),Sa(i1:i2,:))
+      end if
+      
       call DRD%done
     else
-      ! selecting only the relevant observations
 
-      call DRD%init(pack(weight,relevantObs),R%sub(relevantObs))
-
-      nObs = 0
-      do j=1,size(yo)
-        if (relevantObs(j)) then
-          nObs = nObs+1
-          yozone(nObs) = yo(j)
-          HSfzone(nObs,:) = HSf(j,:)
-        end if
-      end do
-
-      !write(6,*) 'pack ',nObs
-      call analysisIncrement_covar(pack(Hxf,relevantObs),yozone(1:nObs), &
-           Sf(i1:i2,:),HSfzone(1:nObs,:),DRD,xa_xf(i1:i2),Sa(i1:i2,:))
-      !        write(stdout,*) 'nObs ',nObs,sum(yozone),sum(yo),sum(invsqrtRzone),sum(invsqrtR * weight),sum(HSfzone),sum(HSf)
-
-      call DRD%done
-    end if
-#   endif
-
+      if (nbObservations.eq.size(yo)) then
+        call DRD%init(weight,R)
+        call analysisIncrement_covar(Hxf,yo,Sf(i1:i2,:),HSf,DRD,xa_xf(i1:i2),Sa(i1:i2,:))
+        call DRD%done
+      else
+        ! selecting only the relevant observations
+        
+        call DRD%init(pack(weight,relevantObs),R%sub(relevantObs))
+        
+        nObs = 0
+        do j=1,size(yo)
+          if (relevantObs(j)) then
+            nObs = nObs+1
+            yozone(nObs) = yo(j)
+            HSfzone(nObs,:) = HSf(j,:)
+          end if
+        end do
+        
+        !write(6,*) 'pack ',nObs
+        call analysisIncrement_covar(pack(Hxf,relevantObs),yozone(1:nObs), &
+             Sf(i1:i2,:),HSfzone(1:nObs,:),DRD,xa_xf(i1:i2),Sa(i1:i2,:))
+        !        write(stdout,*) 'nObs ',nObs,sum(yozone),sum(yo),sum(invsqrtRzone),sum(invsqrtR * weight),sum(HSfzone),sum(HSf)
+        
+        call DRD%done
+      end if
+   end if
 
 !$omp critical
     nbselectedZones = nbselectedZones+1
@@ -723,7 +727,7 @@ contains
  !
 
  subroutine locAnalysis_covar(zoneSize,selectObservations,xf,Hxf,yo,Sf,HSf, & 
-      R, xa,Sa, amplitudes)
+      R, xa,Sa, amplitudes, localise_obs)
   use matoper
   use covariance
   implicit none
@@ -746,9 +750,10 @@ contains
   class(covar), intent(in) :: R
   real, intent(out) :: xa(:)
   real, intent(out), optional :: Sa(:,:), amplitudes(size(Sf,2),size(zoneSize))
+  logical, intent(in), optional :: localise_obs
 
   call locAnalysisIncrement_covar(zoneSize,selectObservations,Hxf,yo,Sf,HSf, & 
-       R, xa,Sa,amplitudes)
+       R, xa,Sa,amplitudes,localise_obs)
 
 !$omp master
   xa = xf + xa
