@@ -31,7 +31,7 @@ contains
   integer, parameter :: n = 10
   
   ! ensemble size
-  integer, parameter :: dim_ens = 3
+  integer, parameter :: dim_ens = 30
 
   real :: y(m)           ! Vector of observations
   real :: Sf(n,dim_ens)  ! 
@@ -179,6 +179,7 @@ contains
   ! Observation error covariance matrix
   real :: R(size(yo),size(yo))
   real :: Pf(size(xf),size(xf))
+  real :: Pa(size(xf),size(xf))
   real :: K(size(xf),size(yo))
   real :: xa(size(xf))
   real :: Sa(size(xf),size(Sf,2))
@@ -193,15 +194,17 @@ contains
   integer :: zoneSize(size(xf)) 
   real :: weight(size(yo))
   logical :: relevantObs(size(yo))
-  real, allocatable :: Rloc(:,:)
+  real, allocatable :: Rloc(:,:), invRloc(:,:)
   
-  integer :: i, j, l
+  integer :: i, j, l, ilocobs
   ! number of local observations
   integer :: mloc
   ! index of local observations
   integer, allocatable :: iloc(:)
   ! obs. oper for local observations
   real, allocatable :: Hloc(:,:)
+
+  logical :: localise_obs
 
   ! Observed part
   HSf = matmul(H,Sf)
@@ -210,6 +213,8 @@ contains
 
   ! For verification, compute ensemble covariance and Kalman gain
   Pf = matmul(Sf,transpose(Sf))
+
+!  call assert(abs(det(Pf)) > tol,'det(Pf) is different from zero')
 
   K = matmul( &
        matmul(Pf, transpose(H)), &
@@ -227,9 +232,6 @@ contains
 
   ! check results
   call assert(xa,xa_check,tol,'analysis ensemble mean')
-
-!  write(6,*) 'xa',xa
-!  write(6,*) 'xa',xa_check
   
   call assert(matmul(Sa,transpose(Sa)),Pa_check, tol, &
        'analysis ensemble variance')
@@ -243,59 +245,82 @@ contains
   call assert(matmul(Sa,transpose(Sa)),Pa_check, tol, &
        'analysis ensemble variance')
 
-  ! every grid point a separate zone
-  zoneSize = [(1,i=1,size(xf))]
-  call locAnalysis_covar(zoneSize,selectObservations,xf,Hxf,yo,Sf,HSf, &
-       CovarR,xa,Sa,localise_obs = .true.)
+
   
-  ! loop over zones
-  j = 1
-  do i = 1,size(zoneSize)
-    call selectObservations(i,weight,relevantObs)
-    l = j+zoneSize(i)-1
+  do ilocobs = 1,2
+    if (ilocobs == 1) then
+      write(6,*) '== without observation localisation == '
+      localise_obs = .false.
+    else
+      write(6,*) '== with observation localisation == '
+      localise_obs = .true.
+    end if
 
-    ! debugging
-    !relevantObs = .true.
-
-    mloc = count(relevantObs)
-    allocate(iloc(mloc),Hloc(mloc,size(xf)),Rloc(mloc,mloc))
-    ! local indices    
-    iloc = pack([(i,i=1,size(yo))],relevantObs)
-    !write(6,*) 'relevantObs',count(relevantObs)
-    !write(6,*) 'relevantObs',relevantObs
-
-!    Rloc = R(iloc,iloc) * diag(1./(weight(iloc)**2))
-
-    !Rloc = inv(inv(R(iloc,iloc)) * spread(weight(iloc),dim=2,ncopies=mloc) * spread(weight(iloc),dim=1,ncopies=mloc))
-    Rloc = (diag(1./weight(iloc)).x.R(iloc,iloc)).x.diag(1./weight(iloc))
-    !Rloc = R(iloc,iloc)
-
-    Hloc = H(iloc,:)
-
-    ! ifort 14.0.1 produces wrong results with -O3
-    ! xa_check(j:l) = &
-    !      xf(j:l) & 
-    !      + matmul(                           &
-    !          ! Kalmain gain                    &
-    !          matmul( &
-    !            matmul(Pf(j:l,:), transpose(Hloc)), &
-    !            inv(matmul(matmul(Hloc,Pf),transpose(Hloc)) + Rloc)), &
-    !          ! innovation vector                               &
-    !          yo(iloc) - matmul(Hloc,xf)) 
-
-    xa_check(j:l) = xf(j:l) +  &
-         ((Pf(j:l,:).xt.Hloc).x.(inv(((Hloc.x.Pf).xt.Hloc) + Rloc).x. &
-         (yo(iloc) - (Hloc.x.xf))))
+    ! every grid point a separate zone
+    zoneSize = [(1,i=1,size(xf))]
+    call locAnalysis_covar(zoneSize,selectObservations,xf,Hxf,yo,Sf,HSf, &
+         CovarR,xa,Sa,localise_obs = localise_obs)
   
-    
-    deallocate(iloc,Hloc,Rloc)
-    j = j+zoneSize(i)
+    ! loop over zones
+    j = 1
+    do i = 1,size(zoneSize)
+      call selectObservations(i,weight,relevantObs)
+      l = j+zoneSize(i)-1
+      
+      if (.not.localise_obs) then
+        relevantObs = .true.
+      end if
+      
+      mloc = count(relevantObs)
+      allocate(iloc(mloc),Hloc(mloc,size(xf)),Rloc(mloc,mloc),invRloc(mloc,mloc))
+      ! local indices    
+      iloc = pack([(i,i=1,size(yo))],relevantObs)
+      !    Rloc = R(iloc,iloc) * diag(1./(weight(iloc)**2))
+      
+      Rloc = inv(inv(R(iloc,iloc)) * spread(weight(iloc),dim=2,ncopies=mloc) * spread(weight(iloc),dim=1,ncopies=mloc))
+      
+      invRloc = inv(R(iloc,iloc)) * spread(weight(iloc),dim=2,ncopies=mloc) * spread(weight(iloc),dim=1,ncopies=mloc)
+      
+      !Rloc = (diag(1./weight(iloc)).x.R(iloc,iloc)).x.diag(1./weight(iloc))
+      !Rloc = R(iloc,iloc)
+      
+      Hloc = H(iloc,:)
+
+      ! ifort 14.0.1 produces wrong results with -O3
+      ! xa_check(j:l) = &
+      !      xf(j:l) & 
+      !      + matmul(                           &
+      !          ! Kalmain gain                    &
+      !          matmul( &
+      !            matmul(Pf(j:l,:), transpose(Hloc)), &
+      !            inv(matmul(matmul(Hloc,Pf),transpose(Hloc)) + Rloc)), &
+      !          ! innovation vector                               &
+      !          yo(iloc) - matmul(Hloc,xf)) 
+
+
+
+      xa_check(j:l) = xf(j:l) +  &
+           ((Pf(j:l,:).xt.Hloc).x.(inv(((Hloc.x.Pf).xt.Hloc) + Rloc).x. &
+           (yo(iloc) - (Hloc.x.xf))))
+
+
+      Pa = inv(inv(Pf) + (Hloc.tx.(invRloc.x.Hloc)))
+
+      !    Pa_check = Pf - ((Pf.xt.Hloc).x.(inv(((Hloc.x.Pf).xt.Hloc) + Rloc).x.(Hloc.x.Pf)))
+      !    call assert(Pa,Pa_check,tol,'analysis Pa (non-diag)')
+
+      xa_check(j:l) = xf(j:l) +  &
+           (Pa(j:l,:).x.(Hloc.tx.(invRloc .x.(yo(iloc) - (Hloc.x.xf)))))
+
+      deallocate(iloc,Hloc,Rloc,invRloc)
+      j = j+zoneSize(i)
+    end do
+
+    ! check results
+    call assert(xa,xa_check,tol,'analysis ensemble mean (non-diag)')
+    !write(6,*) 'xa ',xa
+    !write(6,*) 'xa_check ',xa_check
   end do
-
-  ! check results
-  call assert(xa,xa_check,tol,'analysis ensemble mean (non-diag)')
-  !write(6,*) 'xa ',xa
-  !write(6,*) 'xa_check ',xa_check
  end subroutine testing_local_analysis_covar
 
  !_______________________________________________________  
@@ -347,8 +372,8 @@ contains
   ! state vector size
   integer, parameter :: n = 10
   
-  ! ensemble size
-  integer, parameter :: dim_ens = 3
+  ! ensemble size (make a full-rank Pf matrix)
+  integer, parameter :: dim_ens = 12
 
   real :: y(m)           ! Vector of observations
   real :: Sf(n,dim_ens)  ! 
@@ -368,7 +393,7 @@ contains
 
   ! Initialize arrays
   y = [(i,i=1,m)]
-  Ef = reshape([(sin(3.*i),i=1,n*dim_ens)],[n,dim_ens])
+  Ef = reshape([(sin(3.*i*i),i=1,n*dim_ens)],[n,dim_ens])
   H = reshape([(i,i=1,m*n)],[m,n])
   
   ! Compute initial ensemble mean state
@@ -395,10 +420,10 @@ contains
 
   call testing_analysis_covar(xf,Sf,H,y,SMWCovarR)
   
-  write(6,*) '= Diagonal error observation covariance (local) = '  
+  write(6,*) '= Diagonal observation error covariance (local) = '  
   call testing_local_analysis_covar(xf,Sf,H,y,DiagCovarR)
 
-  write(6,*) '= SMW error observation covariance (local) = '  
+  write(6,*) '= SMW observation error covariance (local) = '  
   call testing_local_analysis_covar(xf,Sf,H,y,SMWCovarR)
 
  end subroutine test_analysis_covar
