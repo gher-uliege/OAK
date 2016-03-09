@@ -12,8 +12,14 @@ program test_rrsqrt
  use testing_rrsqrt
  implicit none
  ! tolerance for checking
- real, parameter :: tol = 1e-8
+ real :: tol
 
+ if (kind(tol) == 4) then
+   tol = 5e-4
+ else
+   tol = 1e-8
+ end if
+ 
  call test_analysis
  call test_analysis_covar
 
@@ -54,10 +60,7 @@ contains
   real :: K(n,m)         ! Kalman gain
   real :: Pa_check(n,n)  ! Analysis ensemble covariance
   real :: xa_check(n)    ! Analysis state (ensemble mean)
-  
-  ! tolerance for checking
-  real, parameter :: tol = 1e-8
-  
+    
 
   ! index 
   integer :: i
