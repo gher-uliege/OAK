@@ -45,7 +45,7 @@ type, abstract :: Covar
   procedure :: mtimes_mat => Covar_mtimes_mat
   procedure :: mldivide_vec => Covar_mldivide_vec
   procedure :: mldivide_mat => Covar_mldivide_mat
-  procedure :: sub => Covar_sub
+  procedure :: pack => Covar_pack
   procedure :: diag => Covar_diag
 
   generic, public :: mtimes => mtimes_vec, mtimes_mat
@@ -68,7 +68,7 @@ type, extends(Covar) :: DiagCovar
         procedure :: init => DiagCovar_init
         procedure :: done => DiagCovar_done
         procedure :: full => DiagCovar_full
-        procedure :: sub  => DiagCovar_sub
+        procedure :: pack => DiagCovar_pack
         procedure :: mtimes_vec => DiagCovar_mtimes_vec
         procedure :: mldivide_vec => DiagCovar_mldivide_vec
 end type DiagCovar
@@ -92,7 +92,7 @@ type, extends(Covar) :: SMWCovar
    procedure :: full => SMWCovar_full
    procedure :: mtimes_vec => SMWCovar_mtimes_vec
    procedure :: mldivide_vec => SMWCovar_mldivide_vec
-   procedure :: sub => SMWCovar_sub  
+   procedure :: pack => SMWCovar_pack  
 end type SMWCovar
 
 
@@ -207,15 +207,15 @@ end interface
 !
 ! return subset of covariance, where mask is true
 
-  function Covar_sub(this, mask) result(C)
+  function Covar_pack(this, mask) result(C)
    implicit none
    class(Covar), intent(in) :: this
    logical, intent(in) :: mask(:)
    class(Covar), allocatable :: C
 
-   ! abstact function
-   write(6,*) 'abstact function'
-  end function Covar_sub
+   ! abstract function
+   write(6,*) 'abstract function'
+  end function Covar_pack
 
 !---------------------------------------------------------------------
 !
@@ -403,7 +403,7 @@ end interface
 !
 ! return subset of covariance, where mask is true
 
-  function DiagCovar_sub(this, mask) result(C)
+  function DiagCovar_pack(this, mask) result(C)
    implicit none
    class(DiagCovar), intent(in) :: this
    logical, intent(in) :: mask(:)
@@ -424,7 +424,7 @@ end interface
       call C%init(Dsub)
     end select
    
-   end function DiagCovar_sub
+   end function DiagCovar_pack
 
 
 !---------------------------------------------------------------------
@@ -504,7 +504,7 @@ end interface
 !
 ! return subset of covariance, where mask is true
 
-  function SMWCovar_sub(this, mask) result(C)
+  function SMWCovar_pack(this, mask) result(C)
    implicit none
    class(SMWCovar), intent(in) :: this
    logical, intent(in) :: mask(:)
@@ -534,7 +534,7 @@ end interface
       call SMWCovar_init(C,Csub,Bsub)
     end select
    
-  end function SMWCovar_sub
+  end function SMWCovar_pack
 
 !---------------------------------------------------------------------
 

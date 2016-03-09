@@ -688,7 +688,7 @@ contains
       else
         ! selecting only the relevant observations
         
-        call DRD%init(pack(weight,relevantObs),R%sub(relevantObs))
+        call DRD%init(pack(weight,relevantObs),R%pack(relevantObs))
         
         nObs = 0
         do j=1,size(yo)
