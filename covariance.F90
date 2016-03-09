@@ -1,6 +1,6 @@
 !
 !  OAK, Ocean Assimilation Kit
-!  Copyright(c) 2002-2015 Alexander Barth and Luc Vandenblucke
+!  Copyright(c) 2002-2016 Alexander Barth and Luc Vandenblucke
 !
 !  This program is free software; you can redistribute it and/or
 !  modify it under the terms of the GNU General Public License
@@ -17,6 +17,11 @@
 !  Foundation, Inc., 51 Franklin Street, Fifth Floor, 
 !  Boston, MA  02110-1301, USA.
 !
+
+! include the fortran preprocessor definitions
+#include "ppdef.h"
+
+#define SUPPORT_CON
 
 
 module covariance

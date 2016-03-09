@@ -1,6 +1,6 @@
 !
 !  OAK, Ocean Assimilation Kit
-!  Copyright(c) 2002-2015 Alexander Barth and Luc Vandenblucke
+!  Copyright(c) 2002-2016 Alexander Barth and Luc Vandenblucke
 !
 !  This program is free software; you can redistribute it and/or
 !  modify it under the terms of the GNU General Public License
@@ -21,7 +21,6 @@
 ! include the fortran preprocessor definitions
 #include "ppdef.h"
 
-#define DEBUG
 #define PROFILE
 
 module assimilation
@@ -2016,7 +2015,8 @@ end subroutine fmtIndex
  !
 
 
- subroutine loadObs(ntime,ObsML,observation,invsqrtR)
+ subroutine loadObs(ntime,ObsML,observation,invsqrtR,R,exclude_obs)
+  use covariance
   use initfile
   use date
   use ufileformat
@@ -2024,10 +2024,13 @@ end subroutine fmtIndex
   integer, intent(in)  :: ntime
   type(MemLayout), intent(in) :: ObsML
   real,    intent(out) :: observation(:), invsqrtR(:)
+  class(covar), intent(out), optional, pointer :: R
+  logical, intent(out), optional :: exclude_obs(:)
 
+  type(DiagCovar) :: I
   character(len=maxLen)          :: path        
   character(len=maxLen) :: prefix
-  integer :: omax
+  integer :: omax, j
   integer :: istat
   real, parameter :: min_rmse = 0.01
 
@@ -2056,6 +2059,8 @@ end subroutine fmtIndex
 
   call loadVector(trim(prefix)//'rmse',ObsML,invsqrtR)
 
+
+
   if (any(invsqrtR <= 0)) then
     write (0,*) 'error in ',__FILE__,__LINE__
     write (0,*) 'zero value found in ',trim(prefix)//'rmse'
@@ -2077,6 +2082,22 @@ end subroutine fmtIndex
   write(stddebug,*) 'assim invsqrtR',sum(invsqrtR),count(invsqrtR.eq.0) 
 # endif
 
+  if (present(R)) then
+    write(0,*) 'new covar'
+    ! identity matrix    
+    allocate(DiagCovar::R)
+    select type (R)
+      type is (DiagCovar)        
+        ! here invsqrtR is the the RMSE (error standard devitation and not its 
+        ! inverse)
+        call R%init(invsqrtR**2)
+    end select
+  end if
+
+  if (present(exclude_obs)) then
+    exclude_obs = ObsML%mask /= 1
+  end if
+
   if (ObsML%removeLandPoints) then
     invsqrtR = 1./invsqrtR
   else
@@ -2086,6 +2107,7 @@ end subroutine fmtIndex
       invsqrtR = 0
     end where
   end if
+
 
  end subroutine loadObs
 
@@ -2199,7 +2221,7 @@ end subroutine fmtIndex
  !_______________________________________________________
  !
 
- subroutine loadObservationOper(ntime,ObsML,H,Hshift,invsqrtR)
+ subroutine loadObservationOper(ntime,ObsML,H,Hshift,invsqrtR,exclude_obs)
   use initfile
 !  use grids
   use ufileformat
@@ -2210,6 +2232,7 @@ end subroutine fmtIndex
   type(SparseMatrix), intent(out)  :: H
   real, intent(out) :: Hshift(:)
   real, intent(inout) :: invsqrtR(:)
+  logical, intent(inout), optional :: exclude_obs(:)
 
   type(SparseMatrix)  :: filterMod
   character(len=maxLen), pointer :: filenames(:)
@@ -2312,6 +2335,10 @@ end subroutine fmtIndex
   call packSparseMatrix(Hindex,Hcoeff,ObsML,ModML,H,validobs)
 
   where (.not.validobs) invsqrtR = 0
+  if (present(exclude_obs)) then
+    where (.not.validobs) exclude_obs = .true.
+  end if
+
   deallocate(validobs,Hindex,Hcoeff)
 
   if (presentInitValue(initfname,trim(prefix)//'shift')) then
@@ -2939,6 +2966,11 @@ end function
        yo_Hxf, yo_Hxa, innov_projection, Hshift, Hbf
   real, allocatable, dimension(:,:) :: HSf, HSa, locAmplitudes
 
+  ! true if for some reason the observation should be excluded from the 
+  ! assimilation
+  logical, allocatable :: exclude_obs(:)
+  class(covar), pointer :: R
+  type(DCDCovar), target :: tmpR
 
 !!$  real, pointer, dimension(:) :: yo, Hxf, Hxa, invsqrtR, &
 !!$       yo_Hxf, yo_Hxa, innov_projection, Hshift, Hbf
@@ -2961,7 +2993,7 @@ end function
   ! shared local variables among the OpenMP threads
   save :: H,yo,invsqrtR,Hxf,Hxa,HSf,HSa, &
        yo_Hxf, yo_Hxa, innov_projection, Hshift,Hbf, mjd,error,m,n,k, &
-       locAmplitudes, xf, xa
+       locAmplitudes, xf, xa, exclude_obs, R
 # endif
 
   real, allocatable :: E(:,:)
@@ -2993,19 +3025,27 @@ end function
   k = size(Sf,2)
 
   allocate(yo(m),invsqrtR(m),Hxf(m),Hxa(m),HSf(m,k),HSa(m,k), &
-       yo_Hxf(m), yo_Hxa(m), innov_projection(m), Hshift(m))
+       yo_Hxf(m), yo_Hxa(m), innov_projection(m), Hshift(m), exclude_obs(m))
 
   call loadObsTime(ntime,mjd,error)
-  call loadObs(ntime,ObsML,yo,invsqrtR)    
+  call loadObs(ntime,ObsML,yo,invsqrtR,R,exclude_obs)
 
   !
   ! load the obervation matrix. All points out of grid will have a 
   ! weight (invsqrtR) = 0
   !
 
-  call loadObservationOper(ntime,ObsML,H,Hshift,invsqrtR)
+  call loadObservationOper(ntime,ObsML,H,Hshift,invsqrtR,exclude_obs)
   scaling = sqrt(real(size(Sf,2)) - ASSIM_SCALING)
 
+
+  if (any(exclude_obs)) then
+    ! multiply R left and right by the inverses of diagonal matrix D which 0 for 
+    ! excluded observation and 1 otherwise
+    call tmpR%init(merge(0., 1., exclude_obs),R)
+    deallocate(R)
+    R => tmpR
+  end if
 
   if (present(xfp)) then
     ! Sf represent error modes
@@ -3095,22 +3135,22 @@ end function
          call saveVector('Diag'//trim(infix)//'test',ModMLParallel,Sf(:,2))
 
     if (presentInitValue(initfname,'Diag'//trim(infix)//'Hxf')) &
-         call saveVector('Diag'//trim(infix)//'Hxf',ObsML,Hxf,invsqrtR.ne.0.)
+         call saveVector('Diag'//trim(infix)//'Hxf',ObsML,Hxf,.not.exclude_obs)
 
     if (presentInitValue(initfname,'Diag'//trim(infix)//'yo')) &
-         call saveVector('Diag'//trim(infix)//'yo',ObsML,yo,invsqrtR.ne.0.)
+         call saveVector('Diag'//trim(infix)//'yo',ObsML,yo,.not.exclude_obs)
 
     if (presentInitValue(initfname,'Diag'//trim(infix)//'yo-Hxf')) &
-         call saveVector('Diag'//trim(infix)//'yo-Hxf',ObsML,yo_Hxf,invsqrtR.ne.0.)
+         call saveVector('Diag'//trim(infix)//'yo-Hxf',ObsML,yo_Hxf,.not.exclude_obs)
 
     if (presentInitValue(initfname,'Diag'//trim(infix)//'Sf')) &
          call saveErrorSpace('Diag'//trim(infix)//'Sf',Sf)
 
     if (presentInitValue(initfname,'Diag'//trim(infix)//'diagHPfHT')) & 
-         call saveVector('Diag'//trim(infix)//'diagHPfHT',ObsML,stddev(HSf),invsqrtR.ne.0.)
+         call saveVector('Diag'//trim(infix)//'diagHPfHT',ObsML,stddev(HSf),.not.exclude_obs)
 
     if (presentInitValue(initfname,'Diag'//trim(infix)//'stddevHxf')) &
-         call saveVector('Diag'//trim(infix)//'stddevHxf',ObsML,stddev(HSf),invsqrtR.ne.0.)
+         call saveVector('Diag'//trim(infix)//'stddevHxf',ObsML,stddev(HSf),.not.exclude_obs)
 
     if (presentInitValue(initfname,'Diag'//trim(infix)//'diagPf')) &
          call saveVector('Diag'//trim(infix)//'diagPf',ModMLParallel,stddev(Sf))
@@ -3155,8 +3195,12 @@ end function
                 biasgamma,H,Hshift,xf,biasf,Hxf,Hbf,yo,Sf,HSf,invsqrtR, &
                 xa,biasa,Sa, amplitudes)
         else
-           call locanalysis(zoneSize,selectObservations, &
-                xf,Hxf,yo,Sf,HSf,invsqrtR, xa,Sa,locAmplitudes)
+           !call locanalysis(zoneSize,selectObservations, &
+           !     xf,Hxf,yo,Sf,HSf,invsqrtR, xa,Sa,locAmplitudes)
+
+           write(6,*) 'here 2'
+           call locanalysis_covar(zoneSize,selectObservations, &
+                xf,Hxf,yo,Sf,HSf, R, xa,Sa,locAmplitudes)
         end if
      elseif (schemetype.eq.CLocalScheme) then
         allocate(modGrid(ModML%effsize,2))
@@ -3286,7 +3330,7 @@ end function
   ! rms take only into accound points inside the grid
   !
 
-    ingrid = count(invsqrtR.ne.0.)
+    ingrid = count(.not.exclude_obs)
 
     write(stdlog,*) 'Nb_observations ',size(yo)
     write(stdlog,*) 'Nb_rejected_observations ',count(invsqrtR.eq.0.)
@@ -3295,9 +3339,9 @@ end function
 !    write(stdlog,*) 'ensamplitudes: ',ensampl
 
 
-    call report(stdlog,trim(infix)//'forecast.',mjd,ingrid,invsqrtR,HSf,yo_Hxf)
+    call report(stdlog,trim(infix)//'forecast.',mjd,ingrid,invsqrtR,HSf,yo_Hxf,exclude_obs)
     if (runtype.eq.AssimRun) then
-      call report(stdlog,trim(infix)//'analysis.',mjd,ingrid,invsqrtR,HSa,yo_Hxa)
+      call report(stdlog,trim(infix)//'analysis.',mjd,ingrid,invsqrtR,HSa,yo_Hxa,exclude_obs)
     end if
 
     ! obsnames = name of each variable (only for output)
@@ -3330,10 +3374,10 @@ end function
       write(stdlog,*) '  Sea points out of grid: ',count(invsqrtR(i1:i2).eq.0.)
 
       if (ObsML%varsizesea(v) > 0) then
-        call report(stdlog,trim(prefix)//'forecast.',mjd,ingrid,invsqrtR(i1:i2),HSf(i1:i2,:),yo_Hxf(i1:i2))
+        call report(stdlog,trim(prefix)//'forecast.',mjd,ingrid,invsqrtR(i1:i2),HSf(i1:i2,:),yo_Hxf(i1:i2),exclude_obs(i1:i2))
 
         if (runtype.eq.AssimRun) then
-          call report(stdlog,trim(prefix)//'analysis.',mjd,ingrid,invsqrtR(i1:i2),HSa(i1:i2,:),yo_Hxa(i1:i2))
+          call report(stdlog,trim(prefix)//'analysis.',mjd,ingrid,invsqrtR(i1:i2),HSa(i1:i2,:),yo_Hxa(i1:i2),exclude_obs(i1:i2))
         end if
       end if
 
@@ -3376,13 +3420,13 @@ end function
       end if
 
       if (presentInitValue(initfname,'Diag'//trim(infix)//'Hxa'))         &
-           call saveVector('Diag'//trim(infix)//'Hxa',ObsML,Hxa,invsqrtR.ne.0.)
+           call saveVector('Diag'//trim(infix)//'Hxa',ObsML,Hxa,.not.exclude_obs)
 
       if (presentInitValue(initfname,'Diag'//trim(infix)//'Hxa-Hxf'))     &
-           call saveVector('Diag'//trim(infix)//'Hxa-Hxf',ObsML,Hxa-Hxf,invsqrtR.ne.0.)
+           call saveVector('Diag'//trim(infix)//'Hxa-Hxf',ObsML,Hxa-Hxf,.not.exclude_obs)
 
       if (presentInitValue(initfname,'Diag'//trim(infix)//'yo-Hxa')) &
-           call saveVector('Diag'//trim(infix)//'yo-Hxa',ObsML,yo_Hxa,invsqrtR.ne.0.)
+           call saveVector('Diag'//trim(infix)//'yo-Hxa',ObsML,yo_Hxa,.not.exclude_obs)
 
       if (presentInitValue(initfname,'Diag'//trim(infix)//'xa'))  &
            call saveVector('Diag'//trim(infix)//'xa',ModMLParallel,xa)
@@ -3397,10 +3441,10 @@ end function
            call saveVector('Diag'//trim(infix)//'stddevxa',ModMLParallel,stddev(Sa))
 
       if (presentInitValue(initfname,'Diag'//trim(infix)//'diagHPaHT')) &
-           call saveVector('Diag'//trim(infix)//'diagHPaHT',ObsML,stddev(HSa),invsqrtR.ne.0.)
+           call saveVector('Diag'//trim(infix)//'diagHPaHT',ObsML,stddev(HSa),.not.exclude_obs)
 
       if (presentInitValue(initfname,'Diag'//trim(infix)//'stddevHxa')) &
-           call saveVector('Diag'//trim(infix)//'stddevHxa',ObsML,stddev(HSa),invsqrtR.ne.0.)
+           call saveVector('Diag'//trim(infix)//'stddevHxa',ObsML,stddev(HSa),.not.exclude_obs)
 
       if (presentInitValue(initfname,'Diag'//trim(infix)//'Sa')) &
            call saveErrorSpace('Diag'//trim(infix)//'Sa',Sa)
@@ -3484,7 +3528,7 @@ end function
  !_______________________________________________________
  !
 
- subroutine report(unit,prefix,mjd,ingrid,invsqrtR,HS,yo_Hx)
+ subroutine report(unit,prefix,mjd,ingrid,invsqrtR,HS,yo_Hx,exclude_obs)
   use rrsqrt
   use matoper
   implicit none
@@ -3494,6 +3538,7 @@ end function
   integer, intent(in) :: ingrid
   real(8), intent(in) :: mjd
   real, intent(in) :: invsqrtR(:),HS(:,:),yo_Hx(:)
+  logical, intent(in) :: exclude_obs(:)
 
   character(len=*), parameter :: form = '(A,A,E15.7)'
   real :: innov_projection(size(HS,2))
@@ -3503,8 +3548,8 @@ end function
   MahalanobisLen=0
 
   write(unit,'(A,A,F15.4)') prefix,'mjd                      ',mjd
-  write(unit,form) prefix,'rms_yo-Hx                ',sqrt(sum( (yo_Hx)**2,invsqrtR.ne.0.)/ingrid)
-  write(unit,form) prefix,'bias_yo-Hx               ',sum(yo_Hx,invsqrtR.ne.0.)/ingrid
+  write(unit,form) prefix,'rms_yo-Hx                ',sqrt(sum( (yo_Hx)**2,.not.exclude_obs)/ingrid)
+  write(unit,form) prefix,'bias_yo-Hx               ',sum(yo_Hx,.not.exclude_obs)/ingrid
 
   innov_projection = HS.tx.(invsqrtR**2*(yo_Hx))
 
