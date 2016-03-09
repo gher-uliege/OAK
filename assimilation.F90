@@ -3168,7 +3168,7 @@ end function
     end if
 
     if (presentInitValue(initfname,'Diag'//trim(infix)//'innov_projection'))  &
-         call saveVector('Diag'//trim(infix)//'innov_projection',ObsML,innov_projection,invsqrtR.ne.0)
+         call saveVector('Diag'//trim(infix)//'innov_projection',ObsML,innov_projection,.not.exclude_obs)
 
     if (presentInitValue(initfname,'Diag'//trim(infix)//'meanSf')) then
       call saveVector('Diag'//trim(infix)//'meanSf',ModMLParallel,sum(Sf,2)/size(Sf,2))
@@ -3333,7 +3333,7 @@ end function
     ingrid = count(.not.exclude_obs)
 
     write(stdlog,*) 'Nb_observations ',size(yo)
-    write(stdlog,*) 'Nb_rejected_observations ',count(invsqrtR.eq.0.)
+    write(stdlog,*) 'Nb_rejected_observations ',count(exclude_obs)
     write(stdlog,*) 'Nb_valid_observations ',ingrid
 !    write(stdlog,*) 'amplitudes: ',amplitudes
 !    write(stdlog,*) 'ensamplitudes: ',ensampl
@@ -3365,13 +3365,13 @@ end function
 
       i1 = ObsML%startIndexSea(v)
       i2 = ObsML%endIndexSea(v)
-      ingrid = count(invsqrtR(i1:i2).ne.0.)
+      ingrid = count(.not.exclude_obs(i1:i2))
 
       write(stdlog,*) 'Variable number ',v,trim(obsnames(v))
       write(stdlog,*) '  Shape: ',ObsML%varshape(1:ObsML%ndim(v),v)
       write(stdlog,*) '  Size: ',ObsML%varsize(v)
       write(stdlog,*) '  Sea points: ',ObsML%varsizesea(v)
-      write(stdlog,*) '  Sea points out of grid: ',count(invsqrtR(i1:i2).eq.0.)
+      write(stdlog,*) '  Sea points out of grid: ',count(exclude_obs(i1:i2))
 
       if (ObsML%varsizesea(v) > 0) then
         call report(stdlog,trim(prefix)//'forecast.',mjd,ingrid,invsqrtR(i1:i2),HSf(i1:i2,:),yo_Hxf(i1:i2),exclude_obs(i1:i2))
@@ -3494,6 +3494,7 @@ end function
   ! free memory
 
   deallocate(yo,invsqrtR,Hxf,Hxa,HSf,HSa,yo_Hxf,yo_Hxa,innov_projection,H%i,H%j,H%s,Hshift)
+  deallocate(exclude_obs,R)
   if (biastype.eq.ErrorFractionBias) deallocate(Hbf)
   if (schemetype.eq.LocalScheme) then
     deallocate(obsGridX,obsGridY,locAmplitudes)
