@@ -708,7 +708,14 @@ program test_nondiag
  type(cellgrid) :: cg
  type(SparseSolver) :: solver
 
- real :: tol = 1e-7
+ ! tolerance for checking
+ real :: tol
+
+ if (kind(tol) == 4) then
+   tol = 0.1
+ else
+   tol = 1e-7
+ end if
 
  call test_kernel
  call test_diff
@@ -823,44 +830,44 @@ contains
 
   !call initspline(conf,gshape,masked,pm,x)
   call initspline_rectdom(conf,gshape,[2.,3.],[2.*gshape(1), 3.*gshape(2)])
-  call assert(conf%x,x,1e-10,'rectdom x')
-  call assert(conf%pm,pm,1e-10,'rectdom pm')
+  call assert(conf%x,x,tol,'rectdom x')
+  call assert(conf%pm,pm,tol,'rectdom pm')
 
   df = grad(gshape,masked,pm,3*x(:,1) + 2*x(:,2),1)
   df2 = reshape(df,gshape)    
-  call assert(maxval(abs(df2(1:gshape(1)-1,:) - 3)),0.,1e-10,'gradv x')
+  call assert(maxval(abs(df2(1:gshape(1)-1,:) - 3)),0.,tol,'gradv x')
 
   df = grad(gshape,masked,pm,3*x(:,1) + 2*x(:,2),2)
   df2 = reshape(df,gshape)    
-  call assert(maxval(abs(df2(:,1:gshape(2)-1) - 2)),0.,1e-10,'gradv y')
+  call assert(maxval(abs(df2(:,1:gshape(2)-1) - 2)),0.,tol,'gradv y')
 
 
 
   df = laplacian(conf,3*x(:,1) + 2*x(:,2))
   df2 = reshape(df,gshape)    
-  call assert(maxval(abs(df2(2:gshape(1)-1,2:gshape(2)-1))),0.,1e-10,'laplacian (1)')
+  call assert(maxval(abs(df2(2:gshape(1)-1,2:gshape(2)-1))),0.,tol,'laplacian (1)')
 
   df = laplacian(conf,3*x(:,1)**2 + 2*x(:,2))
   df2 = reshape(df,gshape)    
-  call assert(maxval(abs(df2(2:gshape(1)-1,2:gshape(2)-1) - 6)),0.,1e-10,'laplacian (2)')
+  call assert(maxval(abs(df2(2:gshape(1)-1,2:gshape(2)-1) - 6)),0.,tol,'laplacian (2)')
 
   Sx = grad_op(gshape,masked,pm,1)
   df2 = reshape(Sx .x. (3*x(:,1) + 2*x(:,2)) ,gshape)    
-  call assert(maxval(abs(df2(1:gshape(1)-1,:) - 3)),0.,1e-10,'gradv op x')
+  call assert(maxval(abs(df2(1:gshape(1)-1,:) - 3)),0.,tol,'gradv op x')
 
   Sy = grad_op(gshape,masked,pm,2)
   df2 = reshape(Sy .x. (3*x(:,1) + 2*x(:,2)) ,gshape)    
-  call assert(maxval(abs(df2(:,1:gshape(2)-1) - 2)),0.,1e-10,'gradv op x')
+  call assert(maxval(abs(df2(:,1:gshape(2)-1) - 2)),0.,tol,'gradv op x')
 
   Lap = laplacian_op(conf)
   df2 = reshape(Lap .x. (3*x(:,1)**2 + 2*x(:,2)) ,gshape)    
-  call assert(maxval(abs(df2(2:gshape(1)-1,2:gshape(2)-1) - 6)),0.,1e-10,'laplacian op (1)')
+  call assert(maxval(abs(df2(2:gshape(1)-1,2:gshape(2)-1) - 6)),0.,tol,'laplacian op (1)')
 
   Lap2 = Lap.x.Lap
-  call assert(full(Lap2),matmul(full(Lap),full(Lap)),1e-10,'laplacian op (2)')
+  call assert(full(Lap2),matmul(full(Lap),full(Lap)),tol,'laplacian op (2)')
 
   Lap2 = transpose(Lap).x.Lap
-  call assert(full(Lap2),matmul(transpose(full(Lap)),full(Lap)),1e-10,'laplacian op (3)')
+  call assert(full(Lap2),matmul(transpose(full(Lap)),full(Lap)),tol,'laplacian op (3)')
 
   call donespline(conf)
  end subroutine test_diff
@@ -981,6 +988,7 @@ contains
   !  real :: relres
   real :: xiBx
   real :: len = 1
+  real :: kernel_tol
 
   write(6,*) '= test_2d ='
 
@@ -1024,7 +1032,13 @@ contains
   ! ff(isnan(ff)) = 1; 
   ! ff(96,96 + [1:50])
 
-  call usave('fi.dat',fi,-9999.)
+  !call usave('fi.dat',fi,-9999.)
+
+  if (kind(tol) == 4) then
+    kernel_tol = 0.1
+  else
+    kernel_tol = 0.004
+  end if
 
   call assert(fi(96,[(96+i,i=1,50)]), &
        [0.99507,0.98409,0.96919,0.95146,0.93163,0.91024,0.88769,0.86431, &
@@ -1033,7 +1047,7 @@ contains
         0.47863,0.46004,0.44203, 0.42459,0.40771,0.39139,0.37562,0.36038, &
         0.34568,0.33150,0.31782,0.30465,0.29195,0.27973, 0.26797,0.25666, &
         0.24577,0.23531,0.22526,0.21560,0.20633,0.19742,0.18887,0.18067, &
-        0.17280,0.16525],0.004,'check theoretical 2d-121-kernel')
+        0.17280,0.16525],kernel_tol,'check theoretical 2d-121-kernel')
 
 
 !  call assert(Bx,kernel,0.006,'check theoretical 2d-121-kernel')
@@ -1089,6 +1103,7 @@ contains
   !  Bx = pcg(fun,x,x,tol=tol,maxit=maxit,nit=nit,relres=relres)
   Bx = symsolve(iB,x)
 
+  !write(6,*) 'iB.x.Bx- x',maxval(abs((iB.x.Bx) - x)),maxval(x)
   call assert(iB.x.Bx,x,tol,'check inv(B)*x with masked')
   !  write(6,*) 'x',x
   !  write(6,*) 'nit,relres',nit,relres
@@ -1098,7 +1113,7 @@ contains
   fi = reshape(Bx,gshape)
 
   where (masked) fi = -9999.
-  call usave('fi_mask.dat',fi,-9999.)
+  !call usave('fi_mask.dat',fi,-9999.)
 
 
  end subroutine 
