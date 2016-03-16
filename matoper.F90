@@ -54,6 +54,7 @@ interface operator(.x.)
           svec_mult_smat,       &
           svec_mult_ssparsemat, &
           svec_mult_svec,       &
+         sscal_mult_ssparsemat, &
 ! double precision
           dmat_mult_dmat,       &
     ssparsemat_mult_dmat,       &
@@ -63,7 +64,7 @@ interface operator(.x.)
           dvec_mult_dmat,       &
           dvec_mult_ssparsemat, &
           dvec_mult_dvec,       &
-         dscal_mult_ssparsemat
+          dscal_mult_ssparsemat
 end interface
 
 
@@ -1194,6 +1195,7 @@ end function nchoosek
 #define ssparsemat_mult_mat_TYPE ssparsemat_mult_smat
 #define mat_mult_ssparsemat_TYPE smat_mult_ssparsemat
 #define vec_mult_ssparsemat_TYPE svec_mult_ssparsemat
+#define scal_mult_ssparsemat_TYPE sscal_mult_ssparsemat
 
 #define mat_mult_matT_TYPE smat_mult_smatT
 #define mat_mult_ssparsematT_TYPE smat_mult_ssparsematT
@@ -1259,6 +1261,7 @@ end function nchoosek
 #undef ssparsemat_mult_mat_TYPE
 #undef mat_mult_ssparsemat_TYPE
 #undef vec_mult_ssparsemat_TYPE
+#undef scal_mult_ssparsemat_TYPE
 
 #undef mat_mult_matT_TYPE
 #undef mat_mult_ssparsematT_TYPE

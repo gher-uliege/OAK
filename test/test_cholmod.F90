@@ -1,4 +1,4 @@
-! cd /home/abarth/Assim/OAK-nonDiagR &&  make test/test_cholmod && test/test_cholmod
+! cd $HOME/Assim/OAK-nonDiagR &&  make test/test_cholmod && test/test_cholmod
 
 
 
@@ -40,7 +40,7 @@ contains
 
   status = solve_cholmod(n,nz,c_loc(Si),c_loc(Sj),c_loc(Ss),c_loc(bb),c_loc(xx))
 
-  call assert(xx,bb/2.,tol,'simple cholmod test')
+  call assert(real(xx),real(bb)/2.,tol,'simple cholmod test')
 
  end subroutine simple_test
 
@@ -103,12 +103,12 @@ contains
   status = cholmod_solve(c_loc(cholmod_common),c_loc(A),c_loc(L),c_loc(bb), & 
        c_loc(xx))
 
-  call assert(xx,bb/2.,tol,'factorize cholmod test (1)')
+  call assert(real(xx),real(bb)/2.,tol,'factorize cholmod test (1)')
 
   status = cholmod_solve(c_loc(cholmod_common),c_loc(A),c_loc(L),c_loc(b2), & 
        c_loc(xx))
 
-  call assert(xx,b2/2.,tol,'factorize cholmod test (2)')
+  call assert(real(xx),real(b2)/2.,tol,'factorize cholmod test (2)')
 
 
   status = cholmod_free(c_loc(cholmod_common),c_loc(A),c_loc(L))

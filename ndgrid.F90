@@ -1551,7 +1551,12 @@ end subroutine
 
   ! small balue to make the upper-bound slightly larger to ensure that 
   ! the largerst value is also inside a cell
-  eps = 1e-6 * minval(dx)
+  if (kind(dx) == 4) then
+    eps = 1e-3 * minval(dx)
+  else
+    eps = 1e-6 * minval(dx)
+  end if
+
   n = size(xpos,2)
   cg%n = n
 
@@ -1592,7 +1597,7 @@ end subroutine
     gridind = floor(fracindex) + 1
     !write(6,*) 'xpos',xpos(l,:),cg%xmin,gridind, (xpos(l,:) - cg%xmin)/ dx
 
-    ci = sum((gridind-1) * cg%offset) + 1
+    ci = sum((gridind-1) * cg%offset) + 1    
     call add(cg%gridn(ci),l)
 
     !if (mod(l,100) == 0) write(6,*) 'l ',l,gridind         
