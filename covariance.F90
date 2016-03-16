@@ -42,10 +42,11 @@ type, abstract :: Covar
 
   procedure :: print => Covar_print
   procedure :: full => Covar_full
+  procedure :: pack => Covar_pack
+  procedure :: sub => Covar_sub
   procedure :: mtimes_mat => Covar_mtimes_mat
   procedure :: mldivide_vec => Covar_mldivide_vec
   procedure :: mldivide_mat => Covar_mldivide_mat
-  procedure :: pack => Covar_pack
   procedure :: diag => Covar_diag
 
   generic, public :: mtimes => mtimes_vec, mtimes_mat
@@ -216,6 +217,23 @@ end interface
    ! abstract function
    write(6,*) 'abstract function'
   end function Covar_pack
+
+!---------------------------------------------------------------------
+!
+! return subset of covariance, between indices i and j
+
+  function Covar_sub(this,i,j) result(C)
+   implicit none
+   class(Covar), intent(in) :: this
+   integer, intent(in) :: i,j
+   class(Covar), allocatable :: C
+
+   logical :: mask(this%n)
+
+   mask = .false.
+   mask(i:j) = .true.
+!   C = this%pack(mask)
+  end function Covar_sub
 
 !---------------------------------------------------------------------
 !
