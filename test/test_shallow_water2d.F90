@@ -30,10 +30,10 @@ program test_shallow_water2d
       ew = (erf((x - 70e3)/10e3)+1)/2
       ! depth of domain
       !h(i,j) = 100
-      h(i,j) = 1000* (exp(-(y - 49500)**2 / 20000**2)*ew  - 2*ew+1)
+      h(i,j) = 5000* (exp(-(y - 49500)**2 / 20000**2)*ew  - 2*ew+1)
       
-
-      zeta(i,j,1) = exp(-x/(10*dx) -y/(10*dy))
+      zeta(i,j,1) = exp(-(x/(20*dx))**2 - (y/(20*dy))**2)
+      !zeta(i,j,1) = exp(-x/(20*dx))
       
     end do
   end do
@@ -64,7 +64,7 @@ program test_shallow_water2d
  timeindex = timeindex + 1
 
  ! time loop
- do timecounter = 1,1000
+ do timecounter = 1,3000
    call shallow_water2d_step(dom,timecounter,zeta(:,:,1),U(:,:,1),V(:,:,1), &
         dt,g,f,zeta(:,:,2),U(:,:,2),V(:,:,2))
 
