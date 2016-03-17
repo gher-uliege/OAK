@@ -1,4 +1,4 @@
-! gfortran  -fdefault-real-8 -o test_shallow_water2d  shallow_water2d.F90 test_shallow_water2d.F90 && ./shallow_water2d 
+! gfortran -Wall  -g -O2 -I/usr/include  -fdefault-real-8 -o test_shallow_water2d  shallow_water2d.F90 test_shallow_water2d.F90 -L/usr/lib -lnetcdff -lnetcdf  && time ./test_shallow_water2d
 
 program test_shallow_water2d
  use shallow_water2d

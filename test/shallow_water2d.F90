@@ -201,11 +201,10 @@ subroutine diag(dom,timecounter,zeta,U,V,g)
  real, intent(in)   :: g
 
  real :: Epot, Ekin, Etot, Vol
+ integer :: m,n
 
-  integer :: m,n
-  m = size(dom%h,1)
-  n = size(dom%h,2)
- 
+ m = size(dom%h,1)
+ n = size(dom%h,2) 
  Epot = sum(g * zeta**2)
  Ekin = sum(U**2 / dom%h_u) + sum(V**2 / dom%h_v)
  Etot = Epot + Ekin
@@ -222,11 +221,13 @@ subroutine shallow_water2d_save(dom,timeindex,zeta,U,V,fname)
  integer, intent(in) :: timeindex
  character(len=*), intent(in) :: fname
 
+ real(8) :: fillval = NF90_FILL_DOUBLE
+
  integer :: ncid, status, &
       dimid_xi, dimid_xi_u, dimid_xi_v,  &
       dimid_eta, dimid_eta_u, dimid_eta_v,  &
       dimid_time, & 
-      varid_zeta, varid_U, varid_V, &
+      varid_zeta, varid_ubar, varid_vbar, &
       varid_h, varid_mask, varid_mask_u, varid_mask_v
 
  write(6,*)' save'
@@ -261,14 +262,27 @@ subroutine shallow_water2d_save(dom,timeindex,zeta,U,V,fname)
    call check(nf90_def_var(ncid, 'mask_v', nf90_double, &
         [dimid_xi_v, dimid_eta_v], varid_mask_v))
 
+   ! zeta
    call check(nf90_def_var(ncid, 'zeta', nf90_double, &
         [dimid_xi, dimid_eta, dimid_time], varid_zeta))
+   call check(nf90_put_att(ncid, varid_zeta, &
+        'standard_name', 'sea_surface_elevation'))
+   call check(nf90_put_att(ncid, varid_zeta, 'units', 'm'))
+   call check(nf90_put_att(ncid, varid_zeta, '_FillValue', fillval))
 
-   call check(nf90_def_var(ncid, 'U', nf90_double, &
-        [dimid_xi_u, dimid_eta_u, dimid_time], varid_U))
+   call check(nf90_def_var(ncid, 'ubar', nf90_double, &
+        [dimid_xi_u, dimid_eta_u, dimid_time], varid_ubar))
+   call check(nf90_put_att(ncid, varid_ubar, &
+        'standard_name', 'barotropic_eastward_sea_water_velocity'))
+   call check(nf90_put_att(ncid, varid_ubar, 'units', 'm s-1'))
+   call check(nf90_put_att(ncid, varid_ubar, '_FillValue', fillval))
 
-   call check(nf90_def_var(ncid, 'V', nf90_double, &
-        [dimid_xi_v, dimid_eta_v, dimid_time], varid_V))
+   call check(nf90_def_var(ncid, 'vbar', nf90_double, &
+        [dimid_xi_v, dimid_eta_v, dimid_time], varid_vbar))
+   call check(nf90_put_att(ncid, varid_vbar, &
+        'standard_name', 'barotropic_northward_sea_water_velocity'))
+   call check(nf90_put_att(ncid, varid_vbar, 'units', 'm s-1'))
+   call check(nf90_put_att(ncid, varid_vbar, '_FillValue', fillval))
 
    call check(nf90_enddef(ncid))
 
@@ -284,13 +298,16 @@ subroutine shallow_water2d_save(dom,timeindex,zeta,U,V,fname)
    call check(nf90_inq_varid(ncid, 'mask', varid_mask))
    call check(nf90_inq_varid(ncid, 'mask_u', varid_mask_u))
    call check(nf90_inq_varid(ncid, 'mask_v', varid_mask_v))
-   call check(nf90_inq_varid(ncid, 'U', varid_U))
-   call check(nf90_inq_varid(ncid, 'V', varid_V))
+   call check(nf90_inq_varid(ncid, 'ubar', varid_ubar))
+   call check(nf90_inq_varid(ncid, 'vbar', varid_vbar))
  end if
 
- call check(nf90_put_var(ncid,varid_zeta,zeta,start=[1,1,timeindex]))
- call check(nf90_put_var(ncid,varid_U,U,start=[1,1,timeindex]))
- call check(nf90_put_var(ncid,varid_V,V,start=[1,1,timeindex]))
+ call check(nf90_put_var(ncid,varid_zeta, &
+      merge(real(zeta,8),fillval,dom%mask),start=[1,1,timeindex]))
+ call check(nf90_put_var(ncid,varid_ubar, &
+      merge(real(U/dom%h_u,8),fillval,dom%mask_u),start=[1,1,timeindex]))
+ call check(nf90_put_var(ncid,varid_vbar, &
+      merge(real(V/dom%h_v,8),fillval,dom%mask_v),start=[1,1,timeindex]))
 
  call check(nf90_close(ncid))
 
