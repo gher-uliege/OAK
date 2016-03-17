@@ -1,4 +1,4 @@
-! gfortran -o shallow_water2d shallow_water2d.F90
+
 
 module shallow_water2d
 
@@ -7,6 +7,7 @@ type domain
   logical, allocatable :: mask(:,:), mask_u(:,:), mask_v(:,:)
   real, allocatable    :: pm(:,:), pm_u(:,:), pm_v(:,:)
   real, allocatable    :: pn(:,:), pn_u(:,:), pn_v(:,:)  
+  real, allocatable    :: dS(:,:), dS_u(:,:), dS_v(:,:)  
 end type domain
 
 type parameters
@@ -35,7 +36,9 @@ contains
        dom%h_u(m-1,n),dom%mask_u(m-1,n), &
        dom%pm_u(m-1,n),dom%pn_u(m-1,n), &
        dom%h_v(m,n-1),dom%mask_v(m,n-1), &
-       dom%pm_v(m,n-1),dom%pn_v(m,n-1))
+       dom%pm_v(m,n-1),dom%pn_v(m,n-1), &
+       dom%dS(m,n) &
+  )
 
   dom%h = h
   dom%mask = mask
@@ -43,6 +46,8 @@ contains
   ! inverse of the resolution
   dom%pm = 1./dx
   dom%pn = 1./dy
+
+  dom%dS = 1./(dom%pm*dom%pn)
 
   ! stagger u
   dom%h_u    = (dom%h(1:m-1,:)      +   dom%h(2:m,:))/2
@@ -61,12 +66,12 @@ contains
 
  end subroutine init_domain
 
-subroutine shallow_water2d_step(dom,zetai,Ui,Vi,timecounter,dt,g,f,zeta,U,V)
+subroutine shallow_water2d_step(dom,timecounter,zetai,Ui,Vi,dt,g,f,zeta,U,V)
  implicit none
  type(domain), intent(in) :: dom
+ integer, intent(in) :: timecounter
  real, intent(in) :: zetai(:,:), Ui(:,:), Vi(:,:)
  real, intent(out) :: zeta(:,:), U(:,:), V(:,:)
- integer, intent(in) :: timecounter
  real, intent(in)   :: dt,g,f
  
  integer :: m,n
@@ -74,7 +79,7 @@ subroutine shallow_water2d_step(dom,zetai,Ui,Vi,timecounter,dt,g,f,zeta,U,V)
  real :: U2(size(zeta,1)-1,size(zeta,2))
  real :: V2(size(zeta,1),size(zeta,2)-1)
  real :: c(size(zeta,1),size(zeta,2)),dt_max
- real :: t, Up, Vp, Epot, Ekin, Etot, Vol
+ real :: t, Up, Vp
  integer :: s, i, j
 
 ! linear shallow water model
@@ -139,8 +144,6 @@ subroutine shallow_water2d_step(dom,zetai,Ui,Vi,timecounter,dt,g,f,zeta,U,V)
 
 ! fprintf('   Step    Pot.Energy   Kin.Energy   Tot.Energy      Volumn\n')
 
- dS = 1./(dom%pm*dom%pn)
-
 ! do timecounter=1:N
  t = dt*timecounter
 
@@ -167,7 +170,7 @@ subroutine shallow_water2d_step(dom,zetai,Ui,Vi,timecounter,dt,g,f,zeta,U,V)
       do I = 1,m-1
         do J = 2,n-1
 
-          Vp = (V(I,J-1)+V(I,J)+ V(I+1,J-1)+V(I+1,J))/4;
+          Vp = (V(I,J-1)+V(I,J)+ V(I+1,J-1)+V(I+1,J))/4
       
           U(I,J) = U(I,J) + f*dt * Vp & 
                - dt * g*dom%h_u(I,J) * (zeta(I+1,J)-zeta(I,J)) * dom%pm_u(I,J)
@@ -189,107 +192,80 @@ subroutine shallow_water2d_step(dom,zetai,Ui,Vi,timecounter,dt,g,f,zeta,U,V)
     end if  
   end do
 
-  
-
-!   zetam = zetam + zeta
-!   Um = Um + U
-!   Vm = Vm + V
-
-!   zetav = zetav + zeta.^2
-!   Uv = Uv + U.^2
-!   Vv = Vv + V.^2
-  
-!   if mod(timecounter,plot_every) == 0 && plot_every > 0
-!     ! close is necessary if matlab is run with -nodisplay (otherwise I get a Segmentation fault)
-!     !close
-!     !clf
-!     hold on
-!     sc = 1e3
-!     !pcolor(x/sc,y/sc,zeta) shading('flat'),
-!     tmp = zeta
-!     tmp(mask == 0) = NaN
-!     !pcolor(domain.lon_rho,domain.lat_rho,tmp) shading('flat'),
-!     pcolor(tmp) shading('flat'),
-!     ca = [-.3 1]
-!     caxis(ca)
-!     colorbar
-!     title(['time step ' num2str(timecounter)]) 
-    
-!     if 0
-!       Uc = U(2:end,:)+U(1:end-1,:) 
-!       Vc = V(:,2:end)+V(:,1:end-1)
-!       h = 4
-!       s = 1
-!       quiver(x(1:h:end,1:h:end)/sc,y(1:h:end,1:h:end)/sc,s*Uc(1:h:end,1:h:end),s*Vc(1:h:end,1:h:end))
-!       axis([-L L -L L]/sc)
-!     end
-!     drawnow
-!     hold off
-
-!     !print('-dpng',sprintf('shallow_water_%06d.png',timecounter/plot_every-1))
-!   end if
-
-  if (mod(timecounter,1) == 0) then
-    Epot = sum(g * zeta**2)
-    Ekin = sum(U**2 / dom%h_u) + sum(V**2 / dom%h_v)
-    Etot = Epot + Ekin
-    Vol = sum(zeta(2:m-1,2:n-1) * dS(2:m-1,2:n-1))
-
-    write(6,'(I10,4F12.2)') timecounter,Epot,Ekin,Etot,Vol
-   end if
-! end do
-
-! Uc = U(2:m-1,:)+U(1:m-2,:) 
-! Vc = V(:,2:n-1)+V(:,1:n-2)
-
-! [zetam,zetav] = stats(zetam,zetav,N)
-! [Um,Uv] = stats(Um,Uv,N)
-! [Vm,Vv] = stats(Vm,Vv,N)
-
-! if strcmp(output(end-2:end),'.nc')
-!   close(nc)
-! end if
-
 end subroutine shallow_water2d_step
+
+subroutine diag(dom,timecounter,zeta,U,V,g)
+ implicit none
+ type(domain), intent(in) :: dom
+ integer, intent(in) :: timecounter
+ real, intent(in) :: zeta(:,:), U(:,:), V(:,:)
+ real, intent(in)   :: g
+
+ real :: Epot, Ekin, Etot, Vol
+
+  integer :: m,n
+  m = size(dom%h,1)
+  n = size(dom%h,2)
+ 
+ Epot = sum(g * zeta**2)
+ Ekin = sum(U**2 / dom%h_u) + sum(V**2 / dom%h_v)
+ Etot = Epot + Ekin
+ Vol = sum(zeta(2:m-1,2:n-1) * dom%dS(2:m-1,2:n-1))
+
+ write(6,'(I10,4F12.2)') timecounter,Epot,Ekin,Etot,Vol
+end subroutine diag
+  
+subroutine shallow_water2d_save(dom,timeindex,zeta,U,V)
+ use netcdf
+ implicit none
+ type(domain), intent(in) :: dom
+ real, intent(in) :: zeta(:,:), U(:,:), V(:,:)
+ integer, intent(in) :: timeindex
+
+ integer :: ncid, status, dimids(3), varid
+ integer :: i,j
+
+ write(6,*)' save'
+ if (timeindex == 1) then
+   ! create new file
+   
+   status = nf90_create('example.nc',nf90_clobber,ncid)
+   call check_error(status)
+
+   ! define the dimensions
+
+   call check_error(nf90_def_dim(ncid, 'longitude', size(zeta,1), dimids(1)))
+   call check_error(nf90_def_dim(ncid, 'latitude', size(zeta,2), dimids(2)))
+   call check_error(nf90_def_dim(ncid, 'time', NF90_UNLIMITED, dimids(3)))
+
+   ! define variable
+   call check_error(nf90_def_var(ncid, 'zeta', nf90_float, dimids, varid))
+   call check_error(nf90_enddef(ncid))
+ else
+   status = nf90_open('example.nc',NF90_WRITE,ncid)
+   call check_error(nf90_inq_varid(ncid, 'zeta', varid))
+   call check_error(status)      
+ end if
+
+ call check_error(nf90_put_var(ncid,varid,zeta,start=[1,1,timeindex]))
+
+ call check_error(nf90_close(ncid))
+
+ 
+contains
+
+ subroutine check_error(status)
+  integer, intent ( in) :: status
+
+  if(status /= nf90_noerr) then
+    write(6,*) 'NetCDF error: ',trim(nf90_strerror(status))
+    stop "Stopped"
+  end if
+ end subroutine check_error
+
+end subroutine shallow_water2d_save
+
+
 end module
 
 
-program test_shallow_water2d
- use shallow_water2d
- implicit none
- integer, parameter :: m = 100, n = 100, Ntime = 2
- real :: h(m,n), zeta(m,n,Ntime), dx, dy
- real :: U(m-1,n,Ntime), V(m,n-1,Ntime)
- logical :: mask(m,n) 
- type(domain) :: dom
- real :: dt,g,f
- integer :: timecounter, i
- 
- mask = .false.
- mask(2:m-1,2:m-1) = .true.;
- mask(10:40,50:60) = .false.;
- mask(70,20) = .false.;
-
- dx = 1000;
- dy = 1000;
-
- h = 100
- call init_domain(dom,dx,dy,mask,h)
-
- zeta = 0
- zeta(4,4,1) = 1
- U = 0
- V = 0
- dt = 2;
- g = 9.81;
- f = 1e-4;
-
- do timecounter = 1,10
-   call shallow_water2d_step(dom,zeta(:,:,1),U(:,:,1),V(:,:,1), &
-        timecounter,dt,g,f,zeta(:,:,2),U(:,:,2),V(:,:,2))
-
-   zeta(:,:,1) = zeta(:,:,2)
-   U(:,:,1) = U(:,:,2)
-   V(:,:,1) = V(:,:,2)
- end do
-end program test_shallow_water2d
