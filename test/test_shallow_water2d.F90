@@ -11,47 +11,41 @@ program test_shallow_water2d
  real :: dt,g,f, ew
  integer :: timecounter, timeindex, i,j
  character(len=*), parameter :: fname = 'example.nc'
- 
- ! setup mask
- mask = .false.
- mask(2:m-1,2:m-1) = .true.
- mask(10:40,50:60) = .false.
- mask(70,20) = .false.
 
- ! grid spacing
+ ! grid spacing in meters
  dx = 1000
  dy = 1000
 
  do j = 1,n
    do i = 1,m
-      x = dx*(i-1)
-      y = dy*(j-1)
+     x = dx*(i-1)
+     y = dy*(j-1)
 
-      ew = (erf((x - 70e3)/10e3)+1)/2
-      ! depth of domain
-      !h(i,j) = 100
-      h(i,j) = 5000* (exp(-(y - 49500)**2 / 20000**2)*ew  - 2*ew+1)
-      
-      zeta(i,j,1) = exp(-(x/(20*dx))**2 - (y/(20*dy))**2)
-      !zeta(i,j,1) = exp(-x/(20*dx))
-      
-    end do
-  end do
+     ! depth of domain
+     ew = (erf((x - 70e3)/10e3)+1)/2
+     !h(i,j) = 100
+     h(i,j) = 5000* (exp(-(y - 49500)**2 / 20000**2)*ew  - 2*ew+1)
 
-  
-  mask = h > 0
-  ! close east and west
-  mask([1,m],:) = .false. 
-  ! close north and south
-  mask(:,[1,n]) = .false.
-  where (h < 2) h = 2
+     zeta(i,j,1) = exp(-(x/(20*dx))**2 - (y/(20*dy))**2)
+     !zeta(i,j,1) = exp(-x/(20*dx))
 
-  where (.not.mask) zeta(:,:,1) = 0
+   end do
+ end do
 
-  call init_domain(dom,dx,dy,mask,h)
+ ! setup mask
+ mask = h > 0
+ ! close east and west
+ mask([1,m],:) = .false. 
+ ! close north and south
+ mask(:,[1,n]) = .false.
+ where (h < 2) h = 2
 
-! zeta = 0
-! zeta(4,4,1) = 1
+ where (.not.mask) zeta(:,:,1) = 0
+
+ call init_domain(dom,dx,dy,mask,h)
+
+ ! zeta = 0
+ ! zeta(4,4,1) = 1
  U = 0
  V = 0
  dt = 2

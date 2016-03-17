@@ -3,10 +3,51 @@
 
 module shallow_water2d
 
- ! 
+ ! stucture describing the model domain
+ ! we use a C-grid
+
+
+
+
+ !  +----------------+----------------+---........---+----------------+
+ !  |                |                |              |                |
+ !  |                |                |              |                |
+ !  |      rho       u      rho       u              u      rho       |
+ !  |     (1,m)    (1,m)   (2,m)    (2,m)         (n-1,m)  (n,m)      |
+ !  |                |                |              |                |
+ !  |                |                |              |                |
+ !  +-------v--------+-------v--------+---........---+-------v--------+
+ !  |    (1,m-1)     |    (2,m-1)     |              |    (n,m-1)     |
+ !  .                .                .              .                .
+ !  .                .                .              .                .
+ !  .                .                .              .                .
+ !  .                .                .              .                .
+ !  |                |                |              |                |
+ !  +-------v--------+-------v--------+---........---+-------v--------+
+ !  |     (1,2)      |     (2,2)      |              |     (n,2)      |
+ !  |                |                |              |                |
+ !  |                |                |              |                |
+ !  |      rho       u      rho       u              u      rho       |
+ !  |     (1,2)    (1,2)   (2,2)    (2,2)         (n-1,2)  (n,2)      |
+ !  |                |                |              |                |
+ !  |                |                |              |                |
+ !  +-------v--------+-------v--------+---........---+-------v--------+
+ !  |     (1,1)      |     (2,1)      |              |     (n,1)      |
+ !  |                |                |              |                |
+ !  |                |                |              |                |
+ !  |      rho       u      rho       u              u      rho       |
+ !  |     (1,1)    (1,1)   (2,1)    (2,1)         (n-1,1)  (n,1)      |
+ !  |                |                |              |                |
+ !  |                |                |              |                |
+ !  +----------------+----------------+---........---+----------------+
+
  type domain
+   ! x,y are the horizontal coordinates
    real, allocatable    :: x(:,:), y(:,:)
+   ! depth of the ocean at rho, u and v points
    real, allocatable    :: h(:,:), h_u(:,:), h_v(:,:)
+   ! mask at rho, u and v points
+   ! .true. is sea and .false. is land
    logical, allocatable :: mask(:,:), mask_u(:,:), mask_v(:,:)
    real, allocatable    :: pm(:,:), pm_u(:,:), pm_v(:,:)
    real, allocatable    :: pn(:,:), pn_u(:,:), pn_v(:,:)  
@@ -300,6 +341,7 @@ contains
     call check(nf90_put_var(ncid,varid_mask,merge(1,0,dom%mask)))
     call check(nf90_put_var(ncid,varid_mask_u,merge(1,0,dom%mask_u)))
     call check(nf90_put_var(ncid,varid_mask_v,merge(1,0,dom%mask_v)))
+
 
   else
     call check(nf90_open(fname,NF90_WRITE,ncid))
