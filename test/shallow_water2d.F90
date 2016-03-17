@@ -3,6 +3,7 @@
 module shallow_water2d
 
 type domain
+  real, allocatable    :: x(:,:), y(:,:)
   real, allocatable    :: h(:,:), h_u(:,:), h_v(:,:)
   logical, allocatable :: mask(:,:), mask_u(:,:), mask_v(:,:)
   real, allocatable    :: pm(:,:), pm_u(:,:), pm_v(:,:)
@@ -26,11 +27,12 @@ contains
   real, intent(in)          :: dx, dy, h(:,:)
   logical, intent(in)       :: mask(:,:)
 
-  integer :: m,n
+  integer :: m,n,i,j
   m = size(h,1)
   n = size(h,2)
   
   allocate( &
+       dom%x(m,n),dom%y(m,n), &
        dom%h(m,n),dom%mask(m,n), &
        dom%pm(m,n),dom%pn(m,n), &
        dom%h_u(m-1,n),dom%mask_u(m-1,n), &
@@ -60,10 +62,15 @@ contains
   dom%pm_v   = (dom%pm(:,1:n-1)     +   dom%pm(:,2:n))/2
   dom%pn_v   = (dom%pn(:,1:n-1)     +   dom%pn(:,2:n))/2
   dom%mask_v =  dom%mask(:,1:n-1) .and. dom%mask(:,2:n)
-
-       
-
-
+      
+  ! grid
+  do j = 1,n
+    do i = 1,m
+      dom%x(i,j) = dx*i
+      dom%y(i,j) = dy*j
+    end do
+  end do
+ 
  end subroutine init_domain
 
 subroutine shallow_water2d_step(dom,timecounter,zetai,Ui,Vi,dt,g,f,zeta,U,V)
