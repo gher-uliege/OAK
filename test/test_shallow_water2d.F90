@@ -9,7 +9,8 @@ program test_shallow_water2d
  logical :: mask(m,n) 
  type(domain) :: dom
  real :: dt,g,f
- integer :: timecounter, i, timeindex 
+ integer :: timecounter, timeindex 
+ character(len=*), parameter :: fname = 'example.nc'
  
  mask = .false.
  mask(2:m-1,2:m-1) = .true.
@@ -39,8 +40,12 @@ program test_shallow_water2d
    U(:,:,1) = U(:,:,2)
    V(:,:,1) = V(:,:,2)
 
+   if (mod(timecounter,10) == 0) then
+     call diag(dom,timecounter,zeta(:,:,1),U(:,:,1),V(:,:,1),g)
+   end if
+
    if (mod(timecounter,100) == 0) then
-     call shallow_water2d_save(dom,timeindex,zeta(:,:,1),U(:,:,1),V(:,:,1))
+     call shallow_water2d_save(dom,timeindex,zeta(:,:,1),U(:,:,1),V(:,:,1),fname)
      timeindex = timeindex + 1
    end if
  end do

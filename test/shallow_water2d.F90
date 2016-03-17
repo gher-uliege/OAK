@@ -75,7 +75,6 @@ subroutine shallow_water2d_step(dom,timecounter,zetai,Ui,Vi,dt,g,f,zeta,U,V)
  real, intent(in)   :: dt,g,f
  
  integer :: m,n
- real :: dS(size(zeta,1),size(zeta,2))
  real :: U2(size(zeta,1)-1,size(zeta,2))
  real :: V2(size(zeta,1),size(zeta,2)-1)
  real :: c(size(zeta,1),size(zeta,2)),dt_max
@@ -215,53 +214,98 @@ subroutine diag(dom,timecounter,zeta,U,V,g)
  write(6,'(I10,4F12.2)') timecounter,Epot,Ekin,Etot,Vol
 end subroutine diag
   
-subroutine shallow_water2d_save(dom,timeindex,zeta,U,V)
+subroutine shallow_water2d_save(dom,timeindex,zeta,U,V,fname)
  use netcdf
  implicit none
  type(domain), intent(in) :: dom
  real, intent(in) :: zeta(:,:), U(:,:), V(:,:)
  integer, intent(in) :: timeindex
+ character(len=*), intent(in) :: fname
 
- integer :: ncid, status, dimids(3), varid
- integer :: i,j
+ integer :: ncid, status, &
+      dimid_xi, dimid_xi_u, dimid_xi_v,  &
+      dimid_eta, dimid_eta_u, dimid_eta_v,  &
+      dimid_time, & 
+      varid_zeta, varid_U, varid_V, &
+      varid_h, varid_mask, varid_mask_u, varid_mask_v
 
  write(6,*)' save'
  if (timeindex == 1) then
    ! create new file
    
-   status = nf90_create('example.nc',nf90_clobber,ncid)
-   call check_error(status)
+   status = nf90_create(fname,nf90_clobber,ncid)
+   call check(status)
 
    ! define the dimensions
 
-   call check_error(nf90_def_dim(ncid, 'longitude', size(zeta,1), dimids(1)))
-   call check_error(nf90_def_dim(ncid, 'latitude', size(zeta,2), dimids(2)))
-   call check_error(nf90_def_dim(ncid, 'time', NF90_UNLIMITED, dimids(3)))
+   call check(nf90_def_dim(ncid, 'xi_rho', size(zeta,1),   dimid_xi))
+   call check(nf90_def_dim(ncid, 'xi_u',   size(zeta,1)-1, dimid_xi_u))
+   call check(nf90_def_dim(ncid, 'xi_v',   size(zeta,1),   dimid_xi_v))
+
+   call check(nf90_def_dim(ncid, 'eta_rho', size(zeta,1),   dimid_eta))
+   call check(nf90_def_dim(ncid, 'eta_u',   size(zeta,1),   dimid_eta_u))
+   call check(nf90_def_dim(ncid, 'eta_v',   size(zeta,1)-1, dimid_eta_v))
+
+   call check(nf90_def_dim(ncid, 'time', NF90_UNLIMITED, dimid_time))
 
    ! define variable
-   call check_error(nf90_def_var(ncid, 'zeta', nf90_float, dimids, varid))
-   call check_error(nf90_enddef(ncid))
+   call check(nf90_def_var(ncid, 'h', nf90_double, &
+        [dimid_xi, dimid_eta], varid_h))
+
+   call check(nf90_def_var(ncid, 'mask', nf90_double, &
+        [dimid_xi, dimid_eta], varid_mask))
+
+   call check(nf90_def_var(ncid, 'mask_u', nf90_double, &
+        [dimid_xi_u, dimid_eta_u], varid_mask_u))
+
+   call check(nf90_def_var(ncid, 'mask_v', nf90_double, &
+        [dimid_xi_v, dimid_eta_v], varid_mask_v))
+
+   call check(nf90_def_var(ncid, 'zeta', nf90_double, &
+        [dimid_xi, dimid_eta, dimid_time], varid_zeta))
+
+   call check(nf90_def_var(ncid, 'U', nf90_double, &
+        [dimid_xi_u, dimid_eta_u, dimid_time], varid_U))
+
+   call check(nf90_def_var(ncid, 'V', nf90_double, &
+        [dimid_xi_v, dimid_eta_v, dimid_time], varid_V))
+
+   call check(nf90_enddef(ncid))
+
+   ! put grid
+   call check(nf90_put_var(ncid,varid_h,dom%h))
+   call check(nf90_put_var(ncid,varid_mask,merge(1,0,dom%mask)))
+   call check(nf90_put_var(ncid,varid_mask_u,merge(1,0,dom%mask_u)))
+   call check(nf90_put_var(ncid,varid_mask_v,merge(1,0,dom%mask_v)))
+
  else
-   status = nf90_open('example.nc',NF90_WRITE,ncid)
-   call check_error(nf90_inq_varid(ncid, 'zeta', varid))
-   call check_error(status)      
+   call check(nf90_open(fname,NF90_WRITE,ncid))
+   call check(nf90_inq_varid(ncid, 'zeta', varid_zeta))
+   call check(nf90_inq_varid(ncid, 'mask', varid_mask))
+   call check(nf90_inq_varid(ncid, 'mask_u', varid_mask_u))
+   call check(nf90_inq_varid(ncid, 'mask_v', varid_mask_v))
+   call check(nf90_inq_varid(ncid, 'U', varid_U))
+   call check(nf90_inq_varid(ncid, 'V', varid_V))
  end if
 
- call check_error(nf90_put_var(ncid,varid,zeta,start=[1,1,timeindex]))
+ call check(nf90_put_var(ncid,varid_zeta,zeta,start=[1,1,timeindex]))
+ call check(nf90_put_var(ncid,varid_U,U,start=[1,1,timeindex]))
+ call check(nf90_put_var(ncid,varid_V,V,start=[1,1,timeindex]))
 
- call check_error(nf90_close(ncid))
+ call check(nf90_close(ncid))
 
  
 contains
 
- subroutine check_error(status)
+ subroutine check(status)
+  implicit none
   integer, intent ( in) :: status
 
   if(status /= nf90_noerr) then
     write(6,*) 'NetCDF error: ',trim(nf90_strerror(status))
     stop "Stopped"
   end if
- end subroutine check_error
+ end subroutine check
 
 end subroutine shallow_water2d_save
 
