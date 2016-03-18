@@ -263,28 +263,51 @@ contains
   write(6,'(I10,4F12.2)') timecounter,Epot,Ekin,Etot,Vol
  end subroutine diag
 
- subroutine shallow_water2d_save(dom,timeindex,zeta,U,V,fname)
+ subroutine shallow_water2d_save(dom,timeindex,zeta,U,V,fname,memberindex)
   use netcdf
   implicit none
   type(domain), intent(in) :: dom
   real, intent(in) :: zeta(:,:), U(:,:), V(:,:)
   integer, intent(in) :: timeindex
   character(len=*), intent(in) :: fname
+  integer, intent(in),  optional  :: memberindex
 
   real(8) :: fillval = NF90_FILL_DOUBLE
 
   integer :: ncid, status, &
        dimid_xi, dimid_xi_u, dimid_xi_v,  &
        dimid_eta, dimid_eta_u, dimid_eta_v,  &
-       dimid_time, & 
+       dimid_time, dimid_member, & 
        varid_zeta, varid_ubar, varid_vbar, &
        varid_h, varid_mask, varid_mask_u, varid_mask_v
 
+  logical :: createfile
+  integer, allocatable :: dimids(:), startindex(:)
+
   write(6,*)' save'
+
+  if (present(memberindex)) then
+    allocate(dimids(4),startindex(4))
+    startindex = [1,1,timeindex,memberindex]
+  else
+    allocate(dimids(3),startindex(3))
+    startindex = [1,1,timeindex]
+  end if
+  
   if (timeindex == 1) then
+    if (present(memberindex)) then
+      createfile = memberindex == 1
+    else
+      createfile = .true.
+    end if
+  else
+    createfile = .false.
+  end if
+
+  if (createfile) then
     ! create new file
 
-    status = nf90_create(fname,nf90_clobber,ncid)
+    status = nf90_create(fname,ior(nf90_clobber,nf90_netcdf4),ncid)
     call check(status)
 
     ! define the dimensions
@@ -298,6 +321,9 @@ contains
     call check(nf90_def_dim(ncid, 'eta_v',   size(zeta,1)-1, dimid_eta_v))
 
     call check(nf90_def_dim(ncid, 'time', NF90_UNLIMITED, dimid_time))
+    if (present(memberindex)) then
+      call check(nf90_def_dim(ncid, 'member', NF90_UNLIMITED, dimid_member))
+    end if
 
     ! define variable
     call check(nf90_def_var(ncid, 'h', nf90_double, &
@@ -312,27 +338,12 @@ contains
     call check(nf90_def_var(ncid, 'mask_v', nf90_double, &
          [dimid_xi_v, dimid_eta_v], varid_mask_v))
 
-    ! zeta
-    call check(nf90_def_var(ncid, 'zeta', nf90_double, &
-         [dimid_xi, dimid_eta, dimid_time], varid_zeta))
-    call check(nf90_put_att(ncid, varid_zeta, &
-         'standard_name', 'sea_surface_elevation'))
-    call check(nf90_put_att(ncid, varid_zeta, 'units', 'm'))
-    call check(nf90_put_att(ncid, varid_zeta, '_FillValue', fillval))
-
-    call check(nf90_def_var(ncid, 'ubar', nf90_double, &
-         [dimid_xi_u, dimid_eta_u, dimid_time], varid_ubar))
-    call check(nf90_put_att(ncid, varid_ubar, &
-         'standard_name', 'barotropic_eastward_sea_water_velocity'))
-    call check(nf90_put_att(ncid, varid_ubar, 'units', 'm s-1'))
-    call check(nf90_put_att(ncid, varid_ubar, '_FillValue', fillval))
-
-    call check(nf90_def_var(ncid, 'vbar', nf90_double, &
-         [dimid_xi_v, dimid_eta_v, dimid_time], varid_vbar))
-    call check(nf90_put_att(ncid, varid_vbar, &
-         'standard_name', 'barotropic_northward_sea_water_velocity'))
-    call check(nf90_put_att(ncid, varid_vbar, 'units', 'm s-1'))
-    call check(nf90_put_att(ncid, varid_vbar, '_FillValue', fillval))
+    varid_zeta = def_var('zeta',[dimid_xi, dimid_eta], &
+         'sea_surface_elevation','m')
+    varid_ubar = def_var('ubar',[dimid_xi_u, dimid_eta_u], &
+         'barotropic_eastward_sea_water_velocity','m s-1')
+    varid_vbar = def_var('vbar',[dimid_xi_v, dimid_eta_v], &
+         'barotropic_northward_sea_water_velocity','m s-1')
 
     call check(nf90_enddef(ncid))
 
@@ -354,16 +365,36 @@ contains
   end if
 
   call check(nf90_put_var(ncid,varid_zeta, &
-       merge(real(zeta,8),fillval,dom%mask),start=[1,1,timeindex]))
+       merge(real(zeta,8),fillval,dom%mask),start=startindex))
   call check(nf90_put_var(ncid,varid_ubar, &
-       merge(real(U/dom%h_u,8),fillval,dom%mask_u),start=[1,1,timeindex]))
+       merge(real(U/dom%h_u,8),fillval,dom%mask_u),start=startindex))
   call check(nf90_put_var(ncid,varid_vbar, &
-       merge(real(V/dom%h_v,8),fillval,dom%mask_v),start=[1,1,timeindex]))
+       merge(real(V/dom%h_v,8),fillval,dom%mask_v),start=startindex))
 
   call check(nf90_close(ncid))
 
+  deallocate(dimids,startindex)
 
  contains
+  function def_var(varname,hdims,stdname,units) result(varid)
+   implicit none
+   character(len=*), intent(in) :: varname
+   integer, intent(in)          :: hdims(2)
+   character(len=*), intent(in) :: stdname, units
+   integer :: varid
+
+   dimids(1:2) = hdims
+   dimids(3) = dimid_time
+   
+   if (present(memberindex)) dimids(4) = dimid_member
+   
+   call check(nf90_def_var(ncid, varname, nf90_double, &
+         dimids, varid))
+    call check(nf90_put_att(ncid, varid, &
+         'standard_name', stdname))
+    call check(nf90_put_att(ncid, varid, 'units', units))
+    call check(nf90_put_att(ncid, varid, '_FillValue', fillval))   
+   end function def_var
 
   subroutine check(status)
    implicit none

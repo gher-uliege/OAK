@@ -1,22 +1,26 @@
-! gfortran -Wall  -g -O2 -I/usr/include  -fdefault-real-8 -o test_shallow_water2d  shallow_water2d.F90 test_shallow_water2d.F90 -L/usr/lib -lnetcdff -lnetcdf  && time ./test_shallow_water2d
+! gfortran -Wall  -g -O2 -I/usr/include  -fdefault-real-8 -o shallow_water2d_ens  shallow_water2d.F90 shallow_water2d_ens.F90 -L/usr/lib -lnetcdff -lnetcdf  && time ./shallow_water2d_ens
 
 program test_shallow_water2d
  use shallow_water2d
+ use matoper, only: randn
  implicit none
  ! size of time and number of time 
  integer, parameter :: m = 100, n = 100
+ ! size of ensemble
+ integer, parameter :: Nens = 100
  ! number time steps in memory
  integer, parameter :: Ntime = 2
  ! grid spacing in meters
  real :: dx, dy
  ! position of initial perturbation
  real :: xc, yc
+ real :: zetac
  ! size of initial perturbation
  real :: lenx, leny, x, y, h(m,n)
  ! surface elevation
- real :: zeta(m,n,Ntime)
+ real :: zeta(m,n,Ntime,Nens)
  ! depth-integrated currents
- real :: U(m-1,n,Ntime), V(m,n-1,Ntime)
+ real :: U(m-1,n,Ntime,Nens), V(m,n-1,Ntime,Nens)
  ! land-sea mask (see is .true., land is .false.)
  logical :: mask(m,n) 
  ! all information of the model domain
@@ -32,6 +36,8 @@ program test_shallow_water2d
  integer :: timecounter
  ! time index in NetCDF file
  integer :: timeindex
+
+ integer :: memberindex
  ! spatial indices
  integer :: i,j
  ! output file name
@@ -66,58 +72,78 @@ program test_shallow_water2d
 
 
  call init_domain(dom,dx,dy,mask,h)
- 
+
  ! time step and other model parameters
  dt = 2
  dt = 1
  g = 9.81
  f = 1e-4
 
+ ! time index in NetCDF file
+ timeindex = 1
+
+
  ! initial condition
- ! position of initial perturbation and extension (in meters)
-
- xc = 0
- yc = 0
- lenx = 20e3
- leny = 20e3
-
- do j = 1,n
-   do i = 1,m
-     x = dx*(i-1)
-     y = dy*(j-1)
-     zeta(i,j,1) = exp(-((x-xc)/lenx)**2 - ((y-yc)/leny)**2)
-   end do
- end do
- where (.not.mask) zeta(:,:,1) = 0
 
  ! initially the velocity is zero
  U = 0
  V = 0
 
- ! time index in NetCDF file
- timeindex = 1
+ ! ensemble loop
+ do  memberindex = 1,Nens
 
- ! save initial conditions
- call shallow_water2d_save(dom,timeindex,zeta(:,:,1),U(:,:,1),V(:,:,1),fname)
+   ! position of initial perturbation and extension (in meters)
+
+   xc = 10e3 + 10e3 * randn()
+   yc = 50e3 + 10e3 * randn()
+   zetac = randn()
+   lenx = 20e3
+   leny = 20e3
+
+   do j = 1,n
+     do i = 1,m
+       x = dx*(i-1)
+       y = dy*(j-1)
+       zeta(i,j,1,memberindex) = zetac * exp(-((x-xc)/lenx)**2 - ((y-yc)/leny)**2)
+     end do
+   end do
+   where (.not.mask) zeta(:,:,1,memberindex) = 0
+
+   ! save initial conditions
+   call shallow_water2d_save(dom,timeindex,zeta(:,:,1,memberindex), &
+        U(:,:,1,memberindex),V(:,:,1,memberindex),fname,memberindex = memberindex)
+
+ end do
+
+
+
  timeindex = timeindex + 1
 
  ! time loop
- do timecounter = 1,9000
-   call shallow_water2d_step(dom,timecounter,zeta(:,:,1),U(:,:,1),V(:,:,1), &
-        dt,g,f,zeta(:,:,2),U(:,:,2),V(:,:,2))
+ time: do timecounter = 1,90
+   ! ensemble loop
+   ensemble: do memberindex = 1,Nens
 
-   ! swap time instances
-   zeta(:,:,1) = zeta(:,:,2)
-   U(:,:,1) = U(:,:,2)
-   V(:,:,1) = V(:,:,2)
+     call shallow_water2d_step(dom,timecounter, & 
+          zeta(:,:,1,memberindex),U(:,:,1,memberindex),V(:,:,1,memberindex), &
+          dt,g,f,zeta(:,:,2,memberindex),U(:,:,2,memberindex),V(:,:,2,memberindex))
 
-   if (mod(timecounter,10) == 0) then
-     call diag(dom,timecounter,zeta(:,:,1),U(:,:,1),V(:,:,1),g)
-   end if
+     ! swap time instances
+     zeta(:,:,1,memberindex) = zeta(:,:,2,memberindex)
+     U(:,:,1,memberindex) = U(:,:,2,memberindex)
+     V(:,:,1,memberindex) = V(:,:,2,memberindex)
 
-   if (mod(timecounter,30) == 0) then
-     call shallow_water2d_save(dom,timeindex,zeta(:,:,1),U(:,:,1),V(:,:,1),fname)
-     timeindex = timeindex + 1
-   end if
- end do
-end program test_shallow_water2d
+!     if (mod(timecounter,10) == 0) then
+!       call diag(dom,timecounter,zeta(:,:,1,memberindex), &
+!            U(:,:,1,memberindex),V(:,:,1,memberindex),g)
+!     end if
+
+     if (mod(timecounter,30) == 0) then
+       call shallow_water2d_save(dom,timeindex,zeta(:,:,1,memberindex), &
+            U(:,:,1,memberindex),V(:,:,1,memberindex),fname,memberindex = memberindex)
+
+       if (memberindex == Nens) timeindex = timeindex + 1
+     end if
+   end do ensemble
+ end do time
+end program
