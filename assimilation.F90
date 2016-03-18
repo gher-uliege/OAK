@@ -322,12 +322,12 @@ contains
 ! define model grid
 !
 
-  call getInitValue(initfname,'Model.gridX',filenamesX)
-  call getInitValue(initfname,'Model.gridY',filenamesY)
-  call getInitValue(initfname,'Model.gridZ',filenamesZ)
+  call getInitValue(initfname,'Model.gridX',filenamesX)  
 
   do v=1,vmax
+
     n = ModML%ndim(v)
+    write(6,*) 'n ',n
 
     ! initialisze the model grid structure ModelGrid(v)
     call initgrid(ModelGrid(v),n,ModML%varshape(1:n,v), &
@@ -337,20 +337,32 @@ contains
     call setCoord(ModelGrid(v),1,trim(path)//filenamesX(v))
 
     if (n > 1) then
+      if (.not.associated(filenamesY)) then
+        call getInitValue(initfname,'Model.gridY',filenamesY)
+      end if
+
       call setCoord(ModelGrid(v),2,trim(path)//filenamesY(v))
 
       if (n > 2) then
+        if (.not.associated(filenamesZ)) then
+          call getInitValue(initfname,'Model.gridZ',filenamesZ)
+        end if
+
         call setCoord(ModelGrid(v),3,trim(path)//filenamesZ(v))
 
         if (n > 3) then
-          !write(stderr,*) 'The dimension of variable ',trim(ModML%varnames(v)),' is ',n
-          !write(stderr,*) 'Error: Only 3-d grids are supported for now. '
+          if (.not.associated(filenamesT)) then
+            call getInitValue(initfname,'Model.gridT',filenamesT)
+          end if
 
-          !ERROR_STOP 
-
-          call getInitValue(initfname,'Model.gridT',filenamesT)
           call setCoord(ModelGrid(v),4,trim(path)//filenamesT(v))
           deallocate(filenamesT)
+          
+          if (n > 4) then
+            write(stderr,*) 'The dimension of variable ',trim(ModML%varnames(v)),' is ',n
+            write(stderr,*) 'Error: Only 4-d grids are supported for now. '
+            ERROR_STOP 
+          end if
         end if
       end if
     end if
@@ -367,8 +379,11 @@ contains
     ! grids should not overlap in this case
     hres = 0
   end if
-    
-  deallocate(filenamesX,filenamesY,filenamesZ)
+
+  if (associated(filenamesX)) deallocate(filenamesX)
+  if (associated(filenamesY)) deallocate(filenamesY)
+  if (associated(filenamesZ)) deallocate(filenamesZ)
+  if (associated(filenamesT)) deallocate(filenamesT)
 
   call getInitValue(initfname,'ErrorSpace.dimension',ErrorSpaceDim,default=0)
 
@@ -3962,6 +3977,90 @@ end function
 
  end subroutine unpackVector
 
+
+ !_______________________________________________________
+ !
+ ! v1, v2, ... are variables with masked elements. Each variable
+ ! represent an ensemble with size(E,2) members
+
+ subroutine packEnsemble(ML,E,v1,v2,v3,v4,v5,v6,v7,v8)
+  implicit none
+  type(MemLayout), intent(in) ::  ML
+  real, intent(in) :: v1(*)
+  real, intent(in), optional :: v2(*),v3(*),v4(*),v5(*),v6(*),v7(*),v8(*)
+  real, intent(out) :: E(:,:)
+
+  ! ensemble member index
+  integer :: k
+  
+  do k = 1,size(E,2)
+    E(ML%StartIndexSea(1):ML%EndIndexSea(1),k) = &
+         pack(v1((1+(k-1)*ML%varsize(1)):(k*ML%varsize(1))), &
+         ML%mask(ML%StartIndex(1):ML%EndIndex(1)) == 1)
+
+    if (.not.present(v2)) cycle
+
+    E(ML%StartIndexSea(2):ML%EndIndexSea(2),k) = &
+         pack(v2((1+(k-1)*ML%varsize(2)):(k*ML%varsize(2))), &
+         ML%mask(ML%StartIndex(2):ML%EndIndex(2)) == 1)
+
+    if (.not.present(v3)) cycle
+
+    E(ML%StartIndexSea(3):ML%EndIndexSea(3),k) = &
+         pack(v3((1+(k-1)*ML%varsize(3)):(k*ML%varsize(3))), &
+         ML%mask(ML%StartIndex(3):ML%EndIndex(3)) == 1)
+
+    if (.not.present(v4)) cycle
+
+    E(ML%StartIndexSea(4):ML%EndIndexSea(4),k) = &
+         pack(v4((1+(k-1)*ML%varsize(4)):(k*ML%varsize(4))), &
+         ML%mask(ML%StartIndex(4):ML%EndIndex(4)) == 1)
+
+  end do
+
+ end subroutine packEnsemble
+
+ !_______________________________________________________
+ !
+
+ subroutine unpackEnsemble(ML,E,v1,v2,v3,v4,v5,v6,v7,v8)
+  implicit none
+  type(MemLayout), intent(in) ::  ML
+  real, intent(in) :: E(:,:)
+
+  real, intent(out) :: v1(*)
+  real, intent(out), optional :: v2(*),v3(*),v4(*),v5(*),v6(*),v7(*),v8(*)
+
+  integer :: i
+
+  ! ensemble member index
+  integer :: k
+  
+  do k = 1,size(E,2)
+    v1((1+(k-1)*ML%varsize(1)):(k*ML%varsize(1))) = &
+         unpack(E(ML%StartIndexSea(i):ML%EndIndexSea(i),k), &
+         ML%mask(ML%StartIndex(1):ML%EndIndex(1)) == 1,0.)
+
+    if (.not.present(v2)) cycle
+
+    v2((1+(k-1)*ML%varsize(2)):(k*ML%varsize(2))) = &
+         unpack(E(ML%StartIndexSea(i):ML%EndIndexSea(i),k), &
+         ML%mask(ML%StartIndex(2):ML%EndIndex(2)) == 1,0.)
+
+    if (.not.present(v3)) cycle
+
+    v3((1+(k-1)*ML%varsize(3)):(k*ML%varsize(3))) = &
+         unpack(E(ML%StartIndexSea(i):ML%EndIndexSea(i),k), &
+         ML%mask(ML%StartIndex(3):ML%EndIndex(3)) == 1,0.)
+
+    if (.not.present(v4)) cycle
+
+    v4((1+(k-1)*ML%varsize(4)):(k*ML%varsize(4))) = &
+         unpack(E(ML%StartIndexSea(i):ML%EndIndexSea(i),k), &
+         ML%mask(ML%StartIndex(4):ML%EndIndex(4)) == 1,0.)
+
+  end do
+ end subroutine unpackEnsemble
  !_______________________________________________________
  !
  ! extract variable number "v" from state vector and put 

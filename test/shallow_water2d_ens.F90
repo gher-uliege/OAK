@@ -1,4 +1,7 @@
-! gfortran -Wall  -g -O2 -I/usr/include  -fdefault-real-8 -o shallow_water2d_ens  shallow_water2d.F90 shallow_water2d_ens.F90 -L/usr/lib -lnetcdff -lnetcdf  && time ./shallow_water2d_ens
+! cd /home/abarth/Assim/OAK_classic/test; gfortran -Wall  -g -O2 -I/usr/include -I$HOME/Assim/OAK_classic  -fdefault-real-8 -o shallow_water2d_ens  shallow_water2d.F90 shallow_water2d_ens.F90 -L/usr/lib -lnetcdff -lnetcdf -L.. -loak -llapack -lblas  && time ./shallow_water2d_ens
+
+! cd /home/abarth/Assim/OAK_classic/; make; cd /home/abarth/Assim/OAK_classic/test; gfortran -Wall  -g -O2 -I/usr/include -I$HOME/Assim/OAK_classic  -fdefault-real-8 -o shallow_water2d_ens  shallow_water2d.F90 shallow_water2d_ens.F90 -L/usr/lib -lnetcdff -lnetcdf -L.. -loak -llapack -lblas  && time ./shallow_water2d_ens
+
 
 !#define EXTRACT_OBS
 #define OAK
@@ -19,9 +22,9 @@ program test_shallow_water2d
  ! size of time
  integer, parameter :: m = 100, n = 100
  ! size of time steps
- integer, parameter :: Nsteps = 100
+ integer, parameter :: Nsteps = 18
  ! size of ensemble
- integer, parameter :: Nens = 1
+ integer, parameter :: Nens = 10
  ! number time steps in memory
  integer, parameter :: Ntime = 2
  ! grid spacing in meters
@@ -41,6 +44,8 @@ program test_shallow_water2d
  type(domain) :: dom
  ! time step
  real :: dt
+ ! time (seconds since start)
+ real(8) :: time2
  ! acceleration due to gravity
  real :: g
  ! Coriolis parameter
@@ -138,6 +143,10 @@ program test_shallow_water2d
    xc = 10e3 + 10e3 * randn()
    yc = 50e3 + 10e3 * randn()
    zetac = randn()
+   !xc = 2458.0188865562832        
+   !yc = 54634.573638063470       
+   !zetac = 0.55745057948576626     
+
    lenx = 20e3
    leny = 20e3
 
@@ -165,6 +174,8 @@ program test_shallow_water2d
 
  ! time loop
  time: do timecounter = 1,Nsteps
+   time2 = dt * timecounter
+
    ! ensemble loop
    ensemble: do memberindex = 1,Nens
 
@@ -178,16 +189,17 @@ program test_shallow_water2d
      U(:,:,1,memberindex) = U(:,:,2,memberindex)
      V(:,:,1,memberindex) = V(:,:,2,memberindex)
 
-
-     !     if (mod(timecounter,10) == 0) then
-     !       call diag(dom,timecounter,zeta(:,:,1,memberindex), &
-     !            U(:,:,1,memberindex),V(:,:,1,memberindex),g)
-     !     end if
+#    ifdef DIAG     
+     if (mod(timecounter,10) == 0) then
+       call diag(dom,timecounter,zeta(:,:,1,memberindex), &
+            U(:,:,1,memberindex),V(:,:,1,memberindex),g)
+     end if
+#    endif
 
      if (mod(timecounter,30) == 0) then
 #ifdef EXTRACT_OBS
        obsindex = obsindex+1
-       timeobs(obsindex) = timecounter * dt
+       timeobs(obsindex) = time2
 
        do l = 1,nobs
          call interp(modgrid,zeta(:,:,1,memberindex),[xobs(l),yobs(l)],zetaobs(l,obsindex),out)
@@ -196,14 +208,20 @@ program test_shallow_water2d
        end do
 #endif
 
-       call shallow_water2d_save(dom,timeindex,zeta(:,:,1,memberindex), &
-            U(:,:,1,memberindex),V(:,:,1,memberindex),fname,memberindex = memberindex)
+!       call shallow_water2d_save(dom,timeindex,zeta(:,:,1,memberindex), &
+!            U(:,:,1,memberindex),V(:,:,1,memberindex),fname,memberindex = memberindex)
 
        if (memberindex == Nens) timeindex = timeindex + 1
      end if
+
+#    ifdef OAK
+     call oak_assim_ens(config,time2,zeta(:,:,1,:),U(:,:,1,:),V(:,:,1,:))
+#    endif
+
    end do ensemble
  end do time
 
+ write(6,*) 'zeta(50,50,1,1)',zeta(50,50,1,1)
 #ifdef EXTRACT_OBS
  write(6,*) 'zetaobs',zetaobs(:,1:obsindex)
 
@@ -288,5 +306,6 @@ contains
   end if
  end subroutine check
 #endif
+
 
 end program test_shallow_water2d

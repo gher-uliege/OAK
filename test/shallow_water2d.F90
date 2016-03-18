@@ -356,6 +356,7 @@ contains
 
     call check(nf90_def_var(ncid, 'mask', nf90_double, &
          [dimid_xi, dimid_eta], varid_mask))
+    call check(nf90_put_att(ncid, varid_mask, '_FillValue', 0.))
 
     call check(nf90_def_var(ncid, 'x_u', nf90_double, &
          [dimid_xi_u, dimid_eta_u], varid_x_u))
@@ -365,6 +366,7 @@ contains
 
     call check(nf90_def_var(ncid, 'mask_u', nf90_double, &
          [dimid_xi_u, dimid_eta_u], varid_mask_u))
+    call check(nf90_put_att(ncid, varid_mask_u, '_FillValue', 0.))
 
     call check(nf90_def_var(ncid, 'x_v', nf90_double, &
          [dimid_xi_v, dimid_eta_v], varid_x_v))
@@ -374,6 +376,7 @@ contains
 
     call check(nf90_def_var(ncid, 'mask_v', nf90_double, &
          [dimid_xi_v, dimid_eta_v], varid_mask_v))
+    call check(nf90_put_att(ncid, varid_mask_v, '_FillValue', 0.))
 
     varid_zeta = def_var('zeta',[dimid_xi, dimid_eta], &
          'sea_surface_elevation','m')
@@ -391,7 +394,7 @@ contains
     call check(nf90_put_var(ncid,varid_y,dom%y))
 
     call check(nf90_put_var(ncid,varid_x_u,dom%x_u))
-    call check(nf90_put_var(ncid,varid_x_v,dom%x_v))
+    call check(nf90_put_var(ncid,varid_y_u,dom%y_u))
 
     call check(nf90_put_var(ncid,varid_x_v,dom%x_v))
     call check(nf90_put_var(ncid,varid_y_v,dom%y_v))

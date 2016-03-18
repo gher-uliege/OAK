@@ -541,6 +541,30 @@ contains
 
  !-------------------------------------------------------------
  !
+ ! check is observations are available for assimilation
+ 
+ function oak_obs_available(config,time) result(available)
+  implicit none
+  type(oakconfig), intent(inout) :: config
+  real(8), intent(in) :: time
+  logical :: available
+
+  integer :: ierr
+  real(8) :: obstime
+
+  call loadObsTime(config%obsntime,obstime,ierr)    
+  if (ierr /= 0) then
+    ! no more observations are available
+    available = .false.
+    return
+  end if
+
+  write(6,*) 'time, obstime',time, obstime
+  ! we assume that the model starts earlier than the observations
+  available = time >= obstime
+ end function oak_obs_available
+ !-------------------------------------------------------------
+ !
  ! x is the state vector with all variables concatenated and masked points 
  ! removed in parallel applications
  ! For non parallel application, x is the ensemble of state vectors
@@ -580,6 +604,7 @@ contains
   end if
   
   !dbg(x)
+      write(6,*) 'here',__LINE__
 
   if (schemetype == EWPFScheme) then
 
@@ -664,6 +689,8 @@ contains
       !write(6,*) 'Ea ',Ea
       call oak_spread_members(config,Ea,x)
     else
+      ! global analysis
+
       ! collect at master
       allocate( &
            Ea(ModML%effsize,ErrorSpaceDim), &
@@ -687,5 +714,48 @@ contains
     deallocate(Ea,Ef)
   end if
  end subroutine oak_assim
+
+ subroutine oak_assim_ens(config,time,v1,v2,v3,v4,v5,v6,v7,v8)
+  implicit none
+  type(oakconfig), intent(inout) :: config
+  real(8), intent(in) :: time
+
+  real, intent(out) :: v1(*)
+  real, intent(out), optional :: v2(*),v3(*),v4(*),v5(*),v6(*),v7(*),v8(*)
+
+  real, allocatable :: E(:,:), x(:)
+
+
+  ! note the EWPF schemes works at every time step
+  if (.not.oak_obs_available(config,time) .and. schemetype /= EWPFScheme) then
+    ! nothing to do
+    return
+  end if
+
+!  write(6,*) 'assimilation'
+  
+# ifndef ASSIM_PARALL
+  ! the ensemble is on a single process
+  allocate(E(ModML%effsize,ErrorSpaceDim))
+  call packEnsemble(ModML,E,v1,v2,v3,v4,v5,v6,v7,v8)
+  call oak_assim(config,time,E)
+  call unpackEnsemble(ModML,E,v1,v2,v3,v4,v5,v6,v7,v8)
+  deallocate(E)
+# else
+  ! the ensemble is distributed and every process has (at maximum) a state 
+  ! vector
+
+  ! v1,v2,... could also be only subdomains
+  ! we need a different "ModML" to handle this
+  allocate(x(ModML%effsize))
+  call packVector(ModML,x,v1,v2,v3,v4,v5,v6,v7,v8)
+  call oak_assim(config,time,x)
+  call unpackVector(ModML,x,v1,v2,v3,v4,v5,v6,v7,v8)
+  deallocate(x)
+# endif
+
+  
+ end subroutine 
+
 !#endif
 end module oak
