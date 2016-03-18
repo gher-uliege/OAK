@@ -135,10 +135,10 @@ program test_shallow_water2d
      U(:,:,1,memberindex) = U(:,:,2,memberindex)
      V(:,:,1,memberindex) = V(:,:,2,memberindex)
 
-!     if (mod(timecounter,10) == 0) then
-!       call diag(dom,timecounter,zeta(:,:,1,memberindex), &
-!            U(:,:,1,memberindex),V(:,:,1,memberindex),g)
-!     end if
+     !     if (mod(timecounter,10) == 0) then
+     !       call diag(dom,timecounter,zeta(:,:,1,memberindex), &
+     !            U(:,:,1,memberindex),V(:,:,1,memberindex),g)
+     !     end if
 
      if (mod(timecounter,30) == 0) then
        call shallow_water2d_save(dom,timeindex,zeta(:,:,1,memberindex), &
@@ -148,4 +148,4 @@ program test_shallow_water2d
      end if
    end do ensemble
  end do time
-end program
+end program test_shallow_water2d
