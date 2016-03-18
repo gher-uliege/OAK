@@ -43,7 +43,8 @@ module shallow_water2d
 
  type domain
    ! x,y are the horizontal coordinates
-   real, allocatable    :: x(:,:), y(:,:)
+   real, allocatable    :: x(:,:), x_u(:,:), x_v(:,:)
+   real, allocatable    :: y(:,:), y_u(:,:), y_v(:,:)
    ! depth of the ocean at rho, u and v points
    real, allocatable    :: h(:,:), h_u(:,:), h_v(:,:)
    ! mask at rho, u and v points
@@ -75,14 +76,25 @@ contains
   n = size(h,2)
 
   allocate( &
-       dom%x(m,n),dom%y(m,n), &
-       dom%h(m,n),dom%mask(m,n), &
-       dom%pm(m,n),dom%pn(m,n), &
-       dom%h_u(m-1,n),dom%mask_u(m-1,n), &
-       dom%pm_u(m-1,n),dom%pn_u(m-1,n), &
-       dom%h_v(m,n-1),dom%mask_v(m,n-1), &
-       dom%pm_v(m,n-1),dom%pn_v(m,n-1), &
-       dom%dS(m,n) &
+       dom%x(m,n), &
+       dom%y(m,n), &
+       dom%h(m,n), &
+       dom%mask(m,n), &
+       dom%pm(m,n), &
+       dom%pn(m,n), &
+       dom%dS(m,n), &
+       dom%x_u(m-1,n), &
+       dom%y_u(m-1,n), &
+       dom%h_u(m-1,n), &
+       dom%mask_u(m-1,n), &
+       dom%pm_u(m-1,n),&
+       dom%pn_u(m-1,n), &
+       dom%x_v(m,n-1), &
+       dom%y_v(m,n-1), &
+       dom%h_v(m,n-1), &
+       dom%mask_v(m,n-1), &
+       dom%pm_v(m,n-1), &
+       dom%pn_v(m,n-1) &
        )
 
   dom%h = h
@@ -94,18 +106,6 @@ contains
 
   dom%dS = 1./(dom%pm*dom%pn)
 
-  ! stagger u
-  dom%h_u    = (dom%h(1:m-1,:)      +   dom%h(2:m,:))/2
-  dom%pm_u   = (dom%pm(1:m-1,:)     +   dom%pm(2:m,:))/2
-  dom%pn_u   = (dom%pn(1:m-1,:)     +   dom%pn(2:m,:))/2
-  dom%mask_u =  dom%mask(1:m-1,:) .and. dom%mask(2:m,:)
-
-  ! stagger v
-  dom%h_v    = (dom%h(:,1:n-1)      +   dom%h(:,2:n))/2
-  dom%pm_v   = (dom%pm(:,1:n-1)     +   dom%pm(:,2:n))/2
-  dom%pn_v   = (dom%pn(:,1:n-1)     +   dom%pn(:,2:n))/2
-  dom%mask_v =  dom%mask(:,1:n-1) .and. dom%mask(:,2:n)
-
   ! grid
   do j = 1,n
     do i = 1,m
@@ -113,6 +113,23 @@ contains
       dom%y(i,j) = dy*j
     end do
   end do
+
+  ! stagger u
+  dom%h_u    = (dom%h(1:m-1,:)      +   dom%h(2:m,:))/2
+  dom%x_u    = (dom%x(1:m-1,:)      +   dom%x(2:m,:))/2
+  dom%y_u    = (dom%y(1:m-1,:)      +   dom%y(2:m,:))/2
+  dom%pm_u   = (dom%pm(1:m-1,:)     +   dom%pm(2:m,:))/2
+  dom%pn_u   = (dom%pn(1:m-1,:)     +   dom%pn(2:m,:))/2
+  dom%mask_u =  dom%mask(1:m-1,:) .and. dom%mask(2:m,:)
+
+  ! stagger v
+  dom%h_v    = (dom%h(:,1:n-1)      +   dom%h(:,2:n))/2
+  dom%x_v    = (dom%x(:,1:n-1)      +   dom%x(:,2:n))/2
+  dom%y_v    = (dom%y(:,1:n-1)      +   dom%y(:,2:n))/2
+  dom%pm_v   = (dom%pm(:,1:n-1)     +   dom%pm(:,2:n))/2
+  dom%pn_v   = (dom%pn(:,1:n-1)     +   dom%pn(:,2:n))/2
+  dom%mask_v =  dom%mask(:,1:n-1) .and. dom%mask(:,2:n)
+
 
  end subroutine init_domain
 
@@ -274,12 +291,15 @@ contains
 
   real(8) :: fillval = NF90_FILL_DOUBLE
 
-  integer :: ncid, status, &
+  integer :: ncid,  &
        dimid_xi, dimid_xi_u, dimid_xi_v,  &
        dimid_eta, dimid_eta_u, dimid_eta_v,  &
        dimid_time, dimid_member, & 
        varid_zeta, varid_ubar, varid_vbar, &
-       varid_h, varid_mask, varid_mask_u, varid_mask_v
+       varid_h, varid_mask, varid_mask_u, varid_mask_v, &
+       varid_x, varid_y, &
+       varid_x_u, varid_y_u, &
+       varid_x_v, varid_y_v
 
   logical :: createfile
   integer, allocatable :: dimids(:), startindex(:)
@@ -307,8 +327,7 @@ contains
   if (createfile) then
     ! create new file
 
-    status = nf90_create(fname,ior(nf90_clobber,nf90_netcdf4),ncid)
-    call check(status)
+    call check(nf90_create(fname,ior(nf90_clobber,nf90_netcdf4),ncid))
 
     ! define the dimensions
 
@@ -326,14 +345,32 @@ contains
     end if
 
     ! define variable
+    call check(nf90_def_var(ncid, 'x', nf90_double, &
+         [dimid_xi, dimid_eta], varid_x))
+
+    call check(nf90_def_var(ncid, 'y', nf90_double, &
+         [dimid_xi, dimid_eta], varid_y))
+
     call check(nf90_def_var(ncid, 'h', nf90_double, &
          [dimid_xi, dimid_eta], varid_h))
 
     call check(nf90_def_var(ncid, 'mask', nf90_double, &
          [dimid_xi, dimid_eta], varid_mask))
 
+    call check(nf90_def_var(ncid, 'x_u', nf90_double, &
+         [dimid_xi_u, dimid_eta_u], varid_x_u))
+
+    call check(nf90_def_var(ncid, 'y_u', nf90_double, &
+         [dimid_xi_u, dimid_eta_u], varid_y_u))
+
     call check(nf90_def_var(ncid, 'mask_u', nf90_double, &
          [dimid_xi_u, dimid_eta_u], varid_mask_u))
+
+    call check(nf90_def_var(ncid, 'x_v', nf90_double, &
+         [dimid_xi_v, dimid_eta_v], varid_x_v))
+
+    call check(nf90_def_var(ncid, 'y_v', nf90_double, &
+         [dimid_xi_v, dimid_eta_v], varid_y_v))
 
     call check(nf90_def_var(ncid, 'mask_v', nf90_double, &
          [dimid_xi_v, dimid_eta_v], varid_mask_v))
@@ -349,11 +386,19 @@ contains
 
     ! put grid
     call check(nf90_put_var(ncid,varid_h,dom%h))
+
+    call check(nf90_put_var(ncid,varid_x,dom%x))
+    call check(nf90_put_var(ncid,varid_y,dom%y))
+
+    call check(nf90_put_var(ncid,varid_x_u,dom%x_u))
+    call check(nf90_put_var(ncid,varid_x_v,dom%x_v))
+
+    call check(nf90_put_var(ncid,varid_x_v,dom%x_v))
+    call check(nf90_put_var(ncid,varid_y_v,dom%y_v))
+
     call check(nf90_put_var(ncid,varid_mask,merge(1,0,dom%mask)))
     call check(nf90_put_var(ncid,varid_mask_u,merge(1,0,dom%mask_u)))
     call check(nf90_put_var(ncid,varid_mask_v,merge(1,0,dom%mask_v)))
-
-
   else
     call check(nf90_open(fname,NF90_WRITE,ncid))
     call check(nf90_inq_varid(ncid, 'zeta', varid_zeta))

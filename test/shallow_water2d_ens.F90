@@ -4,10 +4,13 @@ program test_shallow_water2d
  use shallow_water2d
  use matoper, only: randn
  use ndgrid, only: initgrid, grid, interp
+ use netcdf
 
  implicit none
- ! size of time and number of time 
+ ! size of time
  integer, parameter :: m = 100, n = 100
+ ! size of time steps
+ integer, parameter :: Nsteps = 100
  ! size of ensemble
  integer, parameter :: Nens = 1
  ! number time steps in memory
@@ -44,13 +47,18 @@ program test_shallow_water2d
  integer :: i,j
  ! output file name
  character(len=*), parameter :: fname = 'example.nc'
+ real(8) :: fillvalue = NF90_FILL_DOUBLE
 
- type(grid) :: modgrid
- real :: xi,yi,zetai
+
+ integer, parameter :: nobs = 2
+ integer :: l, obsindex
+ type(grid) :: modgrid 
+ real :: timeobs(Nsteps), xobs(nobs),yobs(nobs),zetaobs(nobs,Nsteps)
  logical :: out
 
- xi = 50e3
- yi = 50e3
+ obsindex = 0
+ xobs = [50e3, 50e3]
+ yobs = [40e3, 60e3]
 
  ! grid spacing (in meters)
  dx = 1000
@@ -133,7 +141,7 @@ program test_shallow_water2d
  timeindex = timeindex + 1
 
  ! time loop
- time: do timecounter = 1,90
+ time: do timecounter = 1,Nsteps
    ! ensemble loop
    ensemble: do memberindex = 1,Nens
 
@@ -147,8 +155,6 @@ program test_shallow_water2d
      U(:,:,1,memberindex) = U(:,:,2,memberindex)
      V(:,:,1,memberindex) = V(:,:,2,memberindex)
 
-     call interp(modgrid,zeta(:,:,1,memberindex),[xi,yi],zetai,out)
-     write(6,*) 'zetai',zetai
 
      !     if (mod(timecounter,10) == 0) then
      !       call diag(dom,timecounter,zeta(:,:,1,memberindex), &
@@ -156,6 +162,16 @@ program test_shallow_water2d
      !     end if
 
      if (mod(timecounter,30) == 0) then
+       obsindex = obsindex+1
+       timeobs(obsindex) = timecounter * dt
+
+       do l = 1,nobs
+         call interp(modgrid,zeta(:,:,1,memberindex),[xobs(l),yobs(l)],zetaobs(l,obsindex),out)
+         if (out) zetaobs(l,obsindex) = fillvalue
+         write(6,*) 'zetaobs',zetaobs(l,obsindex)
+       end do
+
+
        call shallow_water2d_save(dom,timeindex,zeta(:,:,1,memberindex), &
             U(:,:,1,memberindex),V(:,:,1,memberindex),fname,memberindex = memberindex)
 
@@ -163,4 +179,86 @@ program test_shallow_water2d
      end if
    end do ensemble
  end do time
+
+ write(6,*) 'zetaobs',zetaobs(:,1:obsindex)
+
+ call writeobs('observations.nc',xobs,yobs,timeobs(1:obsindex), &
+      zetaobs(:,1:obsindex))
+
+contains 
+
+ subroutine writeobs(fname,xobs,yobs,timeobs,zetaobs)
+  implicit none
+  real, intent(in) :: xobs(:), yobs(:), timeobs(:), zetaobs(:,:)
+  character(len=*), intent(in) :: fname
+
+  integer :: ncid, dimid_nobs, dimid_time, varid_zetaobs, varid_xobs, & 
+       varid_yobs, varid_timeobs
+
+  call check(nf90_create(fname,ior(nf90_clobber,nf90_netcdf4),ncid))
+  call check(nf90_def_dim(ncid, 'nobs',   size(zetaobs,1), dimid_nobs))
+  call check(nf90_def_dim(ncid, 'time',   size(zetaobs,2), dimid_time))
+
+  varid_xobs = def_var(ncid,'xobs',[dimid_nobs], &
+       standard_name='projection_x_coordinate', &
+       units='m')
+
+  varid_yobs = def_var(ncid,'yobs',[dimid_nobs], &
+       standard_name='projection_y_coordinate', &
+       units='m')
+
+  varid_timeobs = def_var(ncid,'timeobs',[dimid_time], &
+       standard_name='time', &
+       units='s')
+
+  varid_zetaobs = def_var(ncid,'zetaobs',[dimid_nobs, dimid_time], &
+       standard_name='sea_surface_elevation', &
+       units='m', &
+       fillvalue=fillvalue)
+  
+  call check(nf90_enddef(ncid))
+
+  call check(nf90_put_var(ncid,varid_xobs,xobs))
+  call check(nf90_put_var(ncid,varid_yobs,yobs))
+  call check(nf90_put_var(ncid,varid_timeobs,timeobs))
+  call check(nf90_put_var(ncid,varid_zetaobs,zetaobs))
+
+  call check(nf90_close(ncid))
+
+ end subroutine writeobs
+
+ function def_var(ncid,varname,dimids,standard_name,units,fillvalue) result(varid)
+   implicit none
+   integer, intent(in)          :: ncid
+   character(len=*), intent(in) :: varname
+   integer, intent(in)          :: dimids(:)
+   character(len=*), intent(in), optional :: standard_name, units
+   real, optional :: fillvalue
+   integer :: varid
+
+   call check(nf90_def_var(ncid, varname, nf90_double, &
+         dimids, varid))
+
+   if (present(standard_name)) then
+     call check(nf90_put_att(ncid, varid, &
+          'standard_name', standard_name))
+   end if
+   if (present(units)) then
+     call check(nf90_put_att(ncid, varid, 'units', units))
+   end if
+   if (present(fillvalue)) then
+     call check(nf90_put_att(ncid, varid, '_Fillvalueue', fillvalue))   
+   end if
+   end function def_var
+
+ subroutine check(status)
+  implicit none
+  integer, intent ( in) :: status
+
+  if(status /= nf90_noerr) then
+    write(6,*) 'NetCDF error: ',trim(nf90_strerror(status))
+    stop "Stopped"
+  end if
+ end subroutine check
+
 end program test_shallow_water2d
