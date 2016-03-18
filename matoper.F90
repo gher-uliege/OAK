@@ -132,6 +132,7 @@ end interface
 
 interface randn
   module procedure &
+       randn_scal, &
        randn_vec, &
        randn_mat
 end interface randn
@@ -372,6 +373,33 @@ contains
   call random_number(E)
  end function 
 
+  !_______________________________________________________
+  !
+
+  function randn_scal() result(E)
+
+    ! Return a normally distributed random scalar having
+    ! zero mean and variance one.
+    
+    implicit none
+
+    ! Output
+    real :: E               ! random vector
+
+    ! Local variable
+    real :: tmp
+
+    ! Local variable
+    integer :: i
+
+    call random_number(E)
+    do i=1,11
+       call random_number(tmp)
+       E = E + tmp
+    end do
+
+    E = E-6
+  end function randn_scal
 
   !_______________________________________________________
   !
