@@ -24,15 +24,17 @@
 ! module for on-line coupling between model and assimilation routines
 
 module oak
-#ifdef ASSIM_PARALL
+!#ifdef ASSIM_PARALL
  use assimilation
 
  type oakconfig
+#ifdef ASSIM_PARALL
    ! communicator model + assimilation
    integer :: comm_all
 
    ! communicator between sub-domains (of the same ensemble member)
    integer :: comm_ensmember
+#endif
 
    ! flag wheter the model uses MPI
    logical :: model_uses_mpi
@@ -59,7 +61,9 @@ module oak
 contains
 
  subroutine oak_init(config,fname,comm,comm_ensmember_,starttime)
+#ifdef ASSIM_PARALL
   use mpi
+#endif
   use initfile
   use parall, only: parallInit
   use initfile
@@ -81,11 +85,15 @@ contains
 
   call getInitValue(initfname,'ErrorSpace.dimension',config%Nens,default=0)
 
+#ifdef ASSIM_PARALL
   call parallInit(communicator=comm)
+#endif
   call init(initfname)
   allocate(config%dom(ModML%effsize))
 
-
+  config%model_uses_mpi = .false.
+    
+#ifdef ASSIM_PARALL
   if (present(comm)) then
     ! model uses also MPI, split communicators
     call oak_split_comm(comm,config%Nens,comm_ensmember_,.true.)
@@ -101,11 +109,14 @@ contains
     config%comm_ensmember = -1
 
     call mpi_init(ierr)
-    config%model_uses_mpi = .false.
     nprocs_ensmember = 1
   end if
+#endif
 
+
+#ifdef ASSIM_PARALL
   call mpi_comm_size(config%comm_all, nprocs, ierr)
+#endif
 !  write(6,*) 'nprocs',nprocs,config%comm_all
 
   allocate(config%weightf(config%Nens),config%weighta(config%Nens))
@@ -135,16 +146,20 @@ contains
  !-------------------------------------------------------------------------------
 
  subroutine oak_done(config)
+# ifdef ASSIM_PARALL
   use mpi
+# endif
   use ndgrid
   use assimilation
   implicit none
   type(oakconfig), intent(inout) :: config
   integer :: ierr, v
 
+# ifdef ASSIM_PARALL
   if (.not.config%model_uses_mpi) then
     call mpi_finalize(ierr)
   end if
+# endif
 
 
   if (allocated(config%dom)) deallocate(config%dom)
@@ -153,6 +168,9 @@ contains
 
   call done()
  end subroutine oak_done
+
+
+#ifdef ASSIM_PARALL
 
  !------------------------------------------------------------------------------
  !
@@ -218,7 +236,7 @@ contains
 
   call mpi_barrier(comm, ierr)
  end subroutine oak_split_comm
-
+#endif
 
  !-------------------------------------------------------------
 
@@ -226,8 +244,13 @@ contains
   use parall
   implicit none  
   type(oakconfig), intent(inout) :: config
-  real, intent(in) :: xdomain(:)
   real, intent(out) :: E(:,:)
+# ifndef ASSIM_PARALL
+  real, intent(in) :: xdomain(:,:)
+  ! simple copy if no parallelization
+  E = xdomain
+# else
+  real, intent(in) :: xdomain(:)
 
   integer :: i1,i2, subdomsize, needsize, p, rank, & 
        tag, ierr, source, dest, source_idom, source_ensmember
@@ -283,7 +306,7 @@ contains
 
     end do
   end do
-
+# endif
  end subroutine oak_gather_members
 
  !-------------------------------------------------------------
@@ -292,8 +315,13 @@ contains
   use parall
   implicit none  
   type(oakconfig), intent(inout) :: config
-  real, intent(out) :: xdomain(:)
   real, intent(in) :: E(:,:)
+# ifndef ASSIM_PARALL
+  real, intent(out) :: xdomain(:,:)
+  ! simple copy if no parallelization
+  xdomain = E
+# else
+  real, intent(out) :: xdomain(:)
 
   integer :: i1,i2,i,ndom, subdomsize, needsize, p, rank, & 
        tag, ierr, dest, source, dest_idom, dest_ensmember
@@ -350,7 +378,7 @@ contains
 
     end do
   end do
-
+# endif
  end subroutine oak_spread_members
 
  !-------------------------------------------------------------
@@ -359,8 +387,13 @@ contains
   use parall
   implicit none  
   type(oakconfig), intent(inout) :: config
-  real, intent(in) :: xdomain(:)
   real, intent(out) :: E(:,:)
+# ifndef ASSIM_PARALL
+  real, intent(in) :: xdomain(:,:)
+  ! simple copy if no parallelization
+  E = xdomain
+# else
+  real, intent(in) :: xdomain(:)
 
   integer :: ndom, p, rank, & 
        tag, ierr, source, source_idom, source_ensmember
@@ -400,7 +433,7 @@ contains
       deallocate(data)
     end do
   end if
-
+# endif
  end subroutine oak_gather_master
 
  !-------------------------------------------------------------
@@ -412,6 +445,11 @@ contains
   implicit none  
   type(oakconfig), intent(inout) :: config
   real, intent(in) :: E(:,:)
+# ifndef ASSIM_PARALL
+  real, intent(out) :: xdomain(:,:)
+  ! simple copy if no parallelization
+  xdomain = E
+# else
   real, intent(out) :: xdomain(:)
 
   integer :: p, rank, & 
@@ -450,11 +488,12 @@ contains
 
   call mpi_recv(xdomain, size(xdomain), DEFAULT_REAL, 0, & 
        tag, config%comm_all, status, ierr)
-
+# endif  
  end subroutine oak_spread_master
 
  !-------------------------------------------------------------
 
+#ifdef ASSIM_PARALL
  subroutine oak_perturb(config,x)
   use mpi
   use matoper
@@ -497,20 +536,30 @@ contains
   
   deallocate(E,meanx)
  end subroutine oak_perturb
+
+#endif
+
  !-------------------------------------------------------------
  !
  ! x is the state vector with all variables concatenated and masked points 
- ! removed
+ ! removed in parallel applications
+ ! For non parallel application, x is the ensemble of state vectors
 
  subroutine oak_assim(config,time,x)
+# ifdef ASSIM_PARALL
   use mpi
+# endif
   use parall
   use matoper
   use initfile
   implicit none
   type(oakconfig), intent(inout) :: config
   real(8), intent(in) :: time
+#ifdef ASSIM_PARALL
   real, intent(inout) :: x(:)
+#else
+  real, intent(inout) :: x(:,:)
+#endif
   integer :: ierr
   real, allocatable :: Ef(:,:), Ea(:,:)
   real, pointer :: yo(:), invsqrtR(:), Hshift(:)
@@ -638,5 +687,5 @@ contains
     deallocate(Ea,Ef)
   end if
  end subroutine oak_assim
-#endif
+!#endif
 end module oak

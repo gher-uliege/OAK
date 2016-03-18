@@ -1,10 +1,19 @@
 ! gfortran -Wall  -g -O2 -I/usr/include  -fdefault-real-8 -o shallow_water2d_ens  shallow_water2d.F90 shallow_water2d_ens.F90 -L/usr/lib -lnetcdff -lnetcdf  && time ./shallow_water2d_ens
 
+!#define EXTRACT_OBS
+#define OAK
+
 program test_shallow_water2d
  use shallow_water2d
  use matoper, only: randn
+#ifdef EXTRACT_OBS
  use ndgrid, only: initgrid, grid, interp
  use netcdf
+#endif
+#ifdef OAK
+ use oak
+ use assimilation
+#endif
 
  implicit none
  ! size of time
@@ -47,18 +56,26 @@ program test_shallow_water2d
  integer :: i,j
  ! output file name
  character(len=*), parameter :: fname = 'example.nc'
- real(8) :: fillvalue = NF90_FILL_DOUBLE
 
-
+#ifdef EXTRACT_OBS
  integer, parameter :: nobs = 2
  integer :: l, obsindex
  type(grid) :: modgrid 
  real :: timeobs(Nsteps), xobs(nobs),yobs(nobs),zetaobs(nobs,Nsteps)
  logical :: out
+ real(8) :: fillvalue = NF90_FILL_DOUBLE
+#endif
 
+#ifdef OAK
+  type(oakconfig) :: config
+!  integer, allocatable :: subdomain(:)
+#endif
+
+#ifdef EXTRACT_OBS
  obsindex = 0
  xobs = [50e3, 50e3]
  yobs = [40e3, 60e3]
+#endif
 
  ! grid spacing (in meters)
  dx = 1000
@@ -89,7 +106,13 @@ program test_shallow_water2d
 
 
  call init_domain(dom,dx,dy,mask,h)
+#ifdef EXTRACT_OBS
  call initgrid(modgrid,dom%x,dom%y,.not.mask)
+#endif
+
+#ifdef OAK
+ call oak_init(config,'shallow_water2d.init')
+#endif
 
  ! time step and other model parameters
  dt = 2
@@ -162,6 +185,7 @@ program test_shallow_water2d
      !     end if
 
      if (mod(timecounter,30) == 0) then
+#ifdef EXTRACT_OBS
        obsindex = obsindex+1
        timeobs(obsindex) = timecounter * dt
 
@@ -170,7 +194,7 @@ program test_shallow_water2d
          if (out) zetaobs(l,obsindex) = fillvalue
          write(6,*) 'zetaobs',zetaobs(l,obsindex)
        end do
-
+#endif
 
        call shallow_water2d_save(dom,timeindex,zeta(:,:,1,memberindex), &
             U(:,:,1,memberindex),V(:,:,1,memberindex),fname,memberindex = memberindex)
@@ -180,13 +204,16 @@ program test_shallow_water2d
    end do ensemble
  end do time
 
+#ifdef EXTRACT_OBS
  write(6,*) 'zetaobs',zetaobs(:,1:obsindex)
 
  call writeobs('observations.nc',xobs,yobs,timeobs(1:obsindex), &
       zetaobs(:,1:obsindex))
+#endif
 
 contains 
 
+#ifdef EXTRACT_OBS
  subroutine writeobs(fname,xobs,yobs,timeobs,zetaobs)
   implicit none
   real, intent(in) :: xobs(:), yobs(:), timeobs(:), zetaobs(:,:)
@@ -260,5 +287,6 @@ contains
     stop "Stopped"
   end if
  end subroutine check
+#endif
 
 end program test_shallow_water2d
