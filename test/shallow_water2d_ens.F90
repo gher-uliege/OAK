@@ -3,6 +3,8 @@
 program test_shallow_water2d
  use shallow_water2d
  use matoper, only: randn
+ use ndgrid, only: initgrid, grid, interp
+
  implicit none
  ! size of time and number of time 
  integer, parameter :: m = 100, n = 100
@@ -43,6 +45,13 @@ program test_shallow_water2d
  ! output file name
  character(len=*), parameter :: fname = 'example.nc'
 
+ type(grid) :: modgrid
+ real :: xi,yi,zetai
+ logical :: out
+
+ xi = 50e3
+ yi = 50e3
+
  ! grid spacing (in meters)
  dx = 1000
  dy = 1000
@@ -72,6 +81,7 @@ program test_shallow_water2d
 
 
  call init_domain(dom,dx,dy,mask,h)
+ call initgrid(modgrid,dom%x,dom%y,.not.mask)
 
  ! time step and other model parameters
  dt = 2
@@ -102,6 +112,7 @@ program test_shallow_water2d
 
    write(6,*) 'xc,yc,zetac',xc,yc,zetac
 
+
    do j = 1,n
      do i = 1,m
        x = dx*(i-1)
@@ -130,10 +141,14 @@ program test_shallow_water2d
           zeta(:,:,1,memberindex),U(:,:,1,memberindex),V(:,:,1,memberindex), &
           dt,g,f,zeta(:,:,2,memberindex),U(:,:,2,memberindex),V(:,:,2,memberindex))
 
+
      ! swap time instances
      zeta(:,:,1,memberindex) = zeta(:,:,2,memberindex)
      U(:,:,1,memberindex) = U(:,:,2,memberindex)
      V(:,:,1,memberindex) = V(:,:,2,memberindex)
+
+     call interp(modgrid,zeta(:,:,1,memberindex),[xi,yi],zetai,out)
+     write(6,*) 'zetai',zetai
 
      !     if (mod(timecounter,10) == 0) then
      !       call diag(dom,timecounter,zeta(:,:,1,memberindex), &
