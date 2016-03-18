@@ -7,7 +7,7 @@ program test_shallow_water2d
  ! size of time and number of time 
  integer, parameter :: m = 100, n = 100
  ! size of ensemble
- integer, parameter :: Nens = 100
+ integer, parameter :: Nens = 1
  ! number time steps in memory
  integer, parameter :: Ntime = 2
  ! grid spacing in meters
@@ -99,6 +99,8 @@ program test_shallow_water2d
    zetac = randn()
    lenx = 20e3
    leny = 20e3
+
+   write(6,*) 'xc,yc,zetac',xc,yc,zetac
 
    do j = 1,n
      do i = 1,m
