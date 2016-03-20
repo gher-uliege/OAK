@@ -304,7 +304,8 @@ contains
   logical :: createfile
   integer, allocatable :: dimids(:), startindex(:)
 
-  write(6,*)' save'
+!  write(6,*) 'save'
+!  return
 
   if (present(memberindex)) then
     allocate(dimids(4),startindex(4))

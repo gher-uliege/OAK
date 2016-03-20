@@ -2973,9 +2973,10 @@ end function
   integer :: bindex=1
 # endif
 
-
+  ! multiplicative inflation factor
+  real :: inflation
   real :: valex
-
+  
 
 # ifdef _OPENMP
   ! shared local variables among the OpenMP threads
@@ -3236,10 +3237,18 @@ end function
 
 !$omp end master
 
-     end if
+      end if
 !$omp barrier
 
 !$omp master
+
+   ! apply inflation
+
+   call getInitValue(initfname,'inflation.mult',inflation,default = 1.)
+   if (inflation /= 1) then
+     Sa = inflation * Sa
+   end if
+
    ! saturate correction
 
     write(stdlog,*) 'max Correction reached ', & 

@@ -5,6 +5,11 @@
 
 !#define EXTRACT_OBS
 #define OAK
+!#define ENS
+
+#ifdef OAK
+#define ENS
+#endif
 
 program test_shallow_water2d
  use shallow_water2d
@@ -22,11 +27,13 @@ program test_shallow_water2d
  ! size of time
  integer, parameter :: m = 100, n = 100
  ! size of time steps
- integer, parameter :: Nsteps = 18
+ integer, parameter :: Nsteps = 1200
+#ifdef ENS
  ! size of ensemble
- integer, parameter :: Nens = 10
- ! number time steps in memory
- integer, parameter :: Ntime = 2
+ integer, parameter :: Nens = 100
+#else
+ integer, parameter :: Nens = 1
+#endif
  ! grid spacing in meters
  real :: dx, dy
  ! position of initial perturbation
@@ -35,9 +42,13 @@ program test_shallow_water2d
  ! size of initial perturbation
  real :: lenx, leny, x, y, h(m,n)
  ! surface elevation
- real :: zeta(m,n,Ntime,Nens)
+ real :: zeta(m,n,Nens)
  ! depth-integrated currents
- real :: U(m-1,n,Ntime,Nens), V(m,n-1,Ntime,Nens)
+ real :: U(m-1,n,Nens), V(m,n-1,Nens)
+ ! surface elevation (next time step)
+ real :: zeta_next(m,n)
+ ! depth-integrated currents (next time step)
+ real :: U_next(m-1,n), V_next(m,n-1)
  ! land-sea mask (see is .true., land is .false.)
  logical :: mask(m,n) 
  ! all information of the model domain
@@ -60,7 +71,16 @@ program test_shallow_water2d
  ! spatial indices
  integer :: i,j
  ! output file name
- character(len=*), parameter :: fname = 'example.nc'
+#ifdef EXTRACT_OBS
+ character(len=*), parameter :: fname = 'truth.nc'
+#elif defined(OAK)
+ character(len=*), parameter :: fname = 'assim_ensemble.nc'
+#elif defined(ENS)
+ character(len=*), parameter :: fname = 'free_ensemble.nc'
+#else
+ character(len=*), parameter :: fname = 'free.nc'
+#endif
+
 
 #ifdef EXTRACT_OBS
  integer, parameter :: nobs = 2
@@ -140,12 +160,15 @@ program test_shallow_water2d
 
    ! position of initial perturbation and extension (in meters)
 
-   xc = 10e3 + 10e3 * randn()
-   yc = 50e3 + 10e3 * randn()
+#ifdef EXTRACT_OBS
+   xc =  15282.5894368342
+   yc =  34360.9243460298
+   zetac = 1.10340012266332  
+#else
+   xc = 20e3 + 10e3 * randn()
+   yc = 50e3 + 30e3 * randn()
    zetac = randn()
-   !xc = 2458.0188865562832        
-   !yc = 54634.573638063470       
-   !zetac = 0.55745057948576626     
+#endif
 
    lenx = 20e3
    leny = 20e3
@@ -157,14 +180,14 @@ program test_shallow_water2d
      do i = 1,m
        x = dx*(i-1)
        y = dy*(j-1)
-       zeta(i,j,1,memberindex) = zetac * exp(-((x-xc)/lenx)**2 - ((y-yc)/leny)**2)
+       zeta(i,j,memberindex) = zetac * exp(-((x-xc)/lenx)**2 - ((y-yc)/leny)**2)
      end do
    end do
-   where (.not.mask) zeta(:,:,1,memberindex) = 0
+   where (.not.mask) zeta(:,:,memberindex) = 0
 
    ! save initial conditions
-   call shallow_water2d_save(dom,timeindex,zeta(:,:,1,memberindex), &
-        U(:,:,1,memberindex),V(:,:,1,memberindex),fname,memberindex = memberindex)
+   call shallow_water2d_save(dom,timeindex,zeta(:,:,memberindex), &
+        U(:,:,memberindex),V(:,:,memberindex),fname,memberindex = memberindex)
 
  end do
 
@@ -180,19 +203,19 @@ program test_shallow_water2d
    ensemble: do memberindex = 1,Nens
 
      call shallow_water2d_step(dom,timecounter, & 
-          zeta(:,:,1,memberindex),U(:,:,1,memberindex),V(:,:,1,memberindex), &
-          dt,g,f,zeta(:,:,2,memberindex),U(:,:,2,memberindex),V(:,:,2,memberindex))
+          zeta(:,:,memberindex),U(:,:,memberindex),V(:,:,memberindex), &
+          dt,g,f,zeta_next,U_next,V_next)
 
 
      ! swap time instances
-     zeta(:,:,1,memberindex) = zeta(:,:,2,memberindex)
-     U(:,:,1,memberindex) = U(:,:,2,memberindex)
-     V(:,:,1,memberindex) = V(:,:,2,memberindex)
+     zeta(:,:,memberindex) = zeta_next
+     U(:,:,memberindex) = U_next
+     V(:,:,memberindex) = V_next
 
 #    ifdef DIAG     
      if (mod(timecounter,10) == 0) then
-       call diag(dom,timecounter,zeta(:,:,1,memberindex), &
-            U(:,:,1,memberindex),V(:,:,1,memberindex),g)
+       call diag(dom,timecounter,zeta(:,:,memberindex), &
+            U(:,:,memberindex),V(:,:,memberindex),g)
      end if
 #    endif
 
@@ -202,26 +225,26 @@ program test_shallow_water2d
        timeobs(obsindex) = time2
 
        do l = 1,nobs
-         call interp(modgrid,zeta(:,:,1,memberindex),[xobs(l),yobs(l)],zetaobs(l,obsindex),out)
+         call interp(modgrid,zeta(:,:,memberindex),[xobs(l),yobs(l)],zetaobs(l,obsindex),out)
          if (out) zetaobs(l,obsindex) = fillvalue
          write(6,*) 'zetaobs',zetaobs(l,obsindex)
        end do
 #endif
 
-!       call shallow_water2d_save(dom,timeindex,zeta(:,:,1,memberindex), &
-!            U(:,:,1,memberindex),V(:,:,1,memberindex),fname,memberindex = memberindex)
+       call shallow_water2d_save(dom,timeindex,zeta(:,:,memberindex), &
+            U(:,:,memberindex),V(:,:,memberindex),fname,memberindex = memberindex)
 
        if (memberindex == Nens) timeindex = timeindex + 1
      end if
 
 #    ifdef OAK
-     call oak_assim_ens(config,time2,zeta(:,:,1,:),U(:,:,1,:),V(:,:,1,:))
+     call oak_assim_ens(config,time2,zeta,U,V)
 #    endif
 
    end do ensemble
  end do time
 
- write(6,*) 'zeta(50,50,1,1)',zeta(50,50,1,1)
+ write(6,*) 'zeta(50,50,1)',zeta(50,50,1)
 #ifdef EXTRACT_OBS
  write(6,*) 'zetaobs',zetaobs(:,1:obsindex)
 

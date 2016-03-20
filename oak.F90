@@ -46,7 +46,9 @@ module oak
    real, allocatable :: weightf(:), weighta(:)
 
    ! time index of the next observation
-   integer :: obsntime = 1   
+   integer :: obsntime_index = 1   
+   ! time of the next observations (seconds since time origine)
+   real(8) :: obstime_next
 
    ! domain index 
    integer, allocatable :: dom(:)
@@ -55,7 +57,9 @@ module oak
    integer :: ndom
 
    real(8) :: starttime, obstime_previous
-   
+
+   ! true if all observations have been assimilated
+   logical :: all_obs_assim
  end type oakconfig
 
 contains
@@ -122,10 +126,16 @@ contains
   allocate(config%weightf(config%Nens),config%weighta(config%Nens))
   config%weightf = 1./config%Nens
   
+  config%obsntime_index = 1
+  call loadObsTime(config%obsntime_index,config%obstime_next,ierr)
+  ! no more observations are available
+  config%all_obs_assim = ierr /= 0
+  
   ! print diagnostic information
   !  write(6,*) 'OAK is initialized'
   !  write(6,*) 'Total number of processes',nprocs
   !  write(6,*) 'Processes per ensemble member',nprocs_ensmember
+
 
  end subroutine oak_init
 
@@ -552,16 +562,27 @@ contains
   integer :: ierr
   real(8) :: obstime
 
-  call loadObsTime(config%obsntime,obstime,ierr)    
-  if (ierr /= 0) then
+  ! call loadObsTime(config%obsntime_index,obstime,ierr)    
+  ! if (ierr /= 0) then
+  !   ! no more observations are available
+  !   available = .false.
+  !   return
+  ! end if
+
+  ! !write(6,*) 'time, obstime',time, obstime
+  ! ! we assume that the model starts earlier than the observations
+  ! available = time >= obstime
+
+
+  if (config%all_obs_assim) then
     ! no more observations are available
     available = .false.
     return
   end if
 
-  write(6,*) 'time, obstime',time, obstime
   ! we assume that the model starts earlier than the observations
-  available = time >= obstime
+  available = time >= config%obstime_next
+
  end function oak_obs_available
  !-------------------------------------------------------------
  !
@@ -596,7 +617,7 @@ contains
   integer :: ntime, obsVec, dt_obs
 
   ! time of the next observation
-  call loadObsTime(config%obsntime,obstime,ierr)    
+  call loadObsTime(config%obsntime_index,obstime,ierr)    
   if (ierr /= 0) then
     ! no more observations are available
     !write(6,*) 'no more obs',procnum
@@ -604,7 +625,6 @@ contains
   end if
   
   !dbg(x)
-      write(6,*) 'here',__LINE__
 
   if (schemetype == EWPFScheme) then
 
@@ -625,18 +645,18 @@ contains
         !dbg(Ef)
 
         ntime = nint(time / model_dt)
-        call loadObsTime(config%obsntime+1,obstime_next,ierr)    
+        call loadObsTime(config%obsntime_index+1,obstime_next,ierr)    
 
         if (ierr == 0) then
           obsVec = nint(obstime / model_dt)
           dt_obs = nint((obstime - config%obstime_previous) / model_dt)
 
-          call fmtIndex('',config%obsntime+1,'.',infix)
+          call fmtIndex('',config%obsntime_index+1,'.',infix)
           call MemoryLayout('Obs'//trim(infix),ObsML,.true.)
           allocate(yo(ObsML%effsize),invsqrtR(ObsML%effsize),Hshift(ObsML%effsize))
 
-          call loadObs(config%obsntime+1,ObsML,yo,invsqrtR)    
-          call loadObservationOper(config%obsntime+1,ObsML,H,Hshift,invsqrtR)
+          call loadObs(config%obsntime_index+1,ObsML,yo,invsqrtR)    
+          call loadObservationOper(config%obsntime_index+1,ObsML,H,Hshift,invsqrtR)
 
           !write(6,*) 'weightf ',procnum,config%weightf
           call ewpf_proposal_step(ntime,obsVec,dt_obs,Ef,config%weightf,yo,invsqrtR,H)
@@ -651,7 +671,7 @@ contains
         write(stddebug,*) 'analysis step',time
         !dbg(config%weightf)
 
-        call assim(config%obsntime,Ef,Ea, & 
+        call assim(config%obsntime_index,Ef,Ea, & 
              weightf=config%weightf,weighta=config%weighta)
         config%weightf = config%weighta
         Ef = Ea
@@ -661,7 +681,10 @@ contains
 
       end if
 
-      config%obsntime = config%obsntime +1    
+      config%obsntime_index = config%obsntime_index +1    
+      call loadObsTime(config%obsntime_index,config%obstime_next,ierr)
+      ! no more observations are available
+      config%all_obs_assim = ierr /= 0
       config%obstime_previous = obstime
     end if
 
@@ -685,7 +708,7 @@ contains
       !Ea = Ef
       ! analysis
       !write(6,*) 'Ef ',Ef
-      call assim(config%obsntime,Ef,Ea)
+      call assim(config%obsntime_index,Ef,Ea)
       !write(6,*) 'Ea ',Ea
       call oak_spread_members(config,Ea,x)
     else
@@ -699,9 +722,9 @@ contains
       call oak_gather_master(config,x,Ef)
       Ea = Ef
       if (procnum == 1) then
-        write(6,*) 'model ',procnum,'has loc ',shape(Ef)
+        !write(6,*) 'model ',procnum,'has loc ',shape(Ef)
         ! weights are not used unless  schemetype == EWPFScheme
-        call assim(config%obsntime,Ef,Ea,weightf=config%weightf,weighta=config%weighta)
+        call assim(config%obsntime_index,Ef,Ea,weightf=config%weightf,weighta=config%weighta)
         ! for testing
         !Ea = Ef
       end if
@@ -709,8 +732,12 @@ contains
     end if
 
 
-    config%obsntime = config%obsntime +1
+    config%obsntime_index = config%obsntime_index +1
+    call loadObsTime(config%obsntime_index,config%obstime_next,ierr)
+    ! no more observations are available
+    config%all_obs_assim = ierr /= 0
     config%obstime_previous = obstime
+    
     deallocate(Ea,Ef)
   end if
  end subroutine oak_assim
@@ -720,11 +747,10 @@ contains
   type(oakconfig), intent(inout) :: config
   real(8), intent(in) :: time
 
-  real, intent(out) :: v1(*)
-  real, intent(out), optional :: v2(*),v3(*),v4(*),v5(*),v6(*),v7(*),v8(*)
+  real, intent(inout) :: v1(*)
+  real, intent(inout), optional :: v2(*),v3(*),v4(*),v5(*),v6(*),v7(*),v8(*)
 
   real, allocatable :: E(:,:), x(:)
-
 
   ! note the EWPF schemes works at every time step
   if (.not.oak_obs_available(config,time) .and. schemetype /= EWPFScheme) then
@@ -732,7 +758,7 @@ contains
     return
   end if
 
-!  write(6,*) 'assimilation'
+  write(6,*) 'assimilation',time
   
 # ifndef ASSIM_PARALL
   ! the ensemble is on a single process
@@ -753,7 +779,6 @@ contains
   call unpackVector(ModML,x,v1,v2,v3,v4,v5,v6,v7,v8)
   deallocate(x)
 # endif
-
   
  end subroutine 
 
