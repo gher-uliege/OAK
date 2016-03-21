@@ -68,8 +68,8 @@ module assimilation
  ! horizontal resolution of each variable (approximation)
 
  real, allocatable         :: hres(:)
- integer                   :: StateVectorSize, StateVectorSizeSea, &
-      ErrorSpaceDim
+ integer                   :: StateVectorSize, StateVectorSizeSea
+! integer                   :: ErrorSpaceDim
 
  ! possible values of "runtype" are:
  ! FreeRun     = 0 = do nothing, i.e. a pure run of the model 
@@ -385,7 +385,7 @@ contains
   if (associated(filenamesZ)) deallocate(filenamesZ)
   if (associated(filenamesT)) deallocate(filenamesT)
 
-  call getInitValue(initfname,'ErrorSpace.dimension',ErrorSpaceDim,default=0)
+!  call getInitValue(initfname,'ErrorSpace.dimension',ErrorSpaceDim,default=0)
 
   biasf = 0.
 
@@ -476,6 +476,16 @@ contains
   
 
   deallocate(tmp)
+
+# ifdef DEBUG
+  write(stddebug,*) '= Assimilation parameters ='
+  write(stddebug,'(20A,I3)') 'run type',runtype
+  write(stddebug,'(20A,I3)') 'metric',metrictype
+  write(stddebug,'(20A,I3)') 'scheme',schemetype
+  write(stddebug,'(20A,I3)') 'localization',loctype
+  write(stddebug,'(20A,I3)') 'anamorphosis',anamorphosistype
+# endif  
+
 
  end subroutine globalInit
 
@@ -619,7 +629,6 @@ contains
 
     cIndex(zi) = cIndex(zi)+1
   end do
-
 
 #ifdef DEBUG   
    write(stddebug,*) 'End the partitioning of the state vector'
@@ -3665,7 +3674,7 @@ end function
      end if
 
 
-!    write(6,*) 'x, y ',x,y,'-',ModML%ndim(v),index,v,i,j,out
+!     write(6,*) 'x, y ',x,y,'-',ModML%ndim(v),index,ind,v,i,j,out
 
    do l = 1,size(weight)
      ! weight is the distance here
@@ -3684,6 +3693,10 @@ end function
 !   write(6,*) 'relevantObs ',count(relevantObs),minval(weight),maxval(weight)
 
    noRelevantObs = .not.any(relevantObs)
+!   if (count(relevantObs)  > 0) then
+!     stop
+!   end if
+
 
    if (.not.noRelevantObs) weight = exp(- (weight/hCorrLengthToObs(index))**2)
 
@@ -3883,6 +3896,7 @@ end function
   real, intent(in), optional :: v2(*),v3(*),v4(*),v5(*),v6(*),v7(*),v8(*)
   real, intent(out) :: StateVector(ML%effsize)
 
+  ! check permutation
   StateVector(ML%StartIndexSea(1):ML%EndIndexSea(1)) = &
        pack(v1(1:ML%varsize(1)),ML%mask(ML%StartIndex(1):ML%EndIndex(1)).eq.1)
 
@@ -3993,6 +4007,7 @@ end function
  ! represent an ensemble with size(E,2) members
 
  subroutine packEnsemble(ML,E,v1,v2,v3,v4,v5,v6,v7,v8)
+  use matoper
   implicit none
   type(MemLayout), intent(in) ::  ML
   real, intent(in) :: v1(*)
@@ -4001,7 +4016,7 @@ end function
 
   ! ensemble member index
   integer :: k
-  
+
   do k = 1,size(E,2)
     E(ML%StartIndexSea(1):ML%EndIndexSea(1),k) = &
          pack(v1((1+(k-1)*ML%varsize(1)):(k*ML%varsize(1))), &
@@ -4024,15 +4039,22 @@ end function
     E(ML%StartIndexSea(4):ML%EndIndexSea(4),k) = &
          pack(v4((1+(k-1)*ML%varsize(4)):(k*ML%varsize(4))), &
          ML%mask(ML%StartIndex(4):ML%EndIndex(4)) == 1)
-
   end do
 
+
+  if (ML%permute) then
+    do k = 1,size(E,2)
+      call permute(zoneIndex,E(:,k),E(:,k))
+    end do
+  end if
+  
  end subroutine packEnsemble
 
  !_______________________________________________________
  !
 
  subroutine unpackEnsemble(ML,E,v1,v2,v3,v4,v5,v6,v7,v8)
+  use matoper
   implicit none
   type(MemLayout), intent(in) ::  ML
   real, intent(in) :: E(:,:)
@@ -4040,32 +4062,37 @@ end function
   real, intent(out) :: v1(*)
   real, intent(out), optional :: v2(*),v3(*),v4(*),v5(*),v6(*),v7(*),v8(*)
 
+  real :: tmp(size(E,1))
   integer :: i
 
   ! ensemble member index
   integer :: k
   
   do k = 1,size(E,2)
+    if (ML%permute) then
+      call ipermute(zoneIndex,E(:,k),tmp)
+    end if
+
     v1((1+(k-1)*ML%varsize(1)):(k*ML%varsize(1))) = &
-         unpack(E(ML%StartIndexSea(i):ML%EndIndexSea(i),k), &
+         unpack(tmp(ML%StartIndexSea(i):ML%EndIndexSea(i)), &
          ML%mask(ML%StartIndex(1):ML%EndIndex(1)) == 1,0.)
 
     if (.not.present(v2)) cycle
 
     v2((1+(k-1)*ML%varsize(2)):(k*ML%varsize(2))) = &
-         unpack(E(ML%StartIndexSea(i):ML%EndIndexSea(i),k), &
+         unpack(tmp(ML%StartIndexSea(i):ML%EndIndexSea(i)), &
          ML%mask(ML%StartIndex(2):ML%EndIndex(2)) == 1,0.)
 
     if (.not.present(v3)) cycle
 
     v3((1+(k-1)*ML%varsize(3)):(k*ML%varsize(3))) = &
-         unpack(E(ML%StartIndexSea(i):ML%EndIndexSea(i),k), &
+         unpack(tmp(ML%StartIndexSea(i):ML%EndIndexSea(i)), &
          ML%mask(ML%StartIndex(3):ML%EndIndex(3)) == 1,0.)
 
     if (.not.present(v4)) cycle
 
     v4((1+(k-1)*ML%varsize(4)):(k*ML%varsize(4))) = &
-         unpack(E(ML%StartIndexSea(i):ML%EndIndexSea(i),k), &
+         unpack(tmp(ML%StartIndexSea(i):ML%EndIndexSea(i)), &
          ML%mask(ML%StartIndex(4):ML%EndIndex(4)) == 1,0.)
 
   end do

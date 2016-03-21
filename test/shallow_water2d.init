@@ -1,21 +1,10 @@
 # State vector definition
 
-Model.variables	    = [          'zeta',            'ubar',            'ubar']
-Model.gridX         = [   'domain.nc#x',   'domain.nc#x_u',   'domain.nc#x_u']
-Model.gridY         = [   'domain.nc#y',   'domain.nc#y_u',   'domain.nc#y_u']
-Model.mask          = ['domain.nc#mask','domain.nc#mask_u','domain.nc#mask_u']
+Model.variables	    = [          'zeta',            'ubar',            'vbar']
+Model.gridX         = [   'domain.nc#x',   'domain.nc#x_u',   'domain.nc#x_v']
+Model.gridY         = [   'domain.nc#y',   'domain.nc#y_u',   'domain.nc#y_v']
+Model.mask          = ['domain.nc#mask','domain.nc#mask_u','domain.nc#mask_v']
 Model.path          = './'
-
-# Error space of the state vector
-
-ErrorSpace.dimension = 100
-# ErrorSpace.path      = './'
-# ErrorSpace.init      = ['("Ens",I3.3,"/model.nc#var1")','("Ens",I3.3,"/model.nc#var2")']
-# ErrorSpace.type      = 2
-
-# anamorphosistype = 0
-# Anamorphosis.x = ['_id','_id']
-# Anamorphosis.y = ['_id','_id']
 
 
 # runtype = integer: possible values of runtype are:
@@ -32,11 +21,12 @@ runtype = 2
 
 schemetype = 0
 
-# Zones.partition        = ['domain.nc#part','domain.nc#part']
-# Zones.corrLength.const = [           30e3,             30e3]
-# Zones.maxLength.const  = [         2000e3,           2000e3]
-# Zones.path = 'Common/'
+Zones.partition        = ['domain.nc#part','domain.nc#part(1:99,:)','domain.nc#part(:,1:99)']
+Zones.corrLength.const = [            10e3,                    10e3,                    10e3]
+Zones.maxLength.const  = [            40e3,                    40e3,                    40e3]
+Zones.path = './'
 
+metrictype = 0
  
 # logfile contains simple diagnostics such as RMSE with observations
 
@@ -44,7 +34,7 @@ logfile = 'assim.log'
 debugfile = 'assim.debug'
 
 
-inflation.mult = 1.1
+inflation.mult = 1.15
 
 #------------------------------------------------------------------------------------
 #
@@ -78,6 +68,7 @@ Obs*.rmse.const = [ 0.05]
 # Obs005.value      = [      'observations.nc#zetaobs(:,5)']
 # Obs005.mask       = [      'observations.nc#zetaobs(:,5)']
 
+## for i in $(seq 1 30); do echo "Obs$(printf %03d $i).time      = '$((30*i))'"; echo "Obs$(printf %03d $i).value      = [      'observations.nc#zetaobs(:,$i)']"; echo "Obs$(printf %03d $i).mask       = [      'observations.nc#zetaobs(:,$i)']"; echo; done
 
 Obs001.time      = '30'
 Obs001.value      = [      'observations.nc#zetaobs(:,1)']
@@ -207,20 +198,21 @@ Obs030.mask       = [      'observations.nc#zetaobs(:,30)']
 
 # common declaration for all observations
 
-#Diag*.stddevxf  =  ['stddevxf.nc#zeta','stddevxf.nc#ubar','stddevxf.nc#vbar']
-#Diag*.stddevxa  =  ['stddevxa.nc#zeta','stddevxa.nc#ubar','stddevxa.nc#vbar']
-#Diag*.xf        =  ['forecast.nc#zeta','forecast.nc#ubar','forecast.nc#vbar']
-#Diag*.xa-xf     =  [     'inc.nc#zeta',     'inc.nc#ubar',     'inc.nc#vbar']
+Diag001.stddevxf  =  ['stddevxf.nc#zeta','stddevxf.nc#ubar','stddevxf.nc#vbar']
+Diag001.stddevxa  =  ['stddevxa.nc#zeta','stddevxa.nc#ubar','stddevxa.nc#vbar']
+Diag001.xf        =  ['forecast.nc#zeta','forecast.nc#ubar','forecast.nc#vbar']
+Diag001.xa        =  ['analysis.nc#zeta','analysis.nc#ubar','analysis.nc#vbar']
+Diag001.xa-xf     =  [     'inc.nc#zeta',     'inc.nc#ubar',     'inc.nc#vbar']
 #Diag*.Ea      = ['("../Ens",I3.3,"/model_an.nc#zeta")','("../Ens",I3.3,"/model_an.nc#ubar")']
 
 
-#Diag001.Hxf       = [       'diag1.nc#xf']
-#Diag001.Hxa       = [       'diag1.nc#xa']
-#Diag001.yo        = [       'diag1.nc#yo']
-#Diag001.invsqrtR  = [ 'diag1.nc#invsqrtR']
-#Diag001.stddevHxf = ['diag1.nc#stddevHxf']
-#Diag001.stddevHxa = ['diag1.nc#stddevHxa']
-#Diag001.path   = 'Analysis001/'
+Diag001.Hxf       = [       'diag1.nc#xf']
+Diag001.Hxa       = [       'diag1.nc#xa']
+Diag001.yo        = [       'diag1.nc#yo']
+Diag001.invsqrtR  = [ 'diag1.nc#invsqrtR']
+Diag001.stddevHxf = ['diag1.nc#stddevHxf']
+Diag001.stddevHxa = ['diag1.nc#stddevHxa']
+Diag001.path   = 'Analysis001/'
 #Diag002.path   = 'Analysis002/'
 
 # Analysis

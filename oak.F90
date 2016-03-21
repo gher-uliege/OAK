@@ -64,7 +64,7 @@ module oak
 
 contains
 
- subroutine oak_init(config,fname,comm,comm_ensmember_,starttime)
+ subroutine oak_init(config,fname,comm,comm_ensmember_,starttime,Nens)
 #ifdef ASSIM_PARALL
   use mpi
 #endif
@@ -78,6 +78,8 @@ contains
   integer, intent(in), optional  :: comm
   integer, intent(out), optional :: comm_ensmember_
   real(8), intent(in), optional :: starttime
+  ! number of ensemble members
+  integer, intent(in), optional :: Nens
 
   integer :: nprocs, nprocs_ensmember
   integer :: ierr
@@ -87,7 +89,13 @@ contains
   if (present(starttime)) config%starttime = starttime
   config%obstime_previous = config%starttime
 
-  call getInitValue(initfname,'ErrorSpace.dimension',config%Nens,default=0)
+  ! get number of ensemble members either from input parameter or from
+  ! configuration file
+  if (present(Nens)) then
+    config%Nens = Nens
+  else  
+    call getInitValue(initfname,'ErrorSpace.dimension',config%Nens)
+  end if
 
 #ifdef ASSIM_PARALL
   call parallInit(communicator=comm)
@@ -520,21 +528,21 @@ contains
 
     allocate( &
          E(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel, &
-         ErrorSpaceDim), &
+         config%Nens), &
          meanx(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel))
     
     !write(6,*) 'orig',x
 
   if (schemetype == LocalScheme) then    
     call loadVectorSpace('ErrorSpace.init',ModMLParallel,E,meanx)
-      E = sqrt(1.*ErrorSpaceDim - ASSIM_SCALING) * E + spread(meanx,2,ErrorSpaceDim)
+      E = sqrt(1.*config%Nens - ASSIM_SCALING) * E + spread(meanx,2,config%Nens)
 
     call oak_spread_members(config,E,x)
   else
     if (procnum == 1) then
       !write(6,*) 'load vector space'
       call loadVectorSpace('ErrorSpace.init',ModML,E,meanx)
-      E = sqrt(1.*ErrorSpaceDim - ASSIM_SCALING) * E + spread(meanx,2,ErrorSpaceDim)
+      E = sqrt(1.*config%Nens - ASSIM_SCALING) * E + spread(meanx,2,config%Nens)
       !write(6,*) 'ensemble',E
     end if
     
@@ -632,8 +640,8 @@ contains
 
     if (procnum == 1) then
       allocate( &
-         Ea(ModML%effsize,ErrorSpaceDim), &
-         Ef(ModML%effsize,ErrorSpaceDim))
+         Ea(ModML%effsize,config%Nens), &
+         Ef(ModML%effsize,config%Nens))
     end if
     !write(6,*) 'diff f',x
     call oak_gather_master(config,x,Ef)
@@ -700,8 +708,8 @@ contains
 
     if (schemetype == LocalScheme) then
       allocate( &
-           Ea(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel,ErrorSpaceDim), &
-           Ef(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel,ErrorSpaceDim))
+           Ea(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel,config%Nens), &
+           Ef(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel,config%Nens))
 
       call oak_gather_members(config,x,Ef)
 
@@ -716,8 +724,8 @@ contains
 
       ! collect at master
       allocate( &
-           Ea(ModML%effsize,ErrorSpaceDim), &
-           Ef(ModML%effsize,ErrorSpaceDim))
+           Ea(ModML%effsize,config%Nens), &
+           Ef(ModML%effsize,config%Nens))
 
       call oak_gather_master(config,x,Ef)
       Ea = Ef
@@ -762,10 +770,10 @@ contains
   
 # ifndef ASSIM_PARALL
   ! the ensemble is on a single process
-  allocate(E(ModML%effsize,ErrorSpaceDim))
-  call packEnsemble(ModML,E,v1,v2,v3,v4,v5,v6,v7,v8)
+  allocate(E(ModML%effsize,config%Nens))
+  call packEnsemble(ModMLParallel,E,v1,v2,v3,v4,v5,v6,v7,v8)
   call oak_assim(config,time,E)
-  call unpackEnsemble(ModML,E,v1,v2,v3,v4,v5,v6,v7,v8)
+  call unpackEnsemble(ModMLParallel,E,v1,v2,v3,v4,v5,v6,v7,v8)
   deallocate(E)
 # else
   ! the ensemble is distributed and every process has (at maximum) a state 
@@ -774,9 +782,9 @@ contains
   ! v1,v2,... could also be only subdomains
   ! we need a different "ModML" to handle this
   allocate(x(ModML%effsize))
-  call packVector(ModML,x,v1,v2,v3,v4,v5,v6,v7,v8)
+  call packVector(ModMLParallel,x,v1,v2,v3,v4,v5,v6,v7,v8)
   call oak_assim(config,time,x)
-  call unpackVector(ModML,x,v1,v2,v3,v4,v5,v6,v7,v8)
+  call unpackVector(ModMLParallel,x,v1,v2,v3,v4,v5,v6,v7,v8)
   deallocate(x)
 # endif
   

@@ -17,6 +17,7 @@ program test_shallow_water2d
 #ifdef EXTRACT_OBS
  use ndgrid, only: initgrid, grid, interp
  use netcdf
+ use initfile
 #endif
 #ifdef OAK
  use oak
@@ -27,7 +28,7 @@ program test_shallow_water2d
  ! size of time
  integer, parameter :: m = 100, n = 100
  ! size of time steps
- integer, parameter :: Nsteps = 1200
+ integer, parameter :: Nsteps = 3000
 #ifdef ENS
  ! size of ensemble
  integer, parameter :: Nens = 100
@@ -61,7 +62,7 @@ program test_shallow_water2d
  real :: g
  ! Coriolis parameter
  real :: f
- real :: ew, tmp
+ real :: ew, tmp, tmp2
  ! number of time steps to simulate
  integer :: timecounter
  ! time index in NetCDF file
@@ -83,10 +84,12 @@ program test_shallow_water2d
 
 
 #ifdef EXTRACT_OBS
- integer, parameter :: nobs = 2
+ character(len=*), parameter :: obsloc = 'obsloc.init'
+ integer :: nobs
  integer :: l, obsindex
  type(grid) :: modgrid 
- real :: timeobs(Nsteps), xobs(nobs),yobs(nobs),zetaobs(nobs,Nsteps)
+ real :: timeobs(Nsteps)
+ real, pointer :: xobs(:),yobs(:),zetaobs(:,:)
  logical :: out
  real(8) :: fillvalue = NF90_FILL_DOUBLE
 #endif
@@ -96,10 +99,21 @@ program test_shallow_water2d
 !  integer, allocatable :: subdomain(:)
 #endif
 
+  ! set seed for random numbers generator
+  call init_random_seed()
+
+
 #ifdef EXTRACT_OBS
  obsindex = 0
- xobs = [50e3, 50e3]
- yobs = [40e3, 60e3]
+ call getInitValue(obsloc,'Observations.gridX',xobs)
+ call getInitValue(obsloc,'Observations.gridY',yobs)
+
+ nobs = size(xobs)
+ if (nobs > 5) then
+   write(6,*) 'You can only choose 5 observations.'
+   stop
+ end if
+ allocate(zetaobs(nobs,Nsteps))
 #endif
 
  ! grid spacing (in meters)
@@ -110,13 +124,17 @@ program test_shallow_water2d
    do i = 1,m
      x = dx*(i-1)
      y = dy*(j-1)
-     ew = (erf((x - 50e3)/10e3)+1)/2; 
-     tmp = (erf((x - 80e3)/10e3)+1)/2;
+     ew = (erf((x - 30e3)/10e3)+1)/2; 
+     tmp = (erf((x - 78e3)/10e3)+1)/2;
+     tmp = (erf((x - 85e3)/10e3)+1)/2;
+     tmp2 = (erf((x - 99e3)/2e3)+1)/2;
      ! depth of domain
      !h(i,j) = 100
      !h(i,j) = 5000* (exp(-(y - 49500)**2 / 20000**2)*ew  - 2*ew+1)
 
-     h(i,j) =  5000*(1-ew) + 100*(1-tmp) - 20 + 20*exp(-(y - 49500)**2 / 20000**2)*tmp; 
+     h(i,j) =  6000*(1-ew) - 100*tmp - 50*tmp2 + 80  & 
+          + 40*exp(-(y - 70e3)**2 / 5e3**2)*tmp &
+          + 40*exp(-(y - 30e3)**2 / 10e3**2)*tmp; 
    end do
  end do
 
@@ -136,7 +154,7 @@ program test_shallow_water2d
 #endif
 
 #ifdef OAK
- call oak_init(config,'shallow_water2d.init')
+ call oak_init(config,'shallow_water2d.init',Nens=Nens)
 #endif
 
  ! time step and other model parameters
@@ -161,7 +179,7 @@ program test_shallow_water2d
    ! position of initial perturbation and extension (in meters)
 
 #ifdef EXTRACT_OBS
-   xc =  15282.5894368342
+   xc =  5282.5894368342
    yc =  34360.9243460298
    zetac = 1.10340012266332  
 #else
@@ -170,8 +188,8 @@ program test_shallow_water2d
    zetac = randn()
 #endif
 
-   lenx = 20e3
-   leny = 20e3
+   lenx = 30e3
+   leny = 60e3
 
    write(6,*) 'xc,yc,zetac',xc,yc,zetac
 
@@ -244,12 +262,15 @@ program test_shallow_water2d
    end do ensemble
  end do time
 
- write(6,*) 'zeta(50,50,1)',zeta(50,50,1)
+ write(6,*) '2D-shallow water finished.'
+
 #ifdef EXTRACT_OBS
- write(6,*) 'zetaobs',zetaobs(:,1:obsindex)
+! write(6,*) 'zetaobs',zetaobs(:,1:obsindex)
 
  call writeobs('observations.nc',xobs,yobs,timeobs(1:obsindex), &
       zetaobs(:,1:obsindex))
+
+ deallocate(xobs,yobs,zetaobs)
 #endif
 
 contains 
@@ -329,6 +350,21 @@ contains
   end if
  end subroutine check
 #endif
+
+
+ subroutine init_random_seed()
+  implicit none
+  integer :: i, n
+  integer, dimension(:), allocatable :: seed
+
+  call random_seed(size = n)
+  allocate(seed(n))  
+  ! fixed arbitrary seed
+  seed = 45 * [(i - 1, i = 1, n)]
+  call random_seed(put = seed)
+
+  deallocate(seed)
+ end subroutine init_random_seed
 
 
 end program test_shallow_water2d
