@@ -3890,114 +3890,55 @@ end function
  !
 
  subroutine packVector(ML,statevector,v1,v2,v3,v4,v5,v6,v7,v8)
+  use matoper
   implicit none
   type(MemLayout), intent(in) ::  ML
   real, intent(in) :: v1(*)
   real, intent(in), optional :: v2(*),v3(*),v4(*),v5(*),v6(*),v7(*),v8(*)
-  real, intent(out) :: StateVector(ML%effsize)
+  real, intent(out) :: StateVector(:)
 
-  ! check permutation
-  StateVector(ML%StartIndexSea(1):ML%EndIndexSea(1)) = &
-       pack(v1(1:ML%varsize(1)),ML%mask(ML%StartIndex(1):ML%EndIndex(1)).eq.1)
+  call packVariable(ML,StateVector,1,v1)
+  if (present(v2)) call packVariable(ML,StateVector,2,v2)
+  if (present(v3)) call packVariable(ML,StateVector,3,v3)
+  if (present(v4)) call packVariable(ML,StateVector,4,v4)
+  if (present(v5)) call packVariable(ML,StateVector,5,v5)
+  if (present(v6)) call packVariable(ML,StateVector,6,v6)
+  if (present(v7)) call packVariable(ML,StateVector,7,v7)
+  if (present(v8)) call packVariable(ML,StateVector,8,v8)
 
-  if (.not.present(v2)) return
-
-  StateVector(ML%StartIndexSea(2):ML%EndIndexSea(2)) = &
-       pack(v2(1:ML%varsize(2)),ML%mask(ML%StartIndex(2):ML%EndIndex(2)).eq.1)
-
-  if (.not.present(v3)) return
-
-  StateVector(ML%StartIndexSea(3):ML%EndIndexSea(3)) = &
-       pack(v3(1:ML%varsize(3)),ML%mask(ML%StartIndex(3):ML%EndIndex(3)).eq.1)
-
-  if (.not.present(v4)) return
-
-  StateVector(ML%StartIndexSea(4):ML%EndIndexSea(4)) = &
-       pack(v4(1:ML%varsize(4)),ML%mask(ML%StartIndex(4):ML%EndIndex(4)).eq.1)
-
-  if (.not.present(v5)) return
-
-  StateVector(ML%StartIndexSea(5):ML%EndIndexSea(5)) = &
-       pack(v5(1:ML%varsize(5)),ML%mask(ML%StartIndex(5):ML%EndIndex(5)).eq.1)
-
-  if (.not.present(v6)) return
-
-  StateVector(ML%StartIndexSea(6):ML%EndIndexSea(6)) = &
-       pack(v6(1:ML%varsize(6)),ML%mask(ML%StartIndex(6):ML%EndIndex(6)).eq.1)
-
-  if (.not.present(v7)) return
-
-  StateVector(ML%StartIndexSea(7):ML%EndIndexSea(7)) = &
-       pack(v7(1:ML%varsize(7)),ML%mask(ML%StartIndex(7):ML%EndIndex(7)).eq.1)
-
-  if (.not.present(v8)) return
-
-  StateVector(ML%StartIndexSea(8):ML%EndIndexSea(8)) = &
-       pack(v8(1:ML%varsize(8)),ML%mask(ML%StartIndex(8):ML%EndIndex(8)).eq.1)
-
+  if (ML%permute) then
+    call permute(zoneIndex,StateVector,StateVector)
+  end if
  end subroutine packVector
 
  !_______________________________________________________
  !
 
  subroutine unpackVector(ML,statevector,v1,v2,v3,v4,v5,v6,v7,v8)
+  use matoper
   implicit none
   type(MemLayout), intent(in) ::  ML
-  real, intent(in) :: StateVector(ML%effsize)
-
+  real, intent(in) :: StateVector(:)
   real, intent(out) :: v1(*)
   real, intent(out), optional :: v2(*),v3(*),v4(*),v5(*),v6(*),v7(*),v8(*)
 
+  real :: tmp(size(StateVector))
   integer :: i
 
-  i=1
-  v1(1:ML%varsize(i)) = &
-       unpack(StateVector(ML%StartIndexSea(i):ML%EndIndexSea(i)), &
-       ML%mask(ML%StartIndex(i):ML%EndIndex(i)).eq.1,0.)
-
-  if (.not.present(v2)) return
-  i=2
-  v2(1:ML%varsize(i)) = &
-       unpack(StateVector(ML%StartIndexSea(i):ML%EndIndexSea(i)), &
-       ML%mask(ML%StartIndex(i):ML%EndIndex(i)).eq.1,0.)
-
-  if (.not.present(v3)) return
-  i=3
-  v3(1:ML%varsize(i)) = &
-       unpack(StateVector(ML%StartIndexSea(i):ML%EndIndexSea(i)), &
-       ML%mask(ML%StartIndex(i):ML%EndIndex(i)).eq.1,0.)
-
-  if (.not.present(v4)) return
-  i=4
-  v4(1:ML%varsize(i)) = &
-       unpack(StateVector(ML%StartIndexSea(i):ML%EndIndexSea(i)), &
-       ML%mask(ML%StartIndex(i):ML%EndIndex(i)).eq.1,0.)
-
-  if (.not.present(v5)) return
-  i=5
-  v5(1:ML%varsize(i)) = &
-       unpack(StateVector(ML%StartIndexSea(i):ML%EndIndexSea(i)), &
-       ML%mask(ML%StartIndex(i):ML%EndIndex(i)).eq.1,0.)
-
-  if (.not.present(v6)) return
-  i=6
-  v6(1:ML%varsize(i)) = &
-       unpack(StateVector(ML%StartIndexSea(i):ML%EndIndexSea(i)), &
-       ML%mask(ML%StartIndex(i):ML%EndIndex(i)).eq.1,0.)
-
-  if (.not.present(v7)) return
-  i=7
-  v7(1:ML%varsize(i)) = &
-       unpack(StateVector(ML%StartIndexSea(i):ML%EndIndexSea(i)), &
-       ML%mask(ML%StartIndex(i):ML%EndIndex(i)).eq.1,0.)
-
-  if (.not.present(v8)) return
-  i=8
-  v8(1:ML%varsize(i)) = &
-       unpack(StateVector(ML%StartIndexSea(i):ML%EndIndexSea(i)), &
-       ML%mask(ML%StartIndex(i):ML%EndIndex(i)).eq.1,0.)
-
-
+  if (ML%permute) then
+    call ipermute(zoneIndex,statevector,tmp)
+  else
+    tmp = statevector
+  end if
+  
+  call unpackVariable(ML,tmp,1,v1)
+  if (present(v2)) call unpackVariable(ML,tmp,2,v2)
+  if (present(v3)) call unpackVariable(ML,tmp,3,v3)
+  if (present(v4)) call unpackVariable(ML,tmp,4,v4)
+  if (present(v5)) call unpackVariable(ML,tmp,5,v5)
+  if (present(v6)) call unpackVariable(ML,tmp,6,v6)
+  if (present(v7)) call unpackVariable(ML,tmp,7,v7)
+  if (present(v8)) call unpackVariable(ML,tmp,8,v8)
  end subroutine unpackVector
 
 
@@ -4018,27 +3959,14 @@ end function
   integer :: k
 
   do k = 1,size(E,2)
-    E(ML%StartIndexSea(1):ML%EndIndexSea(1),k) = &
-         pack(v1((1+(k-1)*ML%varsize(1)):(k*ML%varsize(1))), &
-         ML%mask(ML%StartIndex(1):ML%EndIndex(1)) == 1)
-
-    if (.not.present(v2)) cycle
-
-    E(ML%StartIndexSea(2):ML%EndIndexSea(2),k) = &
-         pack(v2((1+(k-1)*ML%varsize(2)):(k*ML%varsize(2))), &
-         ML%mask(ML%StartIndex(2):ML%EndIndex(2)) == 1)
-
-    if (.not.present(v3)) cycle
-
-    E(ML%StartIndexSea(3):ML%EndIndexSea(3),k) = &
-         pack(v3((1+(k-1)*ML%varsize(3)):(k*ML%varsize(3))), &
-         ML%mask(ML%StartIndex(3):ML%EndIndex(3)) == 1)
-
-    if (.not.present(v4)) cycle
-
-    E(ML%StartIndexSea(4):ML%EndIndexSea(4),k) = &
-         pack(v4((1+(k-1)*ML%varsize(4)):(k*ML%varsize(4))), &
-         ML%mask(ML%StartIndex(4):ML%EndIndex(4)) == 1)
+    call packVariable(ML,E(:,k),1,v1(1+(k-1)*ML%varsize(1)))
+    if (present(v2)) call packVariable(ML,E(:,k),2,v2(1+(k-1)*ML%varsize(2)))
+    if (present(v3)) call packVariable(ML,E(:,k),3,v3(1+(k-1)*ML%varsize(3)))
+    if (present(v4)) call packVariable(ML,E(:,k),4,v4(1+(k-1)*ML%varsize(4)))
+    if (present(v5)) call packVariable(ML,E(:,k),5,v5(1+(k-1)*ML%varsize(5)))
+    if (present(v6)) call packVariable(ML,E(:,k),6,v6(1+(k-1)*ML%varsize(6)))
+    if (present(v7)) call packVariable(ML,E(:,k),7,v7(1+(k-1)*ML%varsize(7)))
+    if (present(v8)) call packVariable(ML,E(:,k),8,v8(1+(k-1)*ML%varsize(8)))
   end do
 
 
@@ -4063,81 +3991,65 @@ end function
   real, intent(out), optional :: v2(*),v3(*),v4(*),v5(*),v6(*),v7(*),v8(*)
 
   real :: tmp(size(E,1))
-  integer :: i
 
   ! ensemble member index
   integer :: k
-  
+
+
   do k = 1,size(E,2)
     if (ML%permute) then
       call ipermute(zoneIndex,E(:,k),tmp)
+    else
+      tmp = E(:,k)
     end if
 
-    v1((1+(k-1)*ML%varsize(1)):(k*ML%varsize(1))) = &
-         unpack(tmp(ML%StartIndexSea(i):ML%EndIndexSea(i)), &
-         ML%mask(ML%StartIndex(1):ML%EndIndex(1)) == 1,0.)
-
-    if (.not.present(v2)) cycle
-
-    v2((1+(k-1)*ML%varsize(2)):(k*ML%varsize(2))) = &
-         unpack(tmp(ML%StartIndexSea(i):ML%EndIndexSea(i)), &
-         ML%mask(ML%StartIndex(2):ML%EndIndex(2)) == 1,0.)
-
-    if (.not.present(v3)) cycle
-
-    v3((1+(k-1)*ML%varsize(3)):(k*ML%varsize(3))) = &
-         unpack(tmp(ML%StartIndexSea(i):ML%EndIndexSea(i)), &
-         ML%mask(ML%StartIndex(3):ML%EndIndex(3)) == 1,0.)
-
-    if (.not.present(v4)) cycle
-
-    v4((1+(k-1)*ML%varsize(4)):(k*ML%varsize(4))) = &
-         unpack(tmp(ML%StartIndexSea(i):ML%EndIndexSea(i)), &
-         ML%mask(ML%StartIndex(4):ML%EndIndex(4)) == 1,0.)
-
+    call unpackVariable(ML,tmp,1,v1(1+(k-1)*ML%varsize(1)))
+    if (present(v2)) call unpackVariable(ML,tmp,2,v2(1+(k-1)*ML%varsize(2)))
+    if (present(v3)) call unpackVariable(ML,tmp,3,v3(1+(k-1)*ML%varsize(3)))
+    if (present(v4)) call unpackVariable(ML,tmp,4,v4(1+(k-1)*ML%varsize(4)))
+    if (present(v5)) call unpackVariable(ML,tmp,5,v5(1+(k-1)*ML%varsize(5)))
+    if (present(v6)) call unpackVariable(ML,tmp,6,v6(1+(k-1)*ML%varsize(6)))
+    if (present(v7)) call unpackVariable(ML,tmp,7,v7(1+(k-1)*ML%varsize(7)))
+    if (present(v8)) call unpackVariable(ML,tmp,8,v8(1+(k-1)*ML%varsize(8)))
   end do
  end subroutine unpackEnsemble
  !_______________________________________________________
  !
- ! extract variable number "v" from state vector and put 
- ! it as 3D variable
- ! 
+ ! extract variable number "v" from state vector
+ ! (without permutation)
  !_______________________________________________________
  !
 
- function unpack3DVariable(ML,statevector,v) result(var)
+ subroutine unpackVariable(ML,statevector,v,var)
   implicit none
   type(MemLayout), intent(in) ::  ML
-  real, intent(in) :: StateVector(ML%effsize)
+  real, intent(in) :: StateVector(:)
+  real, intent(out) :: var(*)
   integer :: v
 
-  real :: var(ML%varshape(1,v),ML%varshape(2,v),ML%varshape(3,v))
+  var(1:ML%varsize(v)) = &
+       unpack(StateVector(ML%StartIndexSea(v):ML%EndIndexSea(v)), &
+       ML%mask(ML%StartIndex(v):ML%EndIndex(v)) == 1,0.)
 
-  var = reshape( &
-         unpack(StateVector(ML%StartIndexSea(v):ML%EndIndexSea(v)), &
-           ML%mask(ML%StartIndex(v):ML%EndIndex(v)).eq.1,0.), &
-        (/ ML%varshape(1,v),ML%varshape(2,v),ML%varshape(3,v) /) )
-
- end function
+ end subroutine unpackVariable
 
  !_______________________________________________________
  !
- ! put 3D variable number "v" into the state vector
- ! 
+ ! put a variable number "v" into the state vector
+ ! (without permutation)
  !_______________________________________________________
  !
 
-  subroutine pack3DVariable(ML,var,v,statevector)
+  subroutine packVariable(ML,statevector,v,var)
   implicit none
   type(MemLayout), intent(in) ::  ML
-  real, intent(in) :: var(:,:,:)
+  real, intent(in) :: var(*)
   integer, intent(in) :: v
-  real, intent(inout) :: StateVector(ML%effsize)
+  real, intent(inout) :: StateVector(:)
 
   StateVector(ML%StartIndexSea(v):ML%EndIndexSea(v)) = &
-       pack(reshape(var,(/ ML%varsize(v) /)),ML%mask(ML%StartIndex(v):ML%EndIndex(v)).eq.1)
-
- end subroutine
+       pack(var(1:ML%varsize(v)),ML%mask(ML%StartIndex(v):ML%EndIndex(v)) == 1)
+ end subroutine packVariable
 
 
 
@@ -4305,8 +4217,8 @@ end function
 !       unpack3DVariable(ModML,statevector,vS),  &
 !       X,Y)
 
-      call pack3DVariable(ModML,X,v,statevector)
-      call pack3DVariable(ModML,Y,v+1,statevector)
+      call packVariable(ModML,statevector,v,X)
+      call packVariable(ModML,statevector,v+1,Y)
 
 #ifdef DEBUG
       write(stddebug,*) 'Temperature variable ',vT,' and salinity variable ',vS
@@ -4356,9 +4268,6 @@ end function
      allocate(T(ModML%varshape(1,v),ModML%varshape(2,v),ModML%varshape(3,v)), &
               S(ModML%varshape(1,v),ModML%varshape(2,v),ModML%varshape(3,v)))
 
-!     call usave('/u/abarth/Assim/Data2/lulu.TEM2',unpack3DVariable(ModML,statevector,v),0.)
-!     call usave('/u/abarth/Assim/Data2/lulu.SAL2',unpack3DVariable(ModML,statevector,v+1),0.)
-
 ! disabled
 
 !     call invTStransform(ModelGrid3D(v)%mask,ModelGrid3D(v)%z, &
@@ -4366,11 +4275,8 @@ end function
 !       unpack3DVariable(ModML,statevector,v+1),  &
 !       T,S)
 
-      call pack3DVariable(ModML,T,vT,statevector)
-      call pack3DVariable(ModML,S,vS,statevector)
-
-!     call usave('/u/abarth/Assim/Data2/lulu.TEM',T,0.)
-!     call usave('/u/abarth/Assim/Data2/lulu.SAL',S,0.)
+      call packVariable(ModML,statevector,vT,T)
+      call packVariable(ModML,statevector,vS,S)
 
 #ifdef DEBUG
       write(stddebug,*) 'Temperature variable ',vT,' and salinity variable ',vS
