@@ -29,6 +29,7 @@ program test_shallow_water2d
  integer, parameter :: m = 100, n = 100
  ! size of time steps
  integer, parameter :: Nsteps = 3000
+! integer, parameter :: Nsteps = 90
 #ifdef ENS
  ! size of ensemble
  integer, parameter :: Nens = 100
@@ -262,7 +263,7 @@ program test_shallow_water2d
    end do ensemble
  end do time
 
- write(6,*) '2D-shallow water finished.'
+ write(6,*) '2D-shallow water model finished.'
 
 #ifdef EXTRACT_OBS
 ! write(6,*) 'zetaobs',zetaobs(:,1:obsindex)

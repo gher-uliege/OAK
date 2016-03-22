@@ -34,7 +34,7 @@ logfile = 'assim.log'
 debugfile = 'assim.debug'
 
 
-inflation.mult = 1.15
+inflation.mult = 1.
 
 #------------------------------------------------------------------------------------
 #
