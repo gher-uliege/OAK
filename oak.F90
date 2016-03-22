@@ -758,7 +758,7 @@ contains
   real, intent(inout) :: v1(*)
   real, intent(inout), optional :: v2(*),v3(*),v4(*),v5(*),v6(*),v7(*),v8(*)
 
-  real, allocatable :: E(:,:), x(:), Ef(:,:), tmp1(:),tmp2(:)
+  real, allocatable :: E(:,:), x(:)
   real :: tmp(100*100)
 
   ! note the EWPF schemes works at every time step
@@ -772,33 +772,9 @@ contains
 # ifndef ASSIM_PARALL
   ! the ensemble is on a single process
   allocate(E(ModML%effsize,config%Nens))
-  allocate(Ef(ModML%effsize,config%Nens))
-  allocate(tmp1(ModML%effsize))
-  allocate(tmp2(ModML%effsize))
-
-  ! tmp = v1(1:100*100)
-  ! ! write(6,*) 'v1',v1(105:110)
-
-  ! call packVector(ModMLParallel,tmp1,v1,v2,v3,v4,v5,v6,v7,v8)
-  ! call unpackVector(ModMLParallel,tmp1,v1,v2,v3,v4,v5,v6,v7,v8)
-  ! write(6,*) 'v1 ana diff-0',v1(105:110)-tmp(105:110)
-
-
   call packEnsemble(ModMLParallel,E,v1,v2,v3,v4,v5,v6,v7,v8)
-!   write(6,*) 'tmp-E',maxval(abs(tmp1 - E(:,1)))
-!   call unpackEnsemble(ModMLParallel,E,v1,v2,v3,v4,v5,v6,v7,v8)
-! !   write(6,*) 'v1 ana',v1(105:110)
-!   write(6,*) 'v1 ana diff',v1(105:110)-tmp(105:110)
-
-!   stop
-!   Ef = E
-!   write(6,*) 'v1',v1(105:110)
   call oak_assim(config,time,E)
-!  write(6,*) 'E-Ef',maxval(abs(E - Ef))
   call unpackEnsemble(ModMLParallel,E,v1,v2,v3,v4,v5,v6,v7,v8)
-!  write(6,*) 'v1 ana',v1(105:110)
-!  write(6,*) 'tmp-v1',maxval(abs(tmp - v1(1:100*100)))
-!  stop
   deallocate(E)
 # else
   ! the ensemble is distributed and every process has (at maximum) a state 

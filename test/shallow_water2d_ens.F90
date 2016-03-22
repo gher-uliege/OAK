@@ -179,7 +179,11 @@ program test_shallow_water2d
 
    ! position of initial perturbation and extension (in meters)
 
-#ifdef EXTRACT_OBS
+#ifdef FREE
+   xc = 22630.742250000112        
+   yc = 50925.772325663514       
+   zetac = 1.8713348915660335
+#ifif defined(EXTRACT_OBS)
    xc =  5282.5894368342
    yc =  34360.9243460298
    zetac = 1.10340012266332  
