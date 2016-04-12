@@ -393,7 +393,7 @@ contains
   end do zonesLoop
 
 !$omp master
-  write(stdout,*) 'nbselectedZones ',nbselectedZones,NZones,sum(xa_xf)
+!  write(stdout,*) 'nbselectedZones ',nbselectedZones,NZones,sum(xa_xf)
 !$omp end master
 
 !$omp barrier

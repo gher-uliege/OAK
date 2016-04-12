@@ -327,7 +327,6 @@ contains
   do v=1,vmax
 
     n = ModML%ndim(v)
-    write(6,*) 'n ',n
 
     ! initialisze the model grid structure ModelGrid(v)
     call initgrid(ModelGrid(v),n,ModML%varshape(1:n,v), &
