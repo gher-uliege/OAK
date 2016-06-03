@@ -20,11 +20,11 @@ program test_rrsqrt
    tol = 1e-8
  end if
  
- call test_analysis_covar
+ call test_analysis
 
 contains
 
- subroutine testing_analysis_covar(xf,Sf,H,yo,CovarR)
+ subroutine testing_analysis(xf,Sf,H,yo,CovarR)
   use covariance
   use matoper
   use rrsqrt
@@ -62,7 +62,7 @@ contains
   Pa_check = Pf - matmul(K,matmul(H,Pf))
   xa_check = xf + matmul(K,(yo - matmul(H,xf)))
 
-  call analysis_covar(xf,Hxf,yo,Sf,HSf, CovarR, xa,Sa)
+  call analysis(xf,Hxf,yo,Sf,HSf, CovarR, xa,Sa)
 
   ! check results
   call assert(xa,xa_check,tol,'analysis ensemble mean')
@@ -74,12 +74,12 @@ contains
        'analysis ensemble variance')
 
 
- end subroutine testing_analysis_covar
+ end subroutine testing_analysis
 
  !_______________________________________________________
  !
 
- subroutine testing_local_analysis_covar(xf,Sf,H,yo,CovarR)
+ subroutine testing_local_analysis(xf,Sf,H,yo,CovarR)
   use covariance
   use matoper
   use rrsqrt
@@ -137,11 +137,11 @@ contains
   Pa_check = Pf - matmul(K,matmul(H,Pf))
   xa_check = xf + matmul(K,(yo - matmul(H,xf)))
 
-  call analysis_covar(xf,Hxf,yo,Sf,HSf, CovarR, xa,Sa)
+  call analysis(xf,Hxf,yo,Sf,HSf, CovarR, xa,Sa)
 
   ! single zone
   zoneSize(1) = size(xf)
-  call locAnalysis_covar(zoneSize(1:1),selectAllObservations,xf,Hxf,yo,Sf,HSf, CovarR, xa,Sa)
+  call locAnalysis(zoneSize(1:1),selectAllObservations,xf,Hxf,yo,Sf,HSf, CovarR, xa,Sa)
 
   ! check results
   call assert(xa,xa_check,tol,'analysis ensemble mean')
@@ -151,7 +151,7 @@ contains
 
   ! every grid point a separate zone
   zoneSize = [(1,i=1,size(xf))]
-  call locAnalysis_covar(zoneSize,selectAllObservations,xf,Hxf,yo,Sf,HSf, CovarR, xa,Sa)
+  call locAnalysis(zoneSize,selectAllObservations,xf,Hxf,yo,Sf,HSf, CovarR, xa,Sa)
   
   ! check results
   call assert(xa,xa_check,tol,'analysis ensemble mean')
@@ -171,7 +171,7 @@ contains
 
     ! every grid point a separate zone
     zoneSize = [(1,i=1,size(xf))]
-    call locAnalysis_covar(zoneSize,selectObservations,xf,Hxf,yo,Sf,HSf, &
+    call locAnalysis(zoneSize,selectObservations,xf,Hxf,yo,Sf,HSf, &
          CovarR,xa,Sa,localise_obs = localise_obs)
   
     ! loop over zones
@@ -234,7 +234,7 @@ contains
     !write(6,*) 'xa ',xa
     !write(6,*) 'xa_check ',xa_check
   end do
- end subroutine testing_local_analysis_covar
+ end subroutine testing_local_analysis
 
  !_______________________________________________________  
  !
@@ -258,7 +258,7 @@ contains
   real, intent(out) :: c(:)
   logical, intent(out) :: relevantObs(:)
  
-  ! need to be consitent with test_analysis_covar
+  ! need to be consitent with test_analysis
   real :: xmod(10), xobs(size(c)), dist
   integer :: j
   xmod = [((j-1.)/(size(xmod)-1.),j=1,size(xmod))]
@@ -274,7 +274,7 @@ contains
  !
 
 
- subroutine test_analysis_covar
+ subroutine test_analysis
   use matoper
   use rrsqrt
   implicit none
@@ -321,7 +321,7 @@ contains
   ! R: diagonal matrix with diagonal elements equal to 2
   call DiagCovarR%init([(2.,i=1,m)])
 
-  call testing_analysis_covar(xf,Sf,H,y,DiagCovarR)
+  call testing_analysis(xf,Sf,H,y,DiagCovarR)
 
   write(6,*) '= SMWCovar error observation covariance = '
   ! R: diagonal matrix with diagonal elements equal to 2
@@ -331,14 +331,14 @@ contains
        reshape([(sin(3.*i),i=1,m*dim_ens)],[m,dim_ens]) &
        )
 
-  call testing_analysis_covar(xf,Sf,H,y,SMWCovarR)
+  call testing_analysis(xf,Sf,H,y,SMWCovarR)
   
   write(6,*) '= Diagonal observation error covariance (local) = '  
-  call testing_local_analysis_covar(xf,Sf,H,y,DiagCovarR)
+  call testing_local_analysis(xf,Sf,H,y,DiagCovarR)
 
   write(6,*) '= SMW observation error covariance (local) = '  
-  call testing_local_analysis_covar(xf,Sf,H,y,SMWCovarR)
+  call testing_local_analysis(xf,Sf,H,y,SMWCovarR)
 
- end subroutine test_analysis_covar
+ end subroutine test_analysis
 
 end program test_rrsqrt

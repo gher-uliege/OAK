@@ -3199,7 +3199,7 @@ end function
            !     xf,Hxf,yo,Sf,HSf,invsqrtR, xa,Sa,locAmplitudes)
 
            write(6,*) 'here 2'
-           call locanalysis_covar(zoneSize,selectObservations, &
+           call locanalysis(zoneSize,selectObservations, &
                 xf,Hxf,yo,Sf,HSf, R, xa,Sa,locAmplitudes)
         end if
      elseif (schemetype.eq.CLocalScheme) then
@@ -3252,7 +3252,7 @@ end function
               !    write(6,*) 'innov ',yo_Hxf
 
               !         call ensAnalysis(Sf,H.x.Sf,yo, R,Sa,amplitudes)
-              call analysis_covar(xf,Hxf,yo,Sf,HSf, R, xa,Sa,amplitudes)
+              call analysis(xf,Hxf,yo,Sf,HSf, R, xa,Sa,amplitudes)
            end if
         end if
 

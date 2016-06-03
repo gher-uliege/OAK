@@ -97,7 +97,7 @@ contains
 
 
 
- subroutine analysisIncrement_covar(Hxf,yo,Sf,HSf,R, xa_xf, Sa, amplitudes)
+ subroutine analysisIncrement(Hxf,yo,Sf,HSf,R, xa_xf, Sa, amplitudes)
   use ufileformat
   use matoper
   implicit none
@@ -193,7 +193,7 @@ contains
  !_______________________________________________________
  !
 
- subroutine analysis_covar(xf,Hxf,yo,Sf,HSf,R, xa,Sa, amplitudes)
+ subroutine analysis(xf,Hxf,yo,Sf,HSf,R, xa,Sa, amplitudes)
   use matoper
   implicit none
 
@@ -203,9 +203,9 @@ contains
   real, intent(out) :: xa(:)
   real, intent(out), optional :: Sa(:,:), amplitudes(size(Sf,2))
 
-  call analysisincrement_covar(Hxf,yo,Sf,HSf,R, xa, Sa, amplitudes)
+  call analysisincrement(Hxf,yo,Sf,HSf,R, xa, Sa, amplitudes)
   xa = xf+xa
- end subroutine analysis_covar
+ end subroutine analysis
 
  !_______________________________________________________
  !
@@ -233,14 +233,14 @@ contains
   allocate(unbiasedxf(size(xf)),unbiasedHxf(size(Hxf)))
 #   endif
 
-  call analysisIncrement_covar(Hxf,yo,Sf,HSf,R,ba,amplitudes=ampl)
+  call analysisIncrement(Hxf,yo,Sf,HSf,R,ba,amplitudes=ampl)
   ba = bf - gamma * ba
 
   unbiasedxf = xf-ba
   unbiasedHxf = Hxf-(Hbf - gamma * (HSf.x.ampl))
 
   call Rinf%init([(1./sqrt(1-gamma),i=1,size(Hxf))],R)
-  call analysisincrement_covar(unbiasedHxf,yo,Sf,HSf,Rinf,xa)
+  call analysisincrement(unbiasedHxf,yo,Sf,HSf,Rinf,xa)
   !call analysisincrement(unbiasedHxf,yo,Sf,HSf,sqrt(1-gamma)*invsqrtR,xa)
   xa = unbiasedxf + xa
   Sa = Sf
@@ -255,7 +255,7 @@ contains
  !_______________________________________________________
  !
 
- subroutine locAnalysisIncrement_covar(zoneSize,selectObservations,Hxf,yo,Sf, &
+ subroutine locAnalysisIncrement(zoneSize,selectObservations,Hxf,yo,Sf, &
        HSf, R,xa_xf, Sa, amplitudes, localise_obs) 
   use matoper
   use covariance
@@ -373,10 +373,10 @@ contains
       !call DRD%init(0*weight+1,R)
       
       if (present(amplitudes)) then
-        call analysisIncrement_covar(Hxf,yo,Sf(i1:i2,:),HSf,DRD,  &
+        call analysisIncrement(Hxf,yo,Sf(i1:i2,:),HSf,DRD,  &
              xa_xf(i1:i2),Sa(i1:i2,:),amplitudes(:,zi))
       else
-        call analysisIncrement_covar(Hxf,yo,Sf(i1:i2,:),HSf,DRD,xa_xf(i1:i2),Sa(i1:i2,:))
+        call analysisIncrement(Hxf,yo,Sf(i1:i2,:),HSf,DRD,xa_xf(i1:i2),Sa(i1:i2,:))
       end if
       
       call DRD%done
@@ -384,7 +384,7 @@ contains
 
       if (nbObservations.eq.size(yo)) then
         call DRD%init(weight,R)
-        call analysisIncrement_covar(Hxf,yo,Sf(i1:i2,:),HSf,DRD,xa_xf(i1:i2),Sa(i1:i2,:))
+        call analysisIncrement(Hxf,yo,Sf(i1:i2,:),HSf,DRD,xa_xf(i1:i2),Sa(i1:i2,:))
         call DRD%done
       else
         ! selecting only the relevant observations
@@ -401,7 +401,7 @@ contains
         end do
         
         !write(6,*) 'pack ',nObs
-        call analysisIncrement_covar(pack(Hxf,relevantObs),yozone(1:nObs), &
+        call analysisIncrement(pack(Hxf,relevantObs),yozone(1:nObs), &
              Sf(i1:i2,:),HSfzone(1:nObs,:),DRD,xa_xf(i1:i2),Sa(i1:i2,:))
         !        write(stdout,*) 'nObs ',nObs,sum(yozone),sum(yo),sum(invsqrtRzone),sum(invsqrtR * weight),sum(HSfzone),sum(HSf)
         
@@ -420,14 +420,14 @@ contains
 
 !$omp barrier
 
- end subroutine locAnalysisIncrement_covar
+ end subroutine locAnalysisIncrement
 
 
 
  !_______________________________________________________
  !
 
- subroutine locAnalysis_covar(zoneSize,selectObservations,xf,Hxf,yo,Sf,HSf, & 
+ subroutine locAnalysis(zoneSize,selectObservations,xf,Hxf,yo,Sf,HSf, & 
       R, xa,Sa, amplitudes, localise_obs)
   use matoper
   use covariance
@@ -453,14 +453,14 @@ contains
   real, intent(out), optional :: Sa(:,:), amplitudes(size(Sf,2),size(zoneSize))
   logical, intent(in), optional :: localise_obs
 
-  call locAnalysisIncrement_covar(zoneSize,selectObservations,Hxf,yo,Sf,HSf, & 
+  call locAnalysisIncrement(zoneSize,selectObservations,Hxf,yo,Sf,HSf, & 
        R, xa,Sa,amplitudes,localise_obs)
 
 !$omp master
   xa = xf + xa
 !$omp end master
 
- end subroutine locAnalysis_covar
+ end subroutine locAnalysis
 
  !_______________________________________________________
  !
@@ -514,7 +514,7 @@ contains
   allocate(unbiasedxf(size(xf)),unbiasedHxf(size(Hxf)))
 #   endif
 
-  call locAnalysisIncrement_covar(zoneSize,selectObservations,Hxf,yo,Sf,HSf,R,ba)
+  call locAnalysisIncrement(zoneSize,selectObservations,Hxf,yo,Sf,HSf,R,ba)
 !$omp master
   ba = bf - gamma * ba
 !$omp end master
@@ -528,7 +528,7 @@ contains
   call Rinf%init([(1./sqrt(1-gamma),i=1,size(Hxf))],R)  
 !  call locAnalysisIncrement(zoneSize,selectObservations,unbiasedHxf,yo, &
 !       Sf,HSf,sqrt(1-gamma)*invsqrtR,xa)
-  call locAnalysisIncrement_covar(zoneSize,selectObservations,unbiasedHxf,yo, &
+  call locAnalysisIncrement(zoneSize,selectObservations,unbiasedHxf,yo, &
        Sf,HSf,Rinf,xa)
 
 !$omp master
@@ -648,14 +648,14 @@ contains
     HSf(:,i) = (HEf(:,i) - Hxf)/sqrt(N-1.)
   end do
 
-  call analysis_covar(xf,Hxf,yo,Sf,HSf, R, xa,Ea, amplitudes)  
+  call analysis(xf,Hxf,yo,Sf,HSf, R, xa,Ea, amplitudes)  
 #else
   do i=1,N
     Ef(:,i) = (Ef(:,i) - xf)/sqrt(N-1.)
     HEf(:,i) = (HEf(:,i) - Hxf)/sqrt(N-1.)
   end do
 
-  call analysis_covar(xf,Hxf,yo,Ef,HEf, R, xa,Ea, amplitudes)
+  call analysis(xf,Hxf,yo,Ef,HEf, R, xa,Ea, amplitudes)
 #endif
 
 
