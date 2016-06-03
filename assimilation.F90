@@ -4616,7 +4616,7 @@ contains
 
   do k = 1,Ne
 !    vec_out(:,k) = invsqrtR**2 * vec_in(:,k)
-    vec_out(:,k) = R%mldivide(vec_in(:,k))
+    vec_out(:,k) = R%mldivide(real(vec_in(:,k)))
   end do
  end subroutine cb_solve_r
 
@@ -4806,7 +4806,7 @@ contains
 
   do k = 1,Ne
 !    vec_out(:,k) = invsqrtR**2 * vec_in(:,k)
-    vec_out(:,k) = R%mldivide(vec_in(:,k))
+    vec_out(:,k) = R%mldivide(real(vec_in(:,k)))
   end do
  end subroutine cb_solve_r
 
