@@ -552,6 +552,7 @@ contains
   use parall
   use matoper
   use initfile
+  use covariance
   implicit none
   type(oakconfig), intent(inout) :: config
   real(8), intent(in) :: time
@@ -570,6 +571,11 @@ contains
   real(8) :: obstime, obstime_next
   real    :: model_dt
   integer :: ntime, obsVec, dt_obs
+
+  ! true if for some reason the observation should be excluded from the 
+  ! assimilation
+  logical, allocatable :: exclude_obs(:)
+  class(covar), pointer :: R
 
   ! time of the next observation
   call loadObsTime(config%obsntime,obstime,ierr)    
@@ -608,13 +614,15 @@ contains
 
           call fmtIndex('',config%obsntime+1,'.',infix)
           call MemoryLayout('Obs'//trim(infix),ObsML,.true.)
-          allocate(yo(ObsML%effsize),invsqrtR(ObsML%effsize),Hshift(ObsML%effsize))
+          allocate(yo(ObsML%effsize),invsqrtR(ObsML%effsize), &               
+               exclude_obs(ObsML%effsize), &
+               Hshift(ObsML%effsize))
 
-          call loadObs(config%obsntime+1,ObsML,yo,invsqrtR)    
-          call loadObservationOper(config%obsntime+1,ObsML,H,Hshift,invsqrtR)
+          call loadObs(config%obsntime+1,ObsML,yo,invsqrtR,R,exclude_obs)
+          call loadObservationOper(config%obsntime+1,ObsML,H,Hshift,invsqrtR,exclude_obs)
 
           !write(6,*) 'weightf ',procnum,config%weightf
-          call ewpf_proposal_step(ntime,obsVec,dt_obs,Ef,config%weightf,yo,invsqrtR,H)
+          call ewpf_proposal_step(ntime,obsVec,dt_obs,Ef,config%weightf,yo,R,H)
           !write(6,*) 'weightf ',procnum,config%weightf
           !dbg(Ef)
           deallocate(yo,invsqrtR,Hshift)

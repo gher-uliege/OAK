@@ -329,16 +329,21 @@ contains
  !_______________________________________________________
  !
 
- subroutine biasedAnalysis(gamma,xf,bf,Hxf,Hbf,yo,Sf,HSf,invsqrtR, xa,ba,Sa,amplitudes)
+ subroutine biasedAnalysis(gamma,xf,bf,Hxf,Hbf,yo,Sf,HSf,R, xa,ba,Sa,amplitudes)
   use matoper
+  use covariance
   implicit none
   real, intent(in) :: gamma
   real, intent(in) :: xf(:), bf(:), Hxf(:), yo(:), &
-       Sf(:,:), HSf(:,:), invsqrtR(:), Hbf(:)
+       Sf(:,:), HSf(:,:), Hbf(:)
+  class(covar), intent(in) :: R
   real, intent(out) :: xa(:), ba(:), Sa(:,:)
   real, intent(out), optional :: amplitudes(size(Sf,2))
 
   real :: ampl(size(Sf,2))
+
+  integer :: i
+  type(DCDCovar) :: Rinf
 
 #   ifndef ALLOCATE_LOCAL_VARS
   real :: unbiasedxf(size(xf)), unbiasedHxf(size(Hxf)) 
@@ -347,13 +352,15 @@ contains
   allocate(unbiasedxf(size(xf)),unbiasedHxf(size(Hxf)))
 #   endif
 
-  call analysisIncrement(Hxf,yo,Sf,HSf,invsqrtR,ba,amplitudes=ampl)
+  call analysisIncrement_covar(Hxf,yo,Sf,HSf,R,ba,amplitudes=ampl)
   ba = bf - gamma * ba
 
   unbiasedxf = xf-ba
   unbiasedHxf = Hxf-(Hbf - gamma * (HSf.x.ampl))
 
-  call analysisincrement(unbiasedHxf,yo,Sf,HSf,sqrt(1-gamma)*invsqrtR,xa)
+  call Rinf%init([(1./sqrt(1-gamma),i=1,size(Hxf))],R)
+  call analysisincrement_covar(unbiasedHxf,yo,Sf,HSf,Rinf,xa)
+  !call analysisincrement(unbiasedHxf,yo,Sf,HSf,sqrt(1-gamma)*invsqrtR,xa)
   xa = unbiasedxf + xa
   Sa = Sf
 
@@ -770,8 +777,9 @@ contains
  !_______________________________________________________
  !
  subroutine biasedLocAnalysis(zoneSize,selectObservations, &
-      gamma,H,Hshift,xf,bf,Hxf,Hbf,yo,Sf,HSf,invsqrtR, &
+      gamma,H,Hshift,xf,bf,Hxf,Hbf,yo,Sf,HSf,R, &
       xa,ba,Sa, amplitudes)
+  use covariance
   use matoper
   implicit none
 
@@ -796,9 +804,13 @@ contains
   real, intent(in) :: Hshift(:)
 
   real, intent(in) :: xf(:), bf(:), Hxf(:), yo(:), &
-       Sf(:,:), HSf(:,:), invsqrtR(:), Hbf(:)
+       Sf(:,:), HSf(:,:), Hbf(:)
+  class(covar), intent(in) :: R  
   real, intent(inout) :: xa(:), ba(:)
   real, intent(out), optional :: Sa(:,:), amplitudes(size(Sf,2))
+
+  integer :: i
+  type(DCDCovar) :: Rinf
 
   ! every thread as a local "unbiasedxf" and "unbiasedHxf"
 #   ifndef ALLOCATE_LOCAL_VARS
@@ -808,7 +820,7 @@ contains
   allocate(unbiasedxf(size(xf)),unbiasedHxf(size(Hxf)))
 #   endif
 
-  call locAnalysisIncrement(zoneSize,selectObservations,Hxf,yo,Sf,HSf,invsqrtR,ba)
+  call locAnalysisIncrement_covar(zoneSize,selectObservations,Hxf,yo,Sf,HSf,R,ba)
 !$omp master
   ba = bf - gamma * ba
 !$omp end master
@@ -819,7 +831,11 @@ contains
   unbiasedxf = xf-ba
   unbiasedHxf = (H.x.unbiasedxf) + Hshift
 
-  call locAnalysisIncrement(zoneSize,selectObservations,unbiasedHxf,yo,Sf,HSf,sqrt(1-gamma)*invsqrtR,xa)
+  call Rinf%init([(1./sqrt(1-gamma),i=1,size(Hxf))],R)  
+!  call locAnalysisIncrement(zoneSize,selectObservations,unbiasedHxf,yo, &
+!       Sf,HSf,sqrt(1-gamma)*invsqrtR,xa)
+  call locAnalysisIncrement_covar(zoneSize,selectObservations,unbiasedHxf,yo, &
+       Sf,HSf,Rinf,xa)
 
 !$omp master
   xa = unbiasedxf + xa
@@ -897,10 +913,11 @@ contains
  !_______________________________________________________
  !
 
- subroutine ensAnalysis(Ef,HEf,yo,invsqrtR,Ea, amplitudes)
+ subroutine ensAnalysis(Ef,HEf,yo, R,Ea, amplitudes)
   implicit none
 
-  real, intent(in) :: yo(:), invsqrtR(:)
+  real, intent(in) :: yo(:)
+  class(covar), intent(in) :: R
 
 ! PERFORMANCE BUG
 ! avoid copies of Ef !!!!
@@ -937,14 +954,14 @@ contains
     HSf(:,i) = (HEf(:,i) - Hxf)/sqrt(N-1.)
   end do
 
-  call  analysis(xf,Hxf,yo,Sf,HSf,invsqrtR, xa,Ea, amplitudes)  
+  call analysis_covar(xf,Hxf,yo,Sf,HSf, R, xa,Ea, amplitudes)  
 #else
   do i=1,N
     Ef(:,i) = (Ef(:,i) - xf)/sqrt(N-1.)
     HEf(:,i) = (HEf(:,i) - Hxf)/sqrt(N-1.)
   end do
 
-  call  analysis(xf,Hxf,yo,Ef,HEf,invsqrtR, xa,Ea, amplitudes)
+  call analysis_covar(xf,Hxf,yo,Ef,HEf, R, xa,Ea, amplitudes)
 #endif
 
 
@@ -956,7 +973,7 @@ contains
  !_______________________________________________________
  !
 
- subroutine analysisAnamorph(xf,Hxf,yo,Sf,HSf,invsqrtR,  &
+ subroutine analysisAnamorph(xf,Hxf,yo,Sf,HSf,R,  &
   anamorph,invanamorph, &
        xa,Sa, amplitudes)
   use matoper
@@ -964,7 +981,8 @@ contains
   implicit none
 
   real, intent(in) :: xf(:),  Hxf(:), yo(:), &
-       Sf(:,:), HSf(:,:), invsqrtR(:)
+       Sf(:,:), HSf(:,:)
+  class(covar), intent(in) :: R
   real, intent(out) :: xa(:)
 
   interface 
@@ -1000,7 +1018,7 @@ contains
   end do
 
   !call ensanalysis(Ef,HEf,yo,invsqrtR,Ea, amplitudes)
-  call ensanalysis(E,HEf,yo,invsqrtR,E,amplitudes)
+  call ensanalysis(E,HEf,yo,R,E,amplitudes)
 
   do i=1,N
     call invanamorph(E(:,i))

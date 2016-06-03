@@ -622,7 +622,7 @@ contains
   subroutine test_DiagCovar
    use matoper
    implicit none
-   integer, parameter :: m = 3
+   integer, parameter :: m = 10
    real :: C(m), F(m,m)
    type(DiagCovar) :: Cov
    integer :: i
@@ -642,7 +642,7 @@ contains
   subroutine test_SMWCovar
    use matoper
    implicit none
-   integer, parameter :: m = 3, N = 2
+   integer, parameter :: m = 10, N = 2
    real :: C(m), B(m,N), F(m,m)
    type(SMWCovar) :: Cov
    integer :: i
@@ -664,7 +664,7 @@ contains
   subroutine test_DCDCovar
    use matoper
    implicit none
-   integer, parameter :: m = 3, N = 2
+   integer, parameter :: m = 10, N = 2
    real :: C(m), B(m,N), F(m,m), D(m)
    type(SMWCovar) :: innerCov
    type(DCDCovar) :: Cov
@@ -696,7 +696,8 @@ contains
 
    real :: y(m), z(m), z_ref(m)
    real :: A(m,m), D(m,m), D_ref(m,m)
-   integer :: i
+   logical :: mask(m)
+   integer :: i,i1,i2
 
    ! compare full matrix
 
@@ -754,6 +755,17 @@ contains
    D_ref = matmul(inv(F),A)
    call assert(D,D_ref, 1e-7, 'solve for a matrix')
 
+   ! subset using a mask
+   mask = .false.
+   mask(2:m) = .true.
+   call assert(F(2:m,2:m),Covar_full(Cov%pack(mask)), 1e-7, 'pack')
+
+   ! subset using indices
+   i1 = 2
+   i2 = m
+   call assert(F(i1:i2,i1:i2),Covar_full(Cov%sub(i1,i2)), 1e-7, 'subscripts')
+
+   
 
   end subroutine test_covariance_matrix
 

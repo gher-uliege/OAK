@@ -32,6 +32,10 @@ integer, parameter :: locensanalysis_SSt = 1
 integer, parameter :: locensanalysis_Pc = 2
 
 
+interface assignment(=)
+  procedure covar_assign
+end interface assignment(=)
+
 ! Abstract covariance matrix
 
 type, abstract :: Covar
@@ -110,6 +114,7 @@ type, extends(Covar) :: DCDCovar
    procedure :: done => DCDCovar_done
    procedure :: mtimes_vec => DCDCovar_mtimes_vec
    procedure :: mldivide_vec => DCDCovar_mldivide_vec
+   procedure :: pack => DCDCovar_pack  
 end type DCDCovar
 
 !---------------------------------------------------------------------
@@ -176,6 +181,15 @@ end interface
 
  contains
 
+   SUBROUTINE covar_assign(out,in)
+    class(covar), intent(out), allocatable :: out
+    class(covar), intent(in) :: in
+    !write(6,*) 'assignment'
+    allocate(out, source=in)
+    !write(6,*) 'out%n ',out%n
+   END SUBROUTINE covar_assign
+
+
 !---------------------------------------------------------------------
 ! Covar: abstract covariance matrix
 !---------------------------------------------------------------------
@@ -215,7 +229,7 @@ end interface
    class(Covar), allocatable :: C
 
    ! abstract function
-   write(6,*) 'abstract function'
+   write(6,*) 'abstract function'   
   end function Covar_pack
 
 !---------------------------------------------------------------------
@@ -232,7 +246,7 @@ end interface
 
    mask = .false.
    mask(i:j) = .true.
-!   C = this%pack(mask)
+   C = this%pack(mask)
   end function Covar_sub
 
 !---------------------------------------------------------------------
@@ -439,6 +453,7 @@ end interface
       allocate(Dsub(nsub))
 
       Dsub = pack(this%D,mask)
+      !write(6,*) 'Dsub ',Dsub
       call C%init(Dsub)
     end select
    
@@ -470,7 +485,7 @@ end interface
    this%D = inv(matmul(transpose(B), (1/C) .dx. B) + eye(size(B,2)))
   end subroutine SMWCovar_init
 
-
+  
 !---------------------------------------------------------------------
 
   subroutine SMWCovar_done(this)
@@ -602,6 +617,26 @@ end interface
    
    Q = this%D * this%C%mldivide(this%D*x)
   end function DCDCovar_mldivide_vec
+
+!---------------------------------------------------------------------
+!
+! return subset of covariance, where mask is true
+
+  function DCDCovar_pack(this, mask) result(C)
+   implicit none
+   class(DCDCovar), intent(in) :: this
+   logical, intent(in) :: mask(:)
+   class(Covar), allocatable :: C
+
+    allocate(DCDCovar::C)
+
+    select type(C)
+    type is (DCDCovar) 
+      call DCDCovar_init(C,pack(this%D,mask),this%C%pack(mask))
+    end select
+   
+   end function DCDCovar_pack
+
 
 !---------------------------------------------------------------------
 ! LocCovar: localized ensemble covariance matrix

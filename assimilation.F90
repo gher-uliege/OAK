@@ -3158,8 +3158,8 @@ end function
     if (presentInitValue(initfname,'Diag'//trim(infix)//'stddevxf')) &
          call saveVector('Diag'//trim(infix)//'stddevxf',ModMLParallel,stddev(Sf))
 
-    if (presentInitValue(initfname,'Diag'//trim(infix)//'invsqrtR'))  &
-         call saveVector('Diag'//trim(infix)//'invsqrtR',ObsML,invsqrtR)
+!    if (presentInitValue(initfname,'Diag'//trim(infix)//'invsqrtR'))  &
+!         call saveVector('Diag'//trim(infix)//'invsqrtR',ObsML,invsqrtR)
 
     if (presentInitValue(initfname,'Diag'//trim(infix)//'innov_amplitudes')) then
       call getInitValue(initfname,'Diag'//trim(infix)//'path',path)
@@ -3192,7 +3192,7 @@ end function
         ! local assimilation        
         if (biastype.eq.ErrorFractionBias) then
            call biasedLocAnalysis(zoneSize,selectObservations, &
-                biasgamma,H,Hshift,xf,biasf,Hxf,Hbf,yo,Sf,HSf,invsqrtR, &
+                biasgamma,H,Hshift,xf,biasf,Hxf,Hbf,yo,Sf,HSf,R, &
                 xa,biasa,Sa, amplitudes)
         else
            !call locanalysis(zoneSize,selectObservations, &
@@ -3207,7 +3207,7 @@ end function
         call loadVector('Model.gridX',ModML,modGrid(:,1))
         call loadVector('Model.gridY',ModML,modGrid(:,2))
 
-        call locanalysis2(modGrid,xf,Sf,H,yo,invsqrtR, xa,Sa)
+        call locanalysis2(modGrid,xf,Sf,H,yo, R, invsqrtR, xa,Sa)
      elseif (schemetype.eq.EWPFScheme) then
        if (.not.present(weightf) .or. .not.present(weighta)) then
          write(stdout,*) 'Error: the parameters weigthf and weighta not ', &
@@ -3219,7 +3219,7 @@ end function
        !call uload(trim(path)//str,weight,valex)
        
        !allocate(weighta(size(weight,1)))
-       call ewpf_analysis(xf,Sf,weightf,H,invsqrtR,yo,xa,Sa,weighta)
+       call ewpf_analysis(xf,Sf,weightf,H,R,yo,xa,Sa,weighta)
 
        if (presentInitValue(initfname,'Diag'//trim(infix)//'weightf')) then
          call getInitValue(initfname,'Diag'//trim(infix)//'path',path)
@@ -3235,15 +3235,15 @@ end function
      else
 !$omp master
         if (biastype.eq.ErrorFractionBias) then
-           call biasedanalysis(biasgamma,xf,biasf,Hxf,Hbf,yo,Sf,HSf,invsqrtR, &
+           call biasedanalysis(biasgamma,xf,biasf,Hxf,Hbf,yo,Sf,HSf,R, &
                 xa,biasa,Sa,amplitudes)
         else
            if (anamorphosistype.eq.TSAnamorphosis) then
-              call analysisAnamorph2(xf,Hxf,yo,Sf,HSf,invsqrtR,  &
+              call analysisAnamorph2(xf,Hxf,yo,Sf,HSf, R,  &
                    anamorphosisTransform,invanamorphosisTransform, &
                    xa,Sa,ensampl)
            elseif (anamorphosistype.eq.2) then
-              call ensAnalysisAnamorph2(yo,Sf,HSf,invsqrtR,  &
+              call ensAnalysisAnamorph2(yo,Sf,HSf, R,  &
                    anamorphosisTransform,invanamorphosisTransform, &
                    Sa,ensampl,Efanam,Eaanam)
            else
@@ -3251,12 +3251,10 @@ end function
 !!! FIXME flag of ensemble
               !    write(6,*) 'innov ',yo_Hxf
 
-              !         call ensAnalysis(Sf,H.x.Sf,yo,invsqrtR,Sa,amplitudes)
-              call analysis(xf,Hxf,yo,Sf,HSf,invsqrtR, xa,Sa,amplitudes)
+              !         call ensAnalysis(Sf,H.x.Sf,yo, R,Sa,amplitudes)
+              call analysis_covar(xf,Hxf,yo,Sf,HSf, R, xa,Sa,amplitudes)
            end if
         end if
-
-        !      call analysis_sparseR2(xf,Hxf,yo,Sf,HSf,invsqrtR,C, xa,Sa)
 
 !$omp end master
 
@@ -3339,9 +3337,9 @@ end function
 !    write(stdlog,*) 'ensamplitudes: ',ensampl
 
 
-    call report(stdlog,trim(infix)//'forecast.',mjd,ingrid,invsqrtR,HSf,yo_Hxf,exclude_obs)
+    call report(stdlog,trim(infix)//'forecast.',mjd,ingrid,R,HSf,yo_Hxf,exclude_obs)
     if (runtype.eq.AssimRun) then
-      call report(stdlog,trim(infix)//'analysis.',mjd,ingrid,invsqrtR,HSa,yo_Hxa,exclude_obs)
+      call report(stdlog,trim(infix)//'analysis.',mjd,ingrid,R,HSa,yo_Hxa,exclude_obs)
     end if
 
     ! obsnames = name of each variable (only for output)
@@ -3374,10 +3372,12 @@ end function
       write(stdlog,*) '  Sea points out of grid: ',count(exclude_obs(i1:i2))
 
       if (ObsML%varsizesea(v) > 0) then
-        call report(stdlog,trim(prefix)//'forecast.',mjd,ingrid,invsqrtR(i1:i2),HSf(i1:i2,:),yo_Hxf(i1:i2),exclude_obs(i1:i2))
+        call report(stdlog,trim(prefix)//'forecast.',mjd,ingrid,R%sub(i1,i2), &
+             HSf(i1:i2,:),yo_Hxf(i1:i2),exclude_obs(i1:i2))
 
         if (runtype.eq.AssimRun) then
-          call report(stdlog,trim(prefix)//'analysis.',mjd,ingrid,invsqrtR(i1:i2),HSa(i1:i2,:),yo_Hxa(i1:i2),exclude_obs(i1:i2))
+          call report(stdlog,trim(prefix)//'analysis.',mjd,ingrid,R%sub(i1,i2), &
+               HSa(i1:i2,:),yo_Hxa(i1:i2),exclude_obs(i1:i2))
         end if
       end if
 
@@ -3529,7 +3529,7 @@ end function
  !_______________________________________________________
  !
 
- subroutine report(unit,prefix,mjd,ingrid,invsqrtR,HS,yo_Hx,exclude_obs)
+ subroutine report(unit,prefix,mjd,ingrid,R,HS,yo_Hx,exclude_obs)
   use rrsqrt
   use matoper
   implicit none
@@ -3538,12 +3538,15 @@ end function
   character(len=*), intent(in) :: prefix
   integer, intent(in) :: ingrid
   real(8), intent(in) :: mjd
-  real, intent(in) :: invsqrtR(:),HS(:,:),yo_Hx(:)
+  class(covar), intent(in) :: R
+  real, intent(in) :: HS(:,:),yo_Hx(:)
   logical, intent(in) :: exclude_obs(:)
 
+  
   character(len=*), parameter :: form = '(A,A,E15.7)'
   real :: innov_projection(size(HS,2))
   real :: MahalanobisLen
+  real :: invRinnov(size(yo_Hx))
 
 !  MahalanobisLen = MahalanobisLength(yo_Hx,HS,invsqrtR)
   MahalanobisLen=0
@@ -3552,12 +3555,15 @@ end function
   write(unit,form) prefix,'rms_yo-Hx                ',sqrt(sum( (yo_Hx)**2,.not.exclude_obs)/ingrid)
   write(unit,form) prefix,'bias_yo-Hx               ',sum(yo_Hx,.not.exclude_obs)/ingrid
 
-  innov_projection = HS.tx.(invsqrtR**2*(yo_Hx))
+  ! inv(R) * (yo - Hx)
+  invRinnov = R%mldivide(yo_Hx)
+
+  innov_projection = HS.tx.invRinnov
 
   ! [(yo-Hx)^T R^-1 (yo-Hx)]^(1/2)
 
-  write(unit,form) prefix,'rms_invsqrtR_yo-Hx       ',sqrt(sum( (invsqrtR*(yo_Hx))**2)/ingrid)
-  write(unit,form) prefix,'bias_invsqrtR_yo-Hx      ',sum(invsqrtR*(yo_Hx))/ingrid
+  write(unit,form) prefix,'rms_invsqrtR_yo-Hx       ',sqrt(sum(yo_Hx * invRinnov)/ingrid)
+!  write(unit,form) prefix,'bias_invsqrtR_yo-Hx      ',sum(invRinnovinvsqrtR*(yo_Hx))/ingrid
   !write(unit,*) prefix,'projection_coeff         ',innov_projection
   write(unit,form) prefix,'projection_yo-Hx_into_HSf',sqrt(sum(innov_projection**2)/ingrid)
 
@@ -3709,17 +3715,18 @@ end function
    end subroutine 
 
 
-   subroutine locanalysis2(modGrid,xf,Sf,H,yo,invsqrtR, xa,Sa)
+   subroutine locanalysis2(modGrid,xf,Sf,H,yo, Rc, invsqrtR, xa,Sa)
     use matoper
     use covariance
     use initfile
     real, intent(in) :: modGrid(:,:), xf(:), yo(:), invsqrtR(:)
+    class(covar), intent(in) :: Rc
     real, intent(in) :: Sf(:,:)
     type(SparseMatrix), intent(in) :: H
     real, intent(out) :: xa(:)
     real, intent(out), optional :: Sa(:,:)
 
-    class(DiagCovar), allocatable :: Rc
+!    class(DiagCovar), allocatable :: Rc
     real, pointer :: Hc(:,:)
     real :: len
     real, pointer :: Sf2(:,:)
@@ -3734,8 +3741,8 @@ end function
     type(cellgrid) :: cg
 #endif
 
-    allocate(Rc)
-    call Rc%init(1./(invsqrtR**2))
+!    allocate(Rc)
+!    call Rc%init(1./(invsqrtR**2))
 
     call getInitValue(initfname,'CLoc.len',len)
     call getInitValue(initfname,'CLoc.leni',leni)
@@ -3782,7 +3789,6 @@ end function
       write(6,*) 'Hc*(xf-xa) ',i, sum(Hc(:,i) * (xf-xa))
     end do
 
-    deallocate(Rc)
     deallocate(Hc)
     deallocate(Sf2)
 
@@ -4299,7 +4305,7 @@ end function
 ! testing
 
 
- subroutine analysisAnamorph2(xf,Hxf,yo,Sf,HSf,invsqrtR,  &
+ subroutine analysisAnamorph2(xf,Hxf,yo,Sf,HSf, R,  &
   anamorph,invanamorph, &
        xa,Sa, amplitudes)
   use matoper
@@ -4308,7 +4314,8 @@ end function
   implicit none
 
   real, intent(in) :: xf(:),  Hxf(:), yo(:), &
-       Sf(:,:), HSf(:,:), invsqrtR(:)
+       Sf(:,:), HSf(:,:)
+  class(covar), intent(in) :: R
   real, intent(out) :: xa(:)
 
   interface 
@@ -4351,7 +4358,7 @@ end function
 !  call usave('/u/abarth/Assim/Data2/Ef2.u',E,0.)
 
   !call ensanalysis(Ef,HEf,yo,invsqrtR,Ea, amplitudes)
-  call ensanalysis(E,HEf,yo,invsqrtR,E,amplitudes)
+  call ensanalysis(E,HEf,yo,R,E,amplitudes)
 
 !  call saveEnsemble('Ea2.value',ModML,E)
 !  call usave('/u/abarth/Assim/Data2/Ea2.u',E,0.)
@@ -4370,7 +4377,7 @@ end function
 
 !----------------------------------------------------------------------
 
-subroutine ensAnalysisAnamorph2(yo,Ef,HEf,invsqrtR,  &
+subroutine ensAnalysisAnamorph2(yo,Ef,HEf,R,  &
      anamorph,invanamorph, &
      Ea, amplitudes,Efanam,Eaanam)
   use matoper
@@ -4379,7 +4386,8 @@ subroutine ensAnalysisAnamorph2(yo,Ef,HEf,invsqrtR,  &
   implicit none
 
   real, intent(in) :: yo(:), &
-       Ef(:,:), HEf(:,:), invsqrtR(:)
+       Ef(:,:), HEf(:,:)
+  class(covar), intent(in) :: R
 
   interface 
     subroutine anamorph(x)
@@ -4413,7 +4421,7 @@ subroutine ensAnalysisAnamorph2(yo,Ef,HEf,invsqrtR,  &
       call anamorph(Efanam(:,i))
     end do
 
-    call ensAnalysis(Efanam,HE,yo,invsqrtR,Eaanam,amplitudes)
+    call ensAnalysis(Efanam,HE,yo,R,Eaanam,amplitudes)
 
     Ea = Eaanam 
     do i=1,N
@@ -4434,7 +4442,7 @@ subroutine ensAnalysisAnamorph2(yo,Ef,HEf,invsqrtR,  &
 !  call usave('/u/abarth/Assim/Data2/Ef2.u',E,0.)
 
   !call ensanalysis(Ef,HEf,yo,invsqrtR,Ea, amplitudes)
-    call ensAnalysis(Ea,HE,yo,invsqrtR,Ea,amplitudes)
+    call ensAnalysis(Ea,HE,yo,R,Ea,amplitudes)
 
 !  call saveEnsemble('Ea2.value',ModML,E)
 !  call usave('/u/abarth/Assim/Data2/Ea2.u',E,0.)
@@ -4513,8 +4521,9 @@ subroutine ensAnalysisAnamorph2(yo,Ef,HEf,invsqrtR,  &
 end subroutine anamtransform
 
 
-subroutine ewpf_proposal_step(ntime,obsVec,dt_obs,X,weight,yo,invsqrtR,H)
+subroutine ewpf_proposal_step(ntime,obsVec,dt_obs,X,weight,yo,R,H)
  use matoper
+ use covariance
  use sangoma_ewpf
  use initfile
  implicit none
@@ -4524,7 +4533,8 @@ subroutine ewpf_proposal_step(ntime,obsVec,dt_obs,X,weight,yo,invsqrtR,H)
  integer,intent(in) :: dt_obs                     ! model timesteps betwe
  real, intent(in) :: yo(:)
  real, intent(inout) :: weight(:),X(:,:)
- real, intent(in) :: invsqrtR(:)
+! real, intent(in) :: invsqrtR(:)
+ class(covar), intent(in) :: R 
  type(SparseMatrix), intent(in)  :: H
 
 ! current model timestep
@@ -4605,7 +4615,8 @@ contains
   integer :: k
 
   do k = 1,Ne
-    vec_out(:,k) = invsqrtR**2 * vec_in(:,k)
+!    vec_out(:,k) = invsqrtR**2 * vec_in(:,k)
+    vec_out(:,k) = R%mldivide(vec_in(:,k))
   end do
  end subroutine cb_solve_r
 
@@ -4629,15 +4640,17 @@ end subroutine ewpf_proposal_step
 
 !------------------------------------------------------------------
 
-subroutine ewpf_analysis(xf,Sf,weight,H,invsqrtR, &
+subroutine ewpf_analysis(xf,Sf,weight,H,R, &
      !sqrtQ, &
      yo,xa,Sa,weighta)
  use matoper
  use initfile
+ use covariance
  use sangoma_ewpf
  use user_base
  implicit none
- real, intent(in) :: xf(:),Sf(:,:),weight(:),invsqrtR(:),yo(:)
+ real, intent(in) :: xf(:),Sf(:,:),weight(:),yo(:)
+ class(covar), intent(in) :: R 
  real, intent(out) :: xa(:),Sa(:,:),weighta(:)
  type(SparseMatrix), intent(in)  :: H
 ! type(SparseMatrix), intent(in)  :: sqrtQ
@@ -4743,7 +4756,8 @@ contains
   vec_out = H.x.(Qscale  * (H.tx.vec_in))
 
   ! R * vec_in
-  vec_out = vec_out + vec_in / (invsqrtR**2)
+  !vec_out = vec_out + vec_in / (invsqrtR**2)
+  vec_out = vec_out + (R.x.vec_in)
  end function hqht_plus_r
 
 
@@ -4791,7 +4805,8 @@ contains
   integer :: k
 
   do k = 1,Ne
-    vec_out(:,k) = invsqrtR**2 * vec_in(:,k)
+!    vec_out(:,k) = invsqrtR**2 * vec_in(:,k)
+    vec_out(:,k) = R%mldivide(vec_in(:,k))
   end do
  end subroutine cb_solve_r
 
