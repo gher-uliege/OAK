@@ -2015,7 +2015,7 @@ end subroutine fmtIndex
  !
 
 
- subroutine loadObs(ntime,ObsML,observation,invsqrtR,R,exclude_obs)
+ subroutine loadObs(ntime,ObsML,observation,R,exclude_obs)
   use covariance
   use initfile
   use date
@@ -2023,7 +2023,7 @@ end subroutine fmtIndex
   implicit none
   integer, intent(in)  :: ntime
   type(MemLayout), intent(in) :: ObsML
-  real,    intent(out) :: observation(:), invsqrtR(:)
+  real,    intent(out) :: observation(:)
   class(covar), intent(out), optional, pointer :: R
   logical, intent(out), optional :: exclude_obs(:)
 
@@ -2032,6 +2032,7 @@ end subroutine fmtIndex
   character(len=maxLen) :: prefix
   integer :: omax, j
   integer :: istat
+  real, allocatable :: invsqrtR(:)
   real, parameter :: min_rmse = 0.01
 
   !write(prefix,'(A,I3.3,A)') 'Obs',ntime,'.'
@@ -2041,7 +2042,7 @@ end subroutine fmtIndex
 
   omax = size(ObsML%Mask)
 
-  !    allocate(observation(ObsML%effsize),invsqrtR(ObsML%effsize))
+  allocate(invsqrtR(ObsML%effsize))
 
   !
   !  ObsXXX.value
@@ -2094,21 +2095,16 @@ end subroutine fmtIndex
     end select
   end if
 
+  
   if (present(exclude_obs)) then
-    exclude_obs = ObsML%mask /= 1
+    if (.not.ObsML%removeLandPoints) then    
+      exclude_obs = ObsML%mask /= 1
+    else
+      exclude_obs = .false.
+    end if
   end if
 
-  if (ObsML%removeLandPoints) then
-    invsqrtR = 1./invsqrtR
-  else
-    where (ObsML%mask.eq.1) 
-      invsqrtR = 1./invsqrtR
-    elsewhere
-      invsqrtR = 0
-    end where
-  end if
-
-
+  deallocate(invsqrtR)
  end subroutine loadObs
 
 
@@ -2188,7 +2184,6 @@ end subroutine fmtIndex
   allocate(validobs(size(Ccoeff)))
   call packSparseMatrix(Cindex,Ccoeff,ObsML,ObsML,C)
 
-  !    where (.not.validobs) invsqrtR = 0
   deallocate(validobs)
 
 
@@ -2221,7 +2216,7 @@ end subroutine fmtIndex
  !_______________________________________________________
  !
 
- subroutine loadObservationOper(ntime,ObsML,H,Hshift,invsqrtR,exclude_obs)
+ subroutine loadObservationOper(ntime,ObsML,H,Hshift,exclude_obs)
   use initfile
 !  use grids
   use ufileformat
@@ -2231,7 +2226,6 @@ end subroutine fmtIndex
   type(MemLayout), intent(in) :: ObsML
   type(SparseMatrix), intent(out)  :: H
   real, intent(out) :: Hshift(:)
-  real, intent(inout) :: invsqrtR(:)
   logical, intent(inout), optional :: exclude_obs(:)
 
   type(SparseMatrix)  :: filterMod
@@ -2334,7 +2328,6 @@ end subroutine fmtIndex
   allocate(validobs(ObsML%effsize))
   call packSparseMatrix(Hindex,Hcoeff,ObsML,ModML,H,validobs)
 
-  where (.not.validobs) invsqrtR = 0
   if (present(exclude_obs)) then
     where (.not.validobs) exclude_obs = .true.
   end if
@@ -2917,8 +2910,7 @@ end function
  ! yo: observation vector
  ! Hxf: model forecast at observation location
  ! Hxa: model analysis at observation location
- ! invsqrtR: inverse of the square root of the diagonal elements of R (error
- !   covariance of observations)
+ ! R: error covariance of observations
  ! yo_Hxf: difference between yo and Hxf
  ! yo_Hxa: difference between yo and Hxa
  ! Hshift: constant shift of the observation operator
@@ -2962,7 +2954,7 @@ end function
 
   type(MemLayout) :: ObsML
 
-  real, allocatable, dimension(:) :: yo, Hxf, Hxa, invsqrtR, &
+  real, allocatable, dimension(:) :: yo, Hxf, Hxa, &
        yo_Hxf, yo_Hxa, innov_projection, Hshift, Hbf
   real, allocatable, dimension(:,:) :: HSf, HSa, locAmplitudes
 
@@ -2972,7 +2964,7 @@ end function
   class(covar), pointer :: R
   type(DCDCovar), target :: tmpR
 
-!!$  real, pointer, dimension(:) :: yo, Hxf, Hxa, invsqrtR, &
+!!$  real, pointer, dimension(:) :: yo, Hxf, Hxa,  &
 !!$       yo_Hxf, yo_Hxa, innov_projection, Hshift, Hbf
 !!$  real, pointer, dimension(:,:) :: HSf, HSa
 
@@ -2991,7 +2983,7 @@ end function
 
 # ifdef _OPENMP
   ! shared local variables among the OpenMP threads
-  save :: H,yo,invsqrtR,Hxf,Hxa,HSf,HSa, &
+  save :: H,yo,Hxf,Hxa,HSf,HSa, &
        yo_Hxf, yo_Hxa, innov_projection, Hshift,Hbf, mjd,error,m,n,k, &
        locAmplitudes, xf, xa, exclude_obs, R
 # endif
@@ -3024,18 +3016,18 @@ end function
   m = ObsML%effsize
   k = size(Sf,2)
 
-  allocate(yo(m),invsqrtR(m),Hxf(m),Hxa(m),HSf(m,k),HSa(m,k), &
+  allocate(yo(m), Hxf(m),Hxa(m),HSf(m,k),HSa(m,k), &
        yo_Hxf(m), yo_Hxa(m), innov_projection(m), Hshift(m), exclude_obs(m))
 
   call loadObsTime(ntime,mjd,error)
-  call loadObs(ntime,ObsML,yo,invsqrtR,R,exclude_obs)
+  call loadObs(ntime,ObsML,yo,R,exclude_obs)
 
   !
-  ! load the obervation matrix. All points out of grid will have a 
-  ! weight (invsqrtR) = 0
+  ! load the obervation matrix. All points out of grid will be excluded
+  ! (exclude_obs = true)
   !
 
-  call loadObservationOper(ntime,ObsML,H,Hshift,invsqrtR,exclude_obs)
+  call loadObservationOper(ntime,ObsML,H,Hshift,exclude_obs)
   scaling = sqrt(real(size(Sf,2)) - ASSIM_SCALING)
 
 
@@ -3098,10 +3090,6 @@ end function
   innov_projection = HSf.x.innov_amplitudes
 
 
-!    write(6,*) 'innov ',yo_Hxf,count(invsqrtR.ne.0)
-!    write(stdlog,*) 'innov ',yo_Hxf
-
-
   ! initialisation for bias-aware assimilation
 
   if (biastype.eq.ErrorFractionBias) then
@@ -3158,9 +3146,6 @@ end function
     if (presentInitValue(initfname,'Diag'//trim(infix)//'stddevxf')) &
          call saveVector('Diag'//trim(infix)//'stddevxf',ModMLParallel,stddev(Sf))
 
-!    if (presentInitValue(initfname,'Diag'//trim(infix)//'invsqrtR'))  &
-!         call saveVector('Diag'//trim(infix)//'invsqrtR',ObsML,invsqrtR)
-
     if (presentInitValue(initfname,'Diag'//trim(infix)//'innov_amplitudes')) then
       call getInitValue(initfname,'Diag'//trim(infix)//'path',path)
       call getInitValue(initfname,'Diag'//trim(infix)//'innov_amplitudes',str)
@@ -3195,10 +3180,6 @@ end function
                 biasgamma,H,Hshift,xf,biasf,Hxf,Hbf,yo,Sf,HSf,R, &
                 xa,biasa,Sa, amplitudes)
         else
-           !call locanalysis(zoneSize,selectObservations, &
-           !     xf,Hxf,yo,Sf,HSf,invsqrtR, xa,Sa,locAmplitudes)
-
-           write(6,*) 'here 2'
            call locanalysis(zoneSize,selectObservations, &
                 xf,Hxf,yo,Sf,HSf, R, xa,Sa,locAmplitudes)
         end if
@@ -3207,7 +3188,7 @@ end function
         call loadVector('Model.gridX',ModML,modGrid(:,1))
         call loadVector('Model.gridY',ModML,modGrid(:,2))
 
-        call locanalysis2(modGrid,xf,Sf,H,yo, R, invsqrtR, xa,Sa)
+        call locanalysis2(modGrid,xf,Sf,H,yo, R, xa,Sa)
      elseif (schemetype.eq.EWPFScheme) then
        if (.not.present(weightf) .or. .not.present(weighta)) then
          write(stdout,*) 'Error: the parameters weigthf and weighta not ', &
@@ -3493,7 +3474,7 @@ end function
 
   ! free memory
 
-  deallocate(yo,invsqrtR,Hxf,Hxa,HSf,HSa,yo_Hxf,yo_Hxa,innov_projection,H%i,H%j,H%s,Hshift)
+  deallocate(yo,Hxf,Hxa,HSf,HSa,yo_Hxf,yo_Hxa,innov_projection,H%i,H%j,H%s,Hshift)
   deallocate(exclude_obs,R)
   if (biastype.eq.ErrorFractionBias) deallocate(Hbf)
   if (schemetype.eq.LocalScheme) then
@@ -3715,11 +3696,11 @@ end function
    end subroutine 
 
 
-   subroutine locanalysis2(modGrid,xf,Sf,H,yo, Rc, invsqrtR, xa,Sa)
+   subroutine locanalysis2(modGrid,xf,Sf,H,yo, Rc, xa,Sa)
     use matoper
     use covariance
     use initfile
-    real, intent(in) :: modGrid(:,:), xf(:), yo(:), invsqrtR(:)
+    real, intent(in) :: modGrid(:,:), xf(:), yo(:)
     class(covar), intent(in) :: Rc
     real, intent(in) :: Sf(:,:)
     type(SparseMatrix), intent(in) :: H
@@ -3740,9 +3721,6 @@ end function
     real :: dist(ModML%effsize)
     type(cellgrid) :: cg
 #endif
-
-!    allocate(Rc)
-!    call Rc%init(1./(invsqrtR**2))
 
     call getInitValue(initfname,'CLoc.len',len)
     call getInitValue(initfname,'CLoc.leni',leni)
@@ -4357,7 +4335,6 @@ end function
 !  call saveEnsemble('Ef2.value',ModML,E)
 !  call usave('/u/abarth/Assim/Data2/Ef2.u',E,0.)
 
-  !call ensanalysis(Ef,HEf,yo,invsqrtR,Ea, amplitudes)
   call ensanalysis(E,HEf,yo,R,E,amplitudes)
 
 !  call saveEnsemble('Ea2.value',ModML,E)
@@ -4441,7 +4418,6 @@ subroutine ensAnalysisAnamorph2(yo,Ef,HEf,R,  &
 !  call saveEnsemble('Ef2.value',ModML,E)
 !  call usave('/u/abarth/Assim/Data2/Ef2.u',E,0.)
 
-  !call ensanalysis(Ef,HEf,yo,invsqrtR,Ea, amplitudes)
     call ensAnalysis(Ea,HE,yo,R,Ea,amplitudes)
 
 !  call saveEnsemble('Ea2.value',ModML,E)
@@ -4533,7 +4509,6 @@ subroutine ewpf_proposal_step(ntime,obsVec,dt_obs,X,weight,yo,R,H)
  integer,intent(in) :: dt_obs                     ! model timesteps betwe
  real, intent(in) :: yo(:)
  real, intent(inout) :: weight(:),X(:,:)
-! real, intent(in) :: invsqrtR(:)
  class(covar), intent(in) :: R 
  type(SparseMatrix), intent(in)  :: H
 
@@ -4615,7 +4590,6 @@ contains
   integer :: k
 
   do k = 1,Ne
-!    vec_out(:,k) = invsqrtR**2 * vec_in(:,k)
     vec_out(:,k) = R%mldivide(real(vec_in(:,k)))
   end do
  end subroutine cb_solve_r
@@ -4756,7 +4730,6 @@ contains
   vec_out = H.x.(Qscale  * (H.tx.vec_in))
 
   ! R * vec_in
-  !vec_out = vec_out + vec_in / (invsqrtR**2)
   vec_out = vec_out + (R.x.vec_in)
  end function hqht_plus_r
 
@@ -4805,7 +4778,6 @@ contains
   integer :: k
 
   do k = 1,Ne
-!    vec_out(:,k) = invsqrtR**2 * vec_in(:,k)
     vec_out(:,k) = R%mldivide(real(vec_in(:,k)))
   end do
  end subroutine cb_solve_r
