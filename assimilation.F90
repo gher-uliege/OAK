@@ -2024,15 +2024,15 @@ end subroutine fmtIndex
   integer, intent(in)  :: ntime
   type(MemLayout), intent(in) :: ObsML
   real,    intent(out) :: observation(:)
-  class(covar), intent(out), optional, pointer :: R
-  logical, intent(out), optional :: exclude_obs(:)
+  class(covar), intent(out), pointer :: R
+  logical, intent(out) :: exclude_obs(:)
 
   type(DiagCovar) :: I
   character(len=maxLen)          :: path        
   character(len=maxLen) :: prefix
-  integer :: omax, j
-  integer :: istat
-  real, allocatable :: invsqrtR(:)
+  integer :: omax, j, Sdim
+  integer :: istat  
+  real, allocatable :: invsqrtR(:), S(:,:)
   real, parameter :: min_rmse = 0.01
 
   !write(prefix,'(A,I3.3,A)') 'Obs',ntime,'.'
@@ -2054,54 +2054,75 @@ end subroutine fmtIndex
   write(stddebug,*) 'sum(obs) ',sum(observation), shape(observation)
   call flush(stddebug,istat)
 #   endif
-  !
-  !  ObsXXX.rmse
-  !
 
-  call loadVector(trim(prefix)//'rmse',ObsML,invsqrtR)
+  ! obs. error covariance
 
+  if (presentInitValue(initfname,trim(prefix)//'rmse')) then 
+    ! diagonal R
+    !
+    !  ObsXXX.rmse
+    !
 
+    call loadVector(trim(prefix)//'rmse',ObsML,invsqrtR)
 
-  if (any(invsqrtR <= 0)) then
-    write (0,*) 'error in ',__FILE__,__LINE__
-    write (0,*) 'zero value found in ',trim(prefix)//'rmse'
-    write (0,*) 'are your observations so good?'
-    ERROR_STOP
-  end if
+    if (any(invsqrtR <= 0)) then
+      write (0,*) 'error in ',__FILE__,__LINE__
+      write (0,*) 'zero value found in ',trim(prefix)//'rmse'
+      write (0,*) 'are your observations so good?'
+      ERROR_STOP
+    end if
 
 # ifdef LIMIT_iR  
-  if (any(invsqrtR < min_rmse .and. ObsML%mask == 1)) then
-    write(stdlog,*) 'loadObs: warning observations with too small errors'
-  end if
-
-  where (invsqrtR < min_rmse .and. ObsML%mask == 1)
-     invsqrtR = min_rmse
-  end where
+    if (any(invsqrtR < min_rmse .and. ObsML%mask == 1)) then
+      write(stdlog,*) 'loadObs: warning observations with too small errors'
+    end if
+    
+    where (invsqrtR < min_rmse .and. ObsML%mask == 1)
+      invsqrtR = min_rmse
+    end where
 # endif
 
 # ifdef DEBUG
-  write(stddebug,*) 'assim invsqrtR',sum(invsqrtR),count(invsqrtR.eq.0) 
+    write(stddebug,*) 'assim invsqrtR',sum(invsqrtR),count(invsqrtR.eq.0) 
 # endif
 
-  if (present(R)) then
     write(0,*) 'new covar'
     ! identity matrix    
     allocate(DiagCovar::R)
-    select type (R)
-      type is (DiagCovar)        
-        ! here invsqrtR is the the RMSE (error standard devitation and not its 
-        ! inverse)
-        call R%init(invsqrtR**2)
-    end select
-  end if
 
-  
-  if (present(exclude_obs)) then
-    if (.not.ObsML%removeLandPoints) then    
-      exclude_obs = ObsML%mask /= 1
-    else
-      exclude_obs = .false.
-    end if
+    select type (R)
+    type is (DiagCovar)        
+      ! here invsqrtR is the the RMSE (error standard devitation and not its 
+      ! inverse)
+      call R%init(invsqrtR**2)
+    end select
+  elseif (presentInitValue(initfname,trim(prefix)//'SMWCovar.SqrtDiag')) then
+    ! R as SMWCovar
+    call getInitValue(initfname,trim(prefix)//'SMWCovar.dimension',Sdim)
+    allocate(S(ObsML%effsize,Sdim))
+    call loadVectorSpace(trim(prefix)//'SMWCovar.ErrorSpace',ObsML,S,invsqrtR)
+    call loadVector(trim(prefix)//'SMWCovar.SqrtDiag',ObsML,invsqrtR)
+
+    allocate(SMWCovar::R)
+
+    select type (R)
+    type is (SMWCovar)        
+      call R%init(invsqrtR**2,S)
+    end select
+
+    deallocate(S)
+  else
+    write(stderr,*) 'Cannot determine the type of the observational error ', &
+         'covariance matrix. Expected to find entries like:'
+    write(stderr,*) trim(prefix)//'rmse'
+    write(stderr,*) trim(prefix)//'SMWCovar.SqrtDiag'
+    ERROR_STOP
+  end if
+    
+  if (.not.ObsML%removeLandPoints) then    
+    exclude_obs = ObsML%mask /= 1
+  else
+    exclude_obs = .false.
   end if
 
   deallocate(invsqrtR)
