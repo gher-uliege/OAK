@@ -214,6 +214,10 @@ test/test_rrsqrt.o: test/test_rrsqrt.F90  matoper.o covariance.o rrsqrt.o
 test/test_rrsqrt: test/test_rrsqrt.o  matoper.o covariance.o rrsqrt.o  cholmod_wrapper.o
 	$(F90C) $(F90FLAGS) $(LDFLAGS) -o $@ $+ $(LIBS) $(EXTRA_LDFLAGS)
 
+test/test_assim.o: test/test_assim.F90  matoper.o assimilation.o 
+test/test_assim: test/test_assim.o  matoper.o assimilation.o rrsqrt.o covariance.o ufileformat.o initfile.o user_base.o sangoma_ewpf.o anamorphosis.o parall.o ndgrid.o date.o random_d.o  match.o cholmod_wrapper.o
+	$(F90C) $(F90FLAGS) $(LDFLAGS) -o $@ $+ $(LIBS) $(EXTRA_LDFLAGS)
+
 test/test_nondiag.o: test/test_nondiag.F90 matoper.F90 rrsqrt.o covariance.o ndgrid.o ufileformat.o
 test/test_nondiag: test/test_nondiag.o matoper.o cholmod_wrapper.o rrsqrt.o covariance.o ndgrid.o ufileformat.o
 	$(F90C) $(F90FLAGS) $(LDFLAGS) -o $@ $+ $(LIBS) $(EXTRA_LDFLAGS)
@@ -226,7 +230,7 @@ test/test_cholmod_wrapper.o: test/test_cholmod_wrapper.c
 test/test_cholmod_wrapper: test/test_cholmod_wrapper.o cholmod_wrapper.o
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $+ $(LIBS) $(EXTRA_LDFLAGS)
 
-test: test/test_covariance test/test_ndgrid test/test_cellgrid test/assimtest2 test/test_matoper test/test_rrsqrt test/toymodel test/test_nondiag test/test_cholmod test/test_cholmod_wrapper
+test: test/test_covariance test/test_ndgrid test/test_cellgrid test/assimtest2 test/test_matoper test/test_rrsqrt test/toymodel test/test_nondiag test/test_cholmod test/test_cholmod_wrapper test/test_assim
 	test/test_matoper
 	test/test_ndgrid
 	test/test_covariance
@@ -236,3 +240,4 @@ test: test/test_covariance test/test_ndgrid test/test_cellgrid test/assimtest2 t
 	test/test_nondiag
 	test/test_cholmod_wrapper
 	test/test_cholmod
+	test/test_assim
