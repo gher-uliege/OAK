@@ -1,12 +1,26 @@
+!  OAK, Ocean Assimilation Kit
+!  Copyright(c) 2016 Alexander Barth and Luc Vandenblucke
+!
+!  This program is free software; you can redistribute it and/or
+!  modify it under the terms of the GNU General Public License
+!  as published by the Free Software Foundation; either version 2
+!  of the License, or (at your option) any later version.
+!
+!  This program is distributed in the hope that it will be useful,
+!  but WITHOUT ANY WARRANTY; without even the implied warranty of
+!  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!  GNU General Public License for more details.
+!
+!  You should have received a copy of the GNU General Public License
+!  along with this program; if not, write to the Free Software
+!  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
 
 ! module for linear shallow water model in two dimensions
 
 module shallow_water2d
 
- ! stucture describing the model domain
- ! we use a C-grid
-
-
+ ! stucture describing the model domain on a C-grid
 
 
  !  +----------------+----------------+---........---+----------------+
@@ -55,13 +69,6 @@ module shallow_water2d
    real, allocatable    :: dS(:,:), dS_u(:,:), dS_v(:,:)  
  end type domain
 
- type parameters
-
- end type parameters
-
- type state
-   real, allocatable    :: zeta(:,:), U(:,:), V(:,:)
- end type state
 
 contains
 
@@ -135,11 +142,23 @@ contains
 
  subroutine shallow_water2d_step(dom,timecounter,zetai,Ui,Vi,dt,g,f,zeta,U,V)
   implicit none
+  ! Input:
+  !   dom: structure define the model domain (mask, h, pm and pn at density points)
+  !   zetai: initial elevation
+  !   Ui,Vi: initial transport
+  !   dt: time steps
+  !   g: acceleration due to gravity
+  !   f: Coriolis frequency
+
   type(domain), intent(in) :: dom
   integer, intent(in) :: timecounter
   real, intent(in) :: zetai(:,:), Ui(:,:), Vi(:,:)
-  real, intent(out) :: zeta(:,:), U(:,:), V(:,:)
   real, intent(in)   :: dt,g,f
+
+  ! Output:
+  !   zeta: elevation after N time steps
+  !   U,V: transport after N time steps
+  real, intent(out) :: zeta(:,:), U(:,:), V(:,:)
 
   integer :: m,n
   real :: U2(size(zeta,1)-1,size(zeta,2))
@@ -147,26 +166,6 @@ contains
   real :: c(size(zeta,1),size(zeta,2)),dt_max
   real :: t, Up, Vp
   integer :: s, i, j
-
-  ! linear shallow water model
-  ! Input:
-  !   domain: structure define the model domain (mask, h, pm and pn at density points)
-  !   zetai: initial elevation
-  !   Ui,Vi: initial transport
-  !   N: number of time steps
-  !   dt: time steps
-  !   g: acceleration due to gravity
-  !   f: Coriolis frequency
-  !   plot_every: number of time between plots (if negative plots are disabled)
-  !   save_every: number of time between plots (if negative plots are disabled)
-  !   zetabc: callback function for boundary conditions
-  ! 
-  ! Output:
-  !   zeta: elevation after N time steps
-  !   U,V: transport after N time steps
-
-  !  subroutine shallow_water2d(dom,zetai,Ui,Vi,N,dt,g,f,plot_every,save_every,zetabc,output)
-  !  implicit none
 
   c = sqrt(g*dom%h)
 
@@ -176,41 +175,11 @@ contains
   dt_max = 0.2 * minval([minval(1./(sqrt(g*dom%h) * dom%pm)), &
        minval(1./(sqrt(g*dom%h) * dom%pn))])
 
-  ! fprintf('Number of time steps:     %10.2f\n',N)
-  ! fprintf('Integration length:       %10.2f days\n',N*dt/24/60/60)
-  ! fprintf('Time step:                %10.2f s\n',dt)
-  ! fprintf('Time step (max):          %10.2f s\n',dt_max)
-  ! fprintf('Dimension in x-direction: %7.0f \n',m)
-  ! fprintf('Dimension in y-direction: %7.0f \n',n)
-
-
-
-  ! zetam = zeros(m,n)
-  ! Um = zeros(m-1,n)
-  ! Vm = zeros(m,n-1)
-
-  ! zetav = zeros(m,n)
-  ! Uv = zeros(m-1,n)
-  ! Vv = zeros(m,n-1)
-
 
   zeta = zetai
   U = Ui
   V = Vi
 
-  ! if strcmp(output(end-2:end),'.nc')
-  !   nc = netcdf(output,'c')
-  !   nc('xi_rho') = m
-  !   nc('eta_rho') = n
-  !   nc('time') = 0
-  !   nc{'ocean_time'} = ncfloat('time')
-  !   nc{'zeta'} = ncfloat('time','eta_rho','xi_rho')
-  !   ihis = 0
-  ! end if
-
-  ! fprintf('   Step    Pot.Energy   Kin.Energy   Tot.Energy      Volumn\n')
-
-  ! do timecounter=1:N
   t = dt*timecounter
 
   U2 = U / dom%pn_u
@@ -225,9 +194,6 @@ contains
     end do
   end do
 
-  ! !  vol1 = sum(sum(zeta(2:m-1,2:n-1)))
-  ! ! fprintf('%7.0f %12.2f %12.2f %12.2f \n',timecounter,vol0,vol1,vol0-vol1)
-
   !   zeta = zetabc(zeta,t)
 
   do s=0,1
@@ -239,7 +205,7 @@ contains
           Vp = (V(I,J-1)+V(I,J)+ V(I+1,J-1)+V(I+1,J))/4
 
           U(I,J) = U(I,J) + f*dt * Vp & 
-               - dt * g*dom%h_u(I,J) * (zeta(I+1,J)-zeta(I,J)) * dom%pm_u(I,J)
+               - dt * g * dom%h_u(I,J) * (zeta(I+1,J)-zeta(I,J)) * dom%pm_u(I,J)
         end do
       end do
 
@@ -250,7 +216,7 @@ contains
           Up = (U(I-1,J)+U(I,J)+ U(I-1,J+1)  +U(I,J+1))/4
 
           V(I,J) = V(I,J) - f*dt * Up &
-               - dt * g*dom%h_v(I,J) * (zeta(I,J+1)-zeta(I,J)) * dom%pn_v(I,J)
+               - dt * g * dom%h_v(I,J) * (zeta(I,J+1)-zeta(I,J)) * dom%pn_v(I,J)
         end do
       end do
 
@@ -304,7 +270,8 @@ contains
   logical :: createfile
   integer, allocatable :: dimids(:), startindex(:)
 
-  write(6,*)' save'
+!  write(6,*) 'save'
+!  return
 
   if (present(memberindex)) then
     allocate(dimids(4),startindex(4))
@@ -356,6 +323,7 @@ contains
 
     call check(nf90_def_var(ncid, 'mask', nf90_double, &
          [dimid_xi, dimid_eta], varid_mask))
+    call check(nf90_put_att(ncid, varid_mask, '_FillValue', 0.))
 
     call check(nf90_def_var(ncid, 'x_u', nf90_double, &
          [dimid_xi_u, dimid_eta_u], varid_x_u))
@@ -365,6 +333,7 @@ contains
 
     call check(nf90_def_var(ncid, 'mask_u', nf90_double, &
          [dimid_xi_u, dimid_eta_u], varid_mask_u))
+    call check(nf90_put_att(ncid, varid_mask_u, '_FillValue', 0.))
 
     call check(nf90_def_var(ncid, 'x_v', nf90_double, &
          [dimid_xi_v, dimid_eta_v], varid_x_v))
@@ -374,6 +343,7 @@ contains
 
     call check(nf90_def_var(ncid, 'mask_v', nf90_double, &
          [dimid_xi_v, dimid_eta_v], varid_mask_v))
+    call check(nf90_put_att(ncid, varid_mask_v, '_FillValue', 0.))
 
     varid_zeta = def_var('zeta',[dimid_xi, dimid_eta], &
          'sea_surface_elevation','m')
@@ -391,7 +361,7 @@ contains
     call check(nf90_put_var(ncid,varid_y,dom%y))
 
     call check(nf90_put_var(ncid,varid_x_u,dom%x_u))
-    call check(nf90_put_var(ncid,varid_x_v,dom%x_v))
+    call check(nf90_put_var(ncid,varid_y_u,dom%y_u))
 
     call check(nf90_put_var(ncid,varid_x_v,dom%x_v))
     call check(nf90_put_var(ncid,varid_y_v,dom%y_v))

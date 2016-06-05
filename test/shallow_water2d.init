@@ -1,0 +1,365 @@
+# State vector definition
+
+Model.variables	    = [          'zeta',            'ubar',            'vbar']
+Model.gridX         = [   'domain.nc#x',   'domain.nc#x_u',   'domain.nc#x_v']
+Model.gridY         = [   'domain.nc#y',   'domain.nc#y_u',   'domain.nc#y_v']
+Model.mask          = ['domain.nc#mask','domain.nc#mask_u','domain.nc#mask_v']
+Model.path          = './'
+
+
+# runtype = integer: possible values of runtype are:
+#   0 = do nothing, i.e. a pure run of the model 
+#   1 = still do not assimilate, but compare model to observations
+#   2 = assimilate observations
+
+runtype = 2
+
+# schemetype = integer: possible values of schemetype are:
+#   possible values of "schemetype" are:
+#   0 = global assimilation (default)
+#   1 = local assimilation
+
+schemetype = 0
+
+Zones.partition        = ['domain.nc#part','domain.nc#part(1:99,:)','domain.nc#part(:,1:99)']
+Zones.corrLength.const = [            10e3,                    10e3,                    10e3]
+Zones.maxLength.const  = [            40e3,                    40e3,                    40e3]
+Zones.path = './'
+
+metrictype = 0
+ 
+# logfile contains simple diagnostics such as RMSE with observations
+
+logfile = 'assim.log'
+debugfile = 'assim.debug'
+
+
+inflation.mult = 1.
+
+#------------------------------------------------------------------------------------
+#
+# observations
+
+Obs*.path      = './'
+Obs*.variables  = [              'zeta']
+Obs*.names      = [              'zeta']
+Obs*.gridX      = ['observations.nc#xobs']
+Obs*.gridY      = ['observations.nc#yobs']
+Obs*.gridZ.const      = [  0]
+Obs*.rmse.const = [ 0.05]
+
+# Obs001.time      = '30'
+# Obs001.value      = [      'observations.nc#zetaobs(:,1)']
+# Obs001.mask       = [      'observations.nc#zetaobs(:,1)']
+
+# Obs002.time      = '60'
+# Obs002.value      = [      'observations.nc#zetaobs(:,2)']
+# Obs002.mask       = [      'observations.nc#zetaobs(:,2)']
+
+# Obs003.time      = '90'
+# Obs003.value      = [      'observations.nc#zetaobs(:,3)']
+# Obs003.mask       = [      'observations.nc#zetaobs(:,3)']
+
+# Obs004.time      = '120'
+# Obs004.value      = [      'observations.nc#zetaobs(:,4)']
+# Obs004.mask       = [      'observations.nc#zetaobs(:,4)']
+
+# Obs005.time      = '150'
+# Obs005.value      = [      'observations.nc#zetaobs(:,5)']
+# Obs005.mask       = [      'observations.nc#zetaobs(:,5)']
+
+## for i in $(seq 1 30); do echo "Obs$(printf %03d $i).time      = '$((30*i))'"; echo "Obs$(printf %03d $i).value      = [      'observations.nc#zetaobs(:,$i)']"; echo "Obs$(printf %03d $i).mask       = [      'observations.nc#zetaobs(:,$i)']"; echo; done
+
+Obs001.time      = '30'
+Obs001.value      = [      'observations.nc#zetaobs(:,1)']
+Obs001.mask       = [      'observations.nc#zetaobs(:,1)']
+
+Obs002.time      = '60'
+Obs002.value      = [      'observations.nc#zetaobs(:,2)']
+Obs002.mask       = [      'observations.nc#zetaobs(:,2)']
+
+Obs003.time      = '90'
+Obs003.value      = [      'observations.nc#zetaobs(:,3)']
+Obs003.mask       = [      'observations.nc#zetaobs(:,3)']
+
+Obs004.time      = '120'
+Obs004.value      = [      'observations.nc#zetaobs(:,4)']
+Obs004.mask       = [      'observations.nc#zetaobs(:,4)']
+
+Obs005.time      = '150'
+Obs005.value      = [      'observations.nc#zetaobs(:,5)']
+Obs005.mask       = [      'observations.nc#zetaobs(:,5)']
+
+Obs006.time      = '180'
+Obs006.value      = [      'observations.nc#zetaobs(:,6)']
+Obs006.mask       = [      'observations.nc#zetaobs(:,6)']
+
+Obs007.time      = '210'
+Obs007.value      = [      'observations.nc#zetaobs(:,7)']
+Obs007.mask       = [      'observations.nc#zetaobs(:,7)']
+
+Obs008.time      = '240'
+Obs008.value      = [      'observations.nc#zetaobs(:,8)']
+Obs008.mask       = [      'observations.nc#zetaobs(:,8)']
+
+Obs009.time      = '270'
+Obs009.value      = [      'observations.nc#zetaobs(:,9)']
+Obs009.mask       = [      'observations.nc#zetaobs(:,9)']
+
+Obs010.time      = '300'
+Obs010.value      = [      'observations.nc#zetaobs(:,10)']
+Obs010.mask       = [      'observations.nc#zetaobs(:,10)']
+
+Obs011.time      = '330'
+Obs011.value      = [      'observations.nc#zetaobs(:,11)']
+Obs011.mask       = [      'observations.nc#zetaobs(:,11)']
+
+Obs012.time      = '360'
+Obs012.value      = [      'observations.nc#zetaobs(:,12)']
+Obs012.mask       = [      'observations.nc#zetaobs(:,12)']
+
+Obs013.time      = '390'
+Obs013.value      = [      'observations.nc#zetaobs(:,13)']
+Obs013.mask       = [      'observations.nc#zetaobs(:,13)']
+
+Obs014.time      = '420'
+Obs014.value      = [      'observations.nc#zetaobs(:,14)']
+Obs014.mask       = [      'observations.nc#zetaobs(:,14)']
+
+Obs015.time      = '450'
+Obs015.value      = [      'observations.nc#zetaobs(:,15)']
+Obs015.mask       = [      'observations.nc#zetaobs(:,15)']
+
+Obs016.time      = '480'
+Obs016.value      = [      'observations.nc#zetaobs(:,16)']
+Obs016.mask       = [      'observations.nc#zetaobs(:,16)']
+
+Obs017.time      = '510'
+Obs017.value      = [      'observations.nc#zetaobs(:,17)']
+Obs017.mask       = [      'observations.nc#zetaobs(:,17)']
+
+Obs018.time      = '540'
+Obs018.value      = [      'observations.nc#zetaobs(:,18)']
+Obs018.mask       = [      'observations.nc#zetaobs(:,18)']
+
+Obs019.time      = '570'
+Obs019.value      = [      'observations.nc#zetaobs(:,19)']
+Obs019.mask       = [      'observations.nc#zetaobs(:,19)']
+
+Obs020.time      = '600'
+Obs020.value      = [      'observations.nc#zetaobs(:,20)']
+Obs020.mask       = [      'observations.nc#zetaobs(:,20)']
+
+Obs021.time      = '630'
+Obs021.value      = [      'observations.nc#zetaobs(:,21)']
+Obs021.mask       = [      'observations.nc#zetaobs(:,21)']
+
+Obs022.time      = '660'
+Obs022.value      = [      'observations.nc#zetaobs(:,22)']
+Obs022.mask       = [      'observations.nc#zetaobs(:,22)']
+
+Obs023.time      = '690'
+Obs023.value      = [      'observations.nc#zetaobs(:,23)']
+Obs023.mask       = [      'observations.nc#zetaobs(:,23)']
+
+Obs024.time      = '720'
+Obs024.value      = [      'observations.nc#zetaobs(:,24)']
+Obs024.mask       = [      'observations.nc#zetaobs(:,24)']
+
+Obs025.time      = '750'
+Obs025.value      = [      'observations.nc#zetaobs(:,25)']
+Obs025.mask       = [      'observations.nc#zetaobs(:,25)']
+
+Obs026.time      = '780'
+Obs026.value      = [      'observations.nc#zetaobs(:,26)']
+Obs026.mask       = [      'observations.nc#zetaobs(:,26)']
+
+Obs027.time      = '810'
+Obs027.value      = [      'observations.nc#zetaobs(:,27)']
+Obs027.mask       = [      'observations.nc#zetaobs(:,27)']
+
+Obs028.time      = '840'
+Obs028.value      = [      'observations.nc#zetaobs(:,28)']
+Obs028.mask       = [      'observations.nc#zetaobs(:,28)']
+
+Obs029.time      = '870'
+Obs029.value      = [      'observations.nc#zetaobs(:,29)']
+Obs029.mask       = [      'observations.nc#zetaobs(:,29)']
+
+Obs030.time      = '900'
+Obs030.value      = [      'observations.nc#zetaobs(:,30)']
+Obs030.mask       = [      'observations.nc#zetaobs(:,30)']
+
+
+
+
+
+# diagnostics
+
+# common declaration for all observations
+
+Diag001.stddevxf  =  ['stddevxf.nc#zeta','stddevxf.nc#ubar','stddevxf.nc#vbar']
+Diag001.stddevxa  =  ['stddevxa.nc#zeta','stddevxa.nc#ubar','stddevxa.nc#vbar']
+Diag001.xf        =  ['forecast.nc#zeta','forecast.nc#ubar','forecast.nc#vbar']
+Diag001.xa        =  ['analysis.nc#zeta','analysis.nc#ubar','analysis.nc#vbar']
+Diag001.xa-xf     =  [     'inc.nc#zeta',     'inc.nc#ubar',     'inc.nc#vbar']
+#Diag*.Ea      = ['("../Ens",I3.3,"/model_an.nc#zeta")','("../Ens",I3.3,"/model_an.nc#ubar")']
+
+
+Diag001.Hxf       = [       'diag1.nc#xf']
+Diag001.Hxa       = [       'diag1.nc#xa']
+Diag001.yo        = [       'diag1.nc#yo']
+Diag001.invsqrtR  = [ 'diag1.nc#invsqrtR']
+Diag001.stddevHxf = ['diag1.nc#stddevHxf']
+Diag001.stddevHxa = ['diag1.nc#stddevHxa']
+Diag001.path   = 'Analysis001/'
+#Diag002.path   = 'Analysis002/'
+
+# Analysis
+
+#Analysis*.value =  ['analysis.nc#zeta','analysis.nc#ubar','analysis.nc#vbar']
+#Analysis001.path  =  'Analysis001/'
+
+
+
+# State vector definition
+#
+# Model.variables = vector of strings. Each string a the name of the variable.
+#
+# Model.gridX = vector of strings. Each string is a file name containing 
+#   the longitude of the corresponding variable.
+#
+# Model.gridY = vector of strings. Each string is a file name containing 
+#   the latitude of the corresponding variable.
+#
+# Model.gridZ = vector of strings. Each string is a file name containing 
+#   the depth of the corresponding variable.
+#
+# Model.mask = vector of strings. Each string is a file name containing 
+#   the binary mask of the corresponding variable. Only values where the mask is different
+#   from the FillValue_ attribute are include in the state vector
+#
+# Model.path = 'where/can/I/find/the/files/'
+
+#
+# Error space of the state vector
+#
+# ErrorSpace.dimension = integer: Number of ensemble members/EOFs
+#
+# ErrorSpace.init = vector of strings. Each string is a Fortran format expression. For the ith ensemble member/EOF, 
+#   the file name is obtained by:
+#   write(filename,format) i
+#
+# ErrorSpace.type = integer: possible value of ErrorSpace.type are:
+#   1 = Error Space is given as EOF mode
+#   2 = Error Space is represented as an ensemble
+
+#
+# Zone for local assimilation scheme
+#
+# Zones.partition = vector of strings. Each string is a file name containing 
+#   the zone file of the corresponding variable. The zone files contains an 
+#   array of integers (fractional parts are ignored). Variables are in the same 
+#   zone if the same integer is associated to them. 
+#
+# Zones.corrLength = vector of strings. Each string is a file name containing 
+#   the correlation length of the corresponding variable.
+#
+# Zones.corrLength.const = vector of reals. Each real value is the constant 
+#   correlation length of the corresponding variable.
+#
+# Zones.maxLength = vector of strings. Each string is a file name containing 
+#   the maximum correlation length of the corresponding variable.
+#
+# Zones.maxLength.const = vector of reals. Each real value is the constant 
+#   maximum correlation length of the corresponding variable.
+#
+# Zones.path = string. Path where all files for the zone definition can be found
+
+# Observation
+#
+# XXX = time index of the observation
+# IMPORTANT: Observations must by ordered chronologically
+#
+# ObsXXX.time = 'YYYY-MM-DDThh:mm:ss[.ss]'
+#   YYYY=year  (4 digits integer)
+#   MM=month (2 digits integer)
+#   DD=day   (2 digits integer)
+#   hh=hour (2 digits integer)
+#   mm=min  (2 digits integer)
+#   ss=second (minimum 1 digit integer or real)
+#   
+# ObsXXX.path = 'where/can/I/find/the/files/'
+#
+# ObsXXX.variables = vector of strings. The names must correspond to the names 
+#   chosen in Model.variables. Unknown names are treated as "out of the grid"
+#   and are not assimilated.
+#
+# ObsXXX.value = vector of strings. Each string is a file name containing
+#   the actual values of the observations
+#
+# ObsXXX.gridX = vector of strings. Each string is a file name containing 
+#   the longitude of the observations.
+#
+# ObsXXX.gridY = vector of strings. Each string is a file name containing 
+#   the latitude of the observations.
+#
+# ObsXXX.gridZ = vector of strings. Each string is a file name containing 
+#   the depth of the observations.
+#
+# ObsXXX.rmse = vector of strings. Each string is a file name containing 
+#   the root mean square error of the observations.
+#
+# ObsXXX.mask = vector of strings. Each string is a file name containing 
+#   the binary mask of the observations. Values where the mask is different
+#   from 1 are rejected.
+#
+# ObsXXX.operator = file name. (OPTIONAL) The observation operator stored in a 
+#    sparse matrix form. If this file is given ObsXXX.gridX, Y and Z are not
+#    used.
+#    This matrix contains as many lines as they exist unmasked observation.
+#    Each line has the following 9 columns:
+#    
+#    |Obs. |Obs.   |Obs.   |Obs.   ||Model|Model  |Model  |Model  || Interpo-
+#    |var. |i-index|j-index|k-index||var. |i-index|j-index|k-index|| lation
+#    |index|       |       |       ||index|       |       |       || coefficient
+#
+#    Observation variable index is the position where the observed variable appears 
+#    in ObsXXX.variables. 
+#    Model variable index is the position where the observed variable appears 
+#    in Model.variables. If one of the model indexes is -1 the corresponding
+#    observation is treated "out of grid".
+#
+#    The observation operator can be generated using a trilinear interpolation 
+#    with the tool "genobsoper".
+
+# Diagnostics
+#
+# DiagXXX.stddevxf  = vector of strings. Error standard deviation of forecast
+#
+# DiagXXX.stddevxa  = vector of strings. Error standard deviation of analysis
+#
+# DiagXXX.xf        = vector of strings. Forecast
+#
+# DiagXXX.xa-xf     = vector of strings. Analysis increment
+#
+# DiagXXX.Hxf       = vector of strings. Forecast at observation location
+#
+# DiagXXX.Hxa       = vector of strings. Analysis at observation location
+#
+# DiagXXX.yo        = vector of strings. Observation used during assimilation
+#
+# DiagXXX.invsqrtR  = vector of strings. inverse of the square root of diagonal 
+#   elements of the observation error covariance matrix
+#
+# DiagXXX.stddevHxf = vector of strings. Error standard deviation of forecast
+#   at observation location
+#
+# DiagXXX.stddevHxa = vector of strings. Error standard deviation of analysis
+#   at observation location
+#
+# DiagXXX.Ef = vector of strings. Ensemble of forecasted states 
+#
+# DiagXXX.Ea = vector of strings. Ensemble of states after the analysis
+#
+# DiagXXX.path   = string. Path where all files for the diagnostics can be found

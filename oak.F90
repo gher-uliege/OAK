@@ -46,7 +46,9 @@ module oak
    real, allocatable :: weightf(:), weighta(:)
 
    ! time index of the next observation
-   integer :: obsntime = 1   
+   integer :: obsntime_index = 1   
+   ! time of the next observations (seconds since time origine)
+   real(8) :: obstime_next
 
    ! domain index 
    integer, allocatable :: dom(:)
@@ -55,12 +57,14 @@ module oak
    integer :: ndom
 
    real(8) :: starttime, obstime_previous
-   
+
+   ! true if all observations have been assimilated
+   logical :: all_obs_assim
  end type oakconfig
 
 contains
 
- subroutine oak_init(config,fname,comm,comm_ensmember_,starttime)
+ subroutine oak_init(config,fname,comm,comm_ensmember_,starttime,Nens)
 #ifdef ASSIM_PARALL
   use mpi
 #endif
@@ -74,6 +78,8 @@ contains
   integer, intent(in), optional  :: comm
   integer, intent(out), optional :: comm_ensmember_
   real(8), intent(in), optional :: starttime
+  ! number of ensemble members
+  integer, intent(in), optional :: Nens
 
   integer :: nprocs, nprocs_ensmember
   integer :: ierr
@@ -83,7 +89,13 @@ contains
   if (present(starttime)) config%starttime = starttime
   config%obstime_previous = config%starttime
 
-  call getInitValue(initfname,'ErrorSpace.dimension',config%Nens,default=0)
+  ! get number of ensemble members either from input parameter or from
+  ! configuration file
+  if (present(Nens)) then
+    config%Nens = Nens
+  else  
+    call getInitValue(initfname,'ErrorSpace.dimension',config%Nens)
+  end if
 
 #ifdef ASSIM_PARALL
   call parallInit(communicator=comm)
@@ -122,10 +134,16 @@ contains
   allocate(config%weightf(config%Nens),config%weighta(config%Nens))
   config%weightf = 1./config%Nens
   
+  config%obsntime_index = 1
+  call loadObsTime(config%obsntime_index,config%obstime_next,ierr)
+  ! no more observations are available
+  config%all_obs_assim = ierr /= 0
+  
   ! print diagnostic information
   !  write(6,*) 'OAK is initialized'
   !  write(6,*) 'Total number of processes',nprocs
   !  write(6,*) 'Processes per ensemble member',nprocs_ensmember
+
 
  end subroutine oak_init
 
@@ -510,21 +528,21 @@ contains
 
     allocate( &
          E(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel, &
-         ErrorSpaceDim), &
+         config%Nens), &
          meanx(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel))
     
     !write(6,*) 'orig',x
 
   if (schemetype == LocalScheme) then    
     call loadVectorSpace('ErrorSpace.init',ModMLParallel,E,meanx)
-      E = sqrt(1.*ErrorSpaceDim - ASSIM_SCALING) * E + spread(meanx,2,ErrorSpaceDim)
+      E = sqrt(1.*config%Nens - ASSIM_SCALING) * E + spread(meanx,2,config%Nens)
 
     call oak_spread_members(config,E,x)
   else
     if (procnum == 1) then
       !write(6,*) 'load vector space'
       call loadVectorSpace('ErrorSpace.init',ModML,E,meanx)
-      E = sqrt(1.*ErrorSpaceDim - ASSIM_SCALING) * E + spread(meanx,2,ErrorSpaceDim)
+      E = sqrt(1.*config%Nens - ASSIM_SCALING) * E + spread(meanx,2,config%Nens)
       !write(6,*) 'ensemble',E
     end if
     
@@ -539,6 +557,41 @@ contains
 
 #endif
 
+ !-------------------------------------------------------------
+ !
+ ! check is observations are available for assimilation
+ 
+ function oak_obs_available(config,time) result(available)
+  implicit none
+  type(oakconfig), intent(inout) :: config
+  real(8), intent(in) :: time
+  logical :: available
+
+  integer :: ierr
+  real(8) :: obstime
+
+  ! call loadObsTime(config%obsntime_index,obstime,ierr)    
+  ! if (ierr /= 0) then
+  !   ! no more observations are available
+  !   available = .false.
+  !   return
+  ! end if
+
+  ! !write(6,*) 'time, obstime',time, obstime
+  ! ! we assume that the model starts earlier than the observations
+  ! available = time >= obstime
+
+
+  if (config%all_obs_assim) then
+    ! no more observations are available
+    available = .false.
+    return
+  end if
+
+  ! we assume that the model starts earlier than the observations
+  available = time >= config%obstime_next
+
+ end function oak_obs_available
  !-------------------------------------------------------------
  !
  ! x is the state vector with all variables concatenated and masked points 
@@ -579,7 +632,7 @@ contains
   type(DCDCovar), target :: tmpR
 
   ! time of the next observation
-  call loadObsTime(config%obsntime,obstime,ierr)    
+  call loadObsTime(config%obsntime_index,obstime,ierr)    
   if (ierr /= 0) then
     ! no more observations are available
     !write(6,*) 'no more obs',procnum
@@ -594,8 +647,8 @@ contains
 
     if (procnum == 1) then
       allocate( &
-         Ea(ModML%effsize,ErrorSpaceDim), &
-         Ef(ModML%effsize,ErrorSpaceDim))
+         Ea(ModML%effsize,config%Nens), &
+         Ef(ModML%effsize,config%Nens))
     end if
     !write(6,*) 'diff f',x
     call oak_gather_master(config,x,Ef)
@@ -607,20 +660,20 @@ contains
         !dbg(Ef)
 
         ntime = nint(time / model_dt)
-        call loadObsTime(config%obsntime+1,obstime_next,ierr)    
+        call loadObsTime(config%obsntime_index+1,obstime_next,ierr)    
 
         if (ierr == 0) then
           obsVec = nint(obstime / model_dt)
           dt_obs = nint((obstime - config%obstime_previous) / model_dt)
 
-          call fmtIndex('',config%obsntime+1,'.',infix)
+          call fmtIndex('',config%obsntime_index+1,'.',infix)
           call MemoryLayout('Obs'//trim(infix),ObsML,.true.)
           allocate(yo(ObsML%effsize), &
                exclude_obs(ObsML%effsize), &
                Hshift(ObsML%effsize))
 
-          call loadObs(config%obsntime+1,ObsML,yo,R,exclude_obs)
-          call loadObservationOper(config%obsntime+1,ObsML,H,Hshift,exclude_obs)
+          call loadObs(config%obsntime_index+1,ObsML,yo,R,exclude_obs)
+          call loadObservationOper(config%obsntime_index+1,ObsML,H,Hshift,exclude_obs)
           if (any(exclude_obs)) then
             ! multiply R left and right by the inverses of diagonal matrix D which 0 for 
             ! excluded observation and 1 otherwise
@@ -642,7 +695,7 @@ contains
         write(stddebug,*) 'analysis step',time
         !dbg(config%weightf)
 
-        call assim(config%obsntime,Ef,Ea, & 
+        call assim(config%obsntime_index,Ef,Ea, & 
              weightf=config%weightf,weighta=config%weighta)
         config%weightf = config%weighta
         Ef = Ea
@@ -652,14 +705,16 @@ contains
 
       end if
 
-      config%obsntime = config%obsntime +1    
+      config%obsntime_index = config%obsntime_index +1    
+      call loadObsTime(config%obsntime_index,config%obstime_next,ierr)
+      ! no more observations are available
+      config%all_obs_assim = ierr /= 0
       config%obstime_previous = obstime
     end if
 
     call oak_spread_master(config,Ef,x)   
 
-    !write(6,*) 'diff a',x
-    dbg(x)
+    !dbg(x)
 
     if (procnum == 1) then
       deallocate(Ea,Ef)
@@ -668,40 +723,89 @@ contains
 
     if (schemetype == LocalScheme) then
       allocate( &
-           Ea(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel,ErrorSpaceDim), &
-           Ef(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel,ErrorSpaceDim))
+           Ea(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel,config%Nens), &
+           Ef(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel,config%Nens))
 
       call oak_gather_members(config,x,Ef)
 
       !Ea = Ef
       ! analysis
       !write(6,*) 'Ef ',Ef
-      call assim(config%obsntime,Ef,Ea)
+      call assim(config%obsntime_index,Ef,Ea)
       !write(6,*) 'Ea ',Ea
       call oak_spread_members(config,Ea,x)
     else
+      ! global analysis
+
       ! collect at master
       allocate( &
-           Ea(ModML%effsize,ErrorSpaceDim), &
-           Ef(ModML%effsize,ErrorSpaceDim))
+           Ea(ModML%effsize,config%Nens), &
+           Ef(ModML%effsize,config%Nens))
 
       call oak_gather_master(config,x,Ef)
       Ea = Ef
       if (procnum == 1) then
-        write(6,*) 'model ',procnum,'has loc ',shape(Ef)
+        !write(6,*) 'model ',procnum,'has loc ',shape(Ef)
         ! weights are not used unless  schemetype == EWPFScheme
-        call assim(config%obsntime,Ef,Ea,weightf=config%weightf,weighta=config%weighta)
+        call assim(config%obsntime_index,Ef,Ea,weightf=config%weightf,weighta=config%weighta)
         ! for testing
         !Ea = Ef
+        !write(6,*) 'diffE ',maxval(abs(Ef-Ea))
       end if
       call oak_spread_master(config,Ea,x)   
     end if
 
 
-    config%obsntime = config%obsntime +1
+    config%obsntime_index = config%obsntime_index +1
+    call loadObsTime(config%obsntime_index,config%obstime_next,ierr)
+    ! no more observations are available
+    config%all_obs_assim = ierr /= 0
     config%obstime_previous = obstime
+    
     deallocate(Ea,Ef)
   end if
  end subroutine oak_assim
+
+ subroutine oak_assim_ens(config,time,v1,v2,v3,v4,v5,v6,v7,v8)
+  implicit none
+  type(oakconfig), intent(inout) :: config
+  real(8), intent(in) :: time
+
+  real, intent(inout) :: v1(*)
+  real, intent(inout), optional :: v2(*),v3(*),v4(*),v5(*),v6(*),v7(*),v8(*)
+
+  real, allocatable :: E(:,:), x(:)
+  real :: tmp(100*100)
+
+  ! note the EWPF schemes works at every time step
+  if (.not.oak_obs_available(config,time) .and. schemetype /= EWPFScheme) then
+    ! nothing to do
+    return
+  end if
+
+  write(6,*) 'assimilation',time
+  
+# ifndef ASSIM_PARALL
+  ! the ensemble is on a single process
+  allocate(E(ModML%effsize,config%Nens))
+  call packEnsemble(ModMLParallel,E,v1,v2,v3,v4,v5,v6,v7,v8)
+  call oak_assim(config,time,E)
+  call unpackEnsemble(ModMLParallel,E,v1,v2,v3,v4,v5,v6,v7,v8)
+  deallocate(E)
+# else
+  ! the ensemble is distributed and every process has (at maximum) a state 
+  ! vector
+
+  ! v1,v2,... could also be only subdomains
+  ! we need a different "ModML" to handle this
+  allocate(x(ModML%effsize))
+  call packVector(ModMLParallel,x,v1,v2,v3,v4,v5,v6,v7,v8)
+  call oak_assim(config,time,x)
+  call unpackVector(ModMLParallel,x,v1,v2,v3,v4,v5,v6,v7,v8)
+  deallocate(x)
+# endif
+  
+ end subroutine 
+
 !#endif
 end module oak

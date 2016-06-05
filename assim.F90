@@ -37,7 +37,7 @@ program assimtest
  integer            :: iargc, ntime, enstype
  character(len=124) :: str
  character(len=124) :: ntimeindex
-
+ integer            :: ErrorSpaceDim
 
 
  if (iargc().ne.2) then
@@ -51,6 +51,8 @@ program assimtest
 
  call getarg(1,str); call init(str)
  call getarg(2,str); read(str,*) ntime  
+ call getInitValue(initfname,'ErrorSpace.dimension',ErrorSpaceDim,default=0) 
+
 
  allocate(xf(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel), &
       xa(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel), &
