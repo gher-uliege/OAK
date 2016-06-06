@@ -22,7 +22,7 @@ Model.gridX         = [ 'domain.nc#lon', 'domain.nc#lon']
 Model.gridY         = [ 'domain.nc#lat', 'domain.nc#lat']
 Model.gridZ         = [   'domain.nc#z',   'domain.nc#z']
 Model.mask          = ['domain.nc#mask','domain.nc#mask']
-Model.path          = 'Common/'
+Model.path          = 'tmp-data/'
 
 # Error space of the state vector
 
@@ -53,7 +53,7 @@ schemetype = 0
 Zones.partition        = ['domain.nc#part','domain.nc#part']
 Zones.corrLength.const = [           30e3,             30e3]
 Zones.maxLength.const  = [         2000e3,           2000e3]
-Zones.path = 'Common/'
+Zones.path = 'tmp-data/'
 
  
 # logfile contains simple diagnostics such as RMSE with observations
@@ -67,7 +67,7 @@ debugfile = 'assim.debug'
 # observations
 
 Obs001.time      = '2010-07-06T00:00:00'
-Obs001.path      = 'Obs/'
+Obs001.path      = 'tmp-data/'
 Obs001.variables  = [              'var1']
 Obs001.names      = [      'var1_surface']
 Obs001.gridX      = [       'obs1.nc#lon']
@@ -78,17 +78,6 @@ Obs001.mask       = [      'obs1.nc#var1']
 Obs001.rmse       = [      'obs1.nc#rmse']
 
 
-Obs002.time      = '2010-07-07T00:00:00'
-Obs002.path      = 'Obs/'
-Obs002.variables  = [              'var1']
-Obs002.names      = [      'var1_surface']
-Obs002.gridX      = [       'obs1.nc#lon']
-Obs002.gridY      = [       'obs1.nc#lat']
-Obs002.gridZ      = [         'obs1.nc#z']
-Obs002.value      = [      'obs1.nc#var1']
-Obs002.mask       = [      'obs1.nc#var1']
-Obs002.rmse       = [      'obs1.nc#rmse']
-
 # diagnostics
 
 # common declaration for all observations
@@ -97,7 +86,7 @@ Diag*.stddevxf  =  ['stddevxf.nc#var1','stddevxf.nc#var2']
 Diag*.stddevxa  =  ['stddevxa.nc#var1','stddevxa.nc#var2']
 Diag*.xf        =  ['forecast.nc#var1','forecast.nc#var2']
 Diag*.xa-xf     =  [     'inc.nc#var1',     'inc.nc#var2']
-Diag*.Ea      = ['("../Ens",I3.3,"/model_an.nc#var1")','("../Ens",I3.3,"/model_an.nc#var2")']
+#Diag*.Ea      = ['("../Ens",I3.3,"/model_an.nc#var1")','("../Ens",I3.3,"/model_an.nc#var2")']
 
 
 Diag001.Hxf       = [       'diag1.nc#xf']
@@ -106,13 +95,12 @@ Diag001.yo        = [       'diag1.nc#yo']
 Diag001.invsqrtR  = [ 'diag1.nc#invsqrtR']
 Diag001.stddevHxf = ['diag1.nc#stddevHxf']
 Diag001.stddevHxa = ['diag1.nc#stddevHxa']
-Diag001.path   = 'Analysis001/'
-Diag002.path   = 'Analysis002/'
+Diag001.path   = 'tmp-data/'
 
 # Analysis
 
 Analysis*.value =  ['analysis.nc#var1','analysis.nc#var2']
-Analysis001.path  =  'Analysis001/'
+Analysis001.path  =  'tmp-data/'
 
 
 
