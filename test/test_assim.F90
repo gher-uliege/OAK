@@ -86,7 +86,7 @@ program test_assim
  zobs = z(2,2)
  maskobs = mask(2,2)
  yo = 1
- R = eye(m)
+ R = 2*eye(m)
 
 
  call getInitValue(initfname,'Obs001.mask',masknames)
@@ -142,9 +142,7 @@ program test_assim
  Eap = Ea - spread(xa,2,Nens)
   
  ! check results
- call assert(xa,xa_check,tol,'analysis')
-  
- call assert(sum(Ea,2)/Nens,xa_check,tol, &
+ call assert(xa,xa_check,tol, &
       'analysis ensemble mean')
 
  call assert(matmul(Eap,transpose(Eap)) / (Nens-1.),Pa_check, tol, &
