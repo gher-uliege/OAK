@@ -13,13 +13,6 @@ Model.gridZ         = [   'domain.nc#z',   'domain.nc#z']
 Model.mask          = ['domain.nc#mask','domain.nc#mask']
 Model.path          = 'Common/'
 
-# General configuration options
-
-Config.exec = '/path/to/assim-executable'
-Config.calendar = 'standard'
-Config.time_origin  = '0001-01-01T00:00:00'
-Config.FillValue    = -999999. 
-
 
 # Error space of the state vector
 

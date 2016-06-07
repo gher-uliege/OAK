@@ -21,8 +21,6 @@
 ! include the fortran preprocessor definitions
 #include "ppdef.h"
 
-#define PROFILE
-
 module assimilation
  use ndgrid
 
@@ -294,7 +292,7 @@ contains
 !     ERROR_STOP
 !   end if
 ! # endif
-  
+
   call initAnamorphosis(fname,stddebug)
 
 
@@ -531,7 +529,6 @@ contains
     stddebug = stdout
   end if
 #endif
- 
  end subroutine localInit
 
  !_______________________________________________________
@@ -551,15 +548,16 @@ contains
   deallocate(biasf,biasa,maxCorrection)
   deallocate(ModelGrid,hres)
 
-   if (schemetype.eq.LocalScheme) then
-     deallocate(partition)
-     deallocate(hCorrLengthToObs)
-     deallocate(hMaxCorrLengthToObs)
-     deallocate(zoneSize)
-     deallocate(zoneIndex)
-     deallocate(invZoneIndex)
-     deallocate(startIndexZones,endIndexZones)
-   end if
+  if (schemetype.eq.LocalScheme) then
+    deallocate(partition)
+    deallocate(hCorrLengthToObs)
+    deallocate(hMaxCorrLengthToObs)
+    deallocate(zoneSize)
+    deallocate(zoneIndex)
+    deallocate(startIndexZones,endIndexZones)
+  end if
+  
+  deallocate(invZoneIndex)
   close(stdlog)
 #ifdef DEBUG
   close(stddebug)
@@ -1247,7 +1245,6 @@ end subroutine fmtIndex
 
 # ifdef PROFILE
   call cpu_time(cputime(2))
-
   write(stddebug,*) 'Profiling: loadVectorSpace',procnum
   write(stddebug,*) 'load data  ',cputime(2)-cputime(1)
   call flush(stddebug,istat)

@@ -73,8 +73,10 @@ Obs001.gridY      = [       'obs1.nc#lat']
 Obs001.gridZ      = [         'obs1.nc#z']
 Obs001.value      = [      'obs1.nc#var1']
 Obs001.mask       = [      'obs1.nc#var1']
-Obs001.rmse       = [      'obs1.nc#rmse']
-
+Obs001.SMWCovar.SqrtDiag       = [      'obs1.nc#rmse']
+Obs001.SMWCovar.dimension   = 10
+Obs001.SMWCovar.ErrorSpace   = ['("S",I3.3,"-obs.nc#var1")']
+Obs001.SMWCovar.path   = 'tmp-data/'
 
 # diagnostics
 

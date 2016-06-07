@@ -74,7 +74,9 @@ contains
   if (present(debug)) stddebug = debug
 
   if (.not.presentInitValue(initfname,'Anamorphosis.transform')) then
+#ifdef DEBUG
     write(stddebug,'("== no anamorphosis transform loaded ==")')    
+#endif
     return
   end if
 
