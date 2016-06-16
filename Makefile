@@ -28,14 +28,11 @@
 include config.mk
 
 # default settings
-# If you need to adapt, OS and FORT, then make the corresponding changes in config.mk
+# If you need to adapt any of these variabels OS, FORT, ... JOBS, then make the corresponding changes in config.mk
 
 OS ?= Linux
-
 FORT ?= gfortran
-
 FORMAT ?= big_endian
-
 PRECISION ?= double
 USE_MPIF90 ?= on
 MPI ?= 
@@ -43,8 +40,8 @@ OPENMP ?=
 DEBUG ?= 
 JOBS ?= 1
 
+VERSION=1.6
 OAK_SONAME ?= liboak.so.1
-
 OAK_LIBNAME ?= liboak.a
 
 include Compilers/$(OS)-$(strip $(FORT)).mk
@@ -241,3 +238,12 @@ test: test/test_covariance test/test_ndgrid test/test_cellgrid test/assimtest2 t
 	test/test_cholmod_wrapper
 	test/test_cholmod
 	test/test_assim
+
+release:
+	TMPOAK=$$(mktemp -d -t --suffix -OAK); \
+	svn export . $$TMPOAK/OAK-$(VERSION); \
+	mv $$TMPOAK/OAK-$(VERSION)/config.mk.template $$TMPOAK/OAK-$(VERSION)/config.mk; \
+	tar -cvzf OAK-$(VERSION).tar.gz -C $$TMPOAK --exclude-vcs  OAK-$(VERSION)
+
+upload:
+	scp OAK-$(VERSION).tar.gz modb:/var/lib/mediawiki/upload/Alex/OAK/release/
