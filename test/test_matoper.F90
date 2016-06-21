@@ -15,6 +15,7 @@ program test_matoper
  call test_mergesort
  call test_unique
  call test_sparse
+ call test_randperm
 
 
  contains
@@ -232,4 +233,21 @@ program test_matoper
 
 
  end subroutine test_sparse
+
+ !_______________________________________________________
+ !
+
+ subroutine test_randperm
+  implicit none
+  
+  integer, parameter :: n = 10
+  integer :: ind(n), nu
+  ind = randperm(n)
+  call unique(ind,nu)
+
+  ! check if we have no repetion
+  call assert(nu,n,'randperm')
+ end subroutine test_randperm
+ 
+
 end program test_matoper

@@ -464,6 +464,28 @@ contains
     E = E-6
   end function randn_vec
 
+  !_______________________________________________________
+  !
+  ! random permutation
+  ! Knuth shuffles
+  ! https://en.wikipedia.org/w/index.php?title=Random_permutation&oldid=716663005
+
+  function randperm(n) result(ind)
+   implicit none
+   integer, intent(in) :: n ! length of the permutation vector
+
+   integer :: ind(n), i, j, tmp
+   real :: r
+   ind = [(i,i=1,n)]
+   do i = 1,n-1
+     call random_number(r)
+     j = floor(r*(n-i))
+     ! swap ind(i) and ind(i+j)
+     tmp = ind(i)
+     ind(i) = ind(i+j)
+     ind(i+j) = tmp
+   end do
+  end function 
 !_______________________________________________________
 !
 
