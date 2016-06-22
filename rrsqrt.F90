@@ -607,7 +607,7 @@ contains
  !_______________________________________________________
  !
 
- subroutine ensAnalysis(Ef,HEf,yo, R,Ea, amplitudes)
+ subroutine ensAnalysis(Ef,HEf,yo, R,Ea, amplitudes, xa)
   implicit none
 
   real, intent(in) :: yo(:)
@@ -625,13 +625,13 @@ contains
    real, intent(inout) :: Ef(:,:),  HEf(:,:)
 #endif
 
-  real, intent(out) :: Ea(:,:)
+  real, intent(out), optional :: Ea(:,:)
   real, intent(out), optional :: amplitudes(size(Ef,2))
-
+  real, intent(out), optional :: xa(:)
 
   ! N: ensemble size
   integer :: N,i
-  real, dimension(size(Ef,1)) :: xf,xa
+  real, dimension(size(Ef,1)) :: xf,xa_
   real, dimension(size(HEf,1)) :: Hxf
 
 #ifdef COPY_ERRORSPACE
@@ -648,21 +648,23 @@ contains
     HSf(:,i) = (HEf(:,i) - Hxf)/sqrt(N-1.)
   end do
 
-  call analysis(xf,Hxf,yo,Sf,HSf, R, xa,Ea, amplitudes)  
+  call analysis(xf,Hxf,yo,Sf,HSf, R, xa_,Ea, amplitudes)  
 #else
   do i=1,N
     Ef(:,i) = (Ef(:,i) - xf)/sqrt(N-1.)
     HEf(:,i) = (HEf(:,i) - Hxf)/sqrt(N-1.)
   end do
 
-  call analysis(xf,Hxf,yo,Ef,HEf, R, xa,Ea, amplitudes)
+  call analysis(xf,Hxf,yo,Ef,HEf, R, xa_,Ea, amplitudes)
 #endif
 
+  if (present(Ea)) then
+    do i=1,N
+      Ea(:,i) = xa_ + sqrt(N-1.) * Ea(:,i)
+    end do
+  end if
 
-  do i=1,N
-    Ea(:,i) = xa + sqrt(N-1.) * Ea(:,i)
-  end do
-
+  if (present(xa)) xa = xa_
  end subroutine ensanalysis
  !_______________________________________________________
  !
