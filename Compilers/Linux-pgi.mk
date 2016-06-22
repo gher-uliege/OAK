@@ -11,23 +11,20 @@ LDFLAGS ?=
 #PROFILING_F90FLAGS ?= -Mprof=dwarf
 #PROFILING_LDFLAGS ?= -Mprof=dwarf
 # -Mprof=hwcts  -Mprof=func -Mprof=lines -Mprof=time
+
+DEBUG_F90FLAGS += -g -C -Mchkptr
+
+#OPTIM_F90FLAGS += -u -fastsse -Mipa=fast
+OPTIM_F90FLAGS += -O3 -Mflushz
+
+OPENMP_F90FLAGS += -mp
+OPENMP_LDFLAGS += -mp
+
 PROFILING_F90FLAGS ?= -Minfo=ccff
 PROFILING_LDFLAGS ?= $(PROFILING_F90FLAGS)
 
 PIC_F90FLAGS=-fPIC
 PIC_CFLAGS=-fPIC
-
-ifdef OPENMP
-  F90FLAGS += -mp
-  LDFLAGS += -mp
-endif
-
-ifdef DEBUG
-  F90FLAGS += -g -C -Mchkptr
-else
-#  F90FLAGS += -u -fastsse -Mipa=fast
-  F90FLAGS += -O3 -Mflushz
-endif
 
 ifeq ($(PRECISION),double)
   F90FLAGS += -r8

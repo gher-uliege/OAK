@@ -11,18 +11,11 @@ CFLAGS=-q64
 MPIF90=mpxlf90
 EXTRA_LDFLAGS = -brename:.flush,.flush_  -brename:.match,.match_
 
+DEBUG_F90FLAGS += -g -C
+OPTIM_F90FLAGS += -O3
 
-ifdef OPENMP
-  F90FLAGS += -qsmp=omp
-  LDFLAGS += -qsmp=omp
-endif
-
-ifdef DEBUG
-  F90FLAGS += -g -C
-else
-  F90FLAGS += -O3
-endif
-
+OPENMP_F90FLAGS += -qsmp=omp
+OPENMP_LDFLAGS += -qsmp=omp
 
 ifeq ($(FORMAT),big_endian)
   F90FLAGS +=
