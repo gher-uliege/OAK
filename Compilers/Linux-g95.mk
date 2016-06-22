@@ -10,13 +10,9 @@ LDFLAGS ?=
 
 # OpenMP is not availble
 
+DEBUG_F90FLAGS += -g -fbounds-check -ftrace=full
 
-
-ifdef DEBUG
-  F90FLAGS += -g -fbounds-check -ftrace=full
-else
-  F90FLAGS += -O3
-endif
+OPTIM_F90FLAGS += -O3
 
 ifeq ($(PRECISION),double)
   F90FLAGS += -fdefault-real-8

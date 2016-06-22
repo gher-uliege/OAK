@@ -13,25 +13,21 @@ LDFLAGS ?=
 
 #F90FLAGS += -heap-arrays 
 
+DEBUG_F90FLAGS = -g -fbounds-check
+
+OPTIM_F90FLAGS = -vec-report0 -O3
+
+OPENMP_F90FLAGS = -openmp
+OPENMP_LDFLAGS = -openmp
+
 PROFILING_F90FLAGS ?= -profile-functions -profile-loops=all -profile-loops-report=2
 PROFILING_LDFLAGS ?=  -profile-functions -profile-loops=all -profile-loops-report=2
 
-#PROFILING_F90FLAGS ?= -prof-gen
-#PROFILING_LDFLAGS ?= -prof-gen
+PROFILING_F90FLAGS ?= -p
+PROFILING_LDFLAGS ?= -p
 
 PIC_F90FLAGS=-fPIC
 PIC_CFLAGS=-fPIC
-
-ifdef OPENMP
-  F90FLAGS += -openmp
-  LDFLAGS += -openmp
-endif
-
-ifdef DEBUG
-  F90FLAGS += -g -check all -traceback
-else
-  F90FLAGS += -O3 
-endif
 
 ifeq ($(PRECISION),double)
   F90FLAGS += -r8
