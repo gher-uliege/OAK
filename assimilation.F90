@@ -2122,7 +2122,6 @@ end subroutine fmtIndex
 
  subroutine loadObservationCorr(ntime,ObsML,C)
   use initfile
-!  use grids
   use ufileformat
   use matoper
   implicit none
@@ -2224,7 +2223,6 @@ end subroutine fmtIndex
 
  subroutine loadObservationOper(ntime,ObsML,H,Hshift,invsqrtR)
   use initfile
-!  use grids
   use ufileformat
   use matoper
   implicit none
@@ -2425,7 +2423,6 @@ end subroutine fmtIndex
 
  subroutine genObservationOper(ntime,ObsML,Hindex,Hcoeff)
   use initfile
-!  use grids
   use ufileformat
   implicit none
   integer, intent(in)  :: ntime
@@ -2624,7 +2621,6 @@ end subroutine fmtIndex
 
  subroutine genObservationCorr(ntime,ObsML,Rindex,Rcoeff)
   use initfile
-!  use grids
   use ufileformat
   implicit none
   integer, intent(in)  :: ntime
