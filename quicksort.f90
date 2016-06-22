@@ -36,7 +36,6 @@ integer(INTPREC), dimension(nA), intent(inout) :: idx_a ! sorted indecies of a
 integer(INTPREC) :: left, right, mid
 real(REALPREC) :: pivot, temp
 integer(INTPREC) :: marker, idx_temp
-integer(INTPREC) :: i ! counter
 
 if (nA > 1) then
 ! insertion sort limit of 47 seems best for sorting 10 million

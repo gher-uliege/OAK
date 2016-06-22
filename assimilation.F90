@@ -4696,12 +4696,12 @@ subroutine ewpf_analysis(xf,Sf,weight,H,R, &
  integer :: i
 
  ! parameters keep, ... are always in double precision
- tmp = keep
- call getInitValue(initfname,'EWPF.keep',tmp,default=tmp)
+ tmp = real(keep)
+ call getInitValue(initfname,'EWPF.keep',tmp,default=real(keep))
  keep = tmp
 
- tmp = nstd
- call getInitValue(initfname,'EWPF.nstd',tmp,default=tmp)
+ tmp = real(nstd)
+ call getInitValue(initfname,'EWPF.nstd',tmp,default=real(nstd))
  nstd = tmp
 
  tmp = nmean
