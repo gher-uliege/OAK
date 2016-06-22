@@ -2077,7 +2077,8 @@ end subroutine fmtIndex
 
   ! obs. error covariance
 
-  if (presentInitValue(initfname,trim(prefix)//'rmse')) then 
+  if (presentInitValue(initfname,trim(prefix)//'rmse').or. &
+      presentInitValue(initfname,trim(prefix)//'rmse.const')) then
     ! diagonal R
     !
     !  ObsXXX.rmse
