@@ -68,7 +68,9 @@ contains
   character(len=maxLen), pointer :: transname(:)
   integer :: i
   real :: valex
+#ifdef DEBUG
   character(len=30) :: infoformat = '(A50,2E14.5)'
+#endif
   character(len=maxLen) :: path
 
   if (present(debug)) stddebug = debug
@@ -176,7 +178,7 @@ contains
   real, dimension(:,:,:), intent(out) :: T,S
 
   integer :: i,j,k,imax,jmax,kmax,nbout
-  real :: dT,dS,dZ,sumXY,diffXY,X2
+  real :: dT,dS,dZ,X2
   logical :: out
 
 
@@ -304,7 +306,7 @@ contains
   real :: yi
 
   real :: alpha
-  integer :: j,k,kp
+  integer :: k,kp
 
   yi = xi
   k = -1

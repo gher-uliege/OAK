@@ -203,8 +203,8 @@ if (xy%typex.eq.reg.and.xy%typey.eq.reg) then
 
       ri = (xi - xy%x0)/xy%dx;  
       rj = (yi - xy%y0)/xy%dy;  
-      i = ri
-      j = rj
+      i = int(ri)
+      j = int(rj)
 
       if (i.lt.1)       then; i=1;         ri = i;       end if
       if (i.ge.xy%imax) then; i=xy%imax-1; ri = xy%imax; end if
@@ -342,9 +342,9 @@ if (xy%typex.eq.reg.and.xy%typey.eq.reg.and.xy%typez.eq.reg) then
     rj = (yi - xy%y0)/xy%dy;  
     rk = (zi - xy%z0)/xy%dz;  
 
-    i = ri
-    j = rj
-    k = rk
+    i = int(ri)
+    j = int(rj)
+    k = int(rk)
 
     if (i.lt.1)       then; i=1;         ri = i;       end if
     if (i.ge.xy%imax) then; i=xy%imax-1; ri = xy%imax; end if
@@ -372,9 +372,9 @@ if (xy%typex.eq.reg.and.xy%typey.eq.reg.and.xy%typez.eq.reg) then
         si(7)=i;   sj(7)=j+1; sk(7)=k+1; sc(7)=(1-a)*   b *c
         si(8)=i+1; sj(8)=j+1; sk(8)=k+1; sc(8)=   a *   b *c
     else
-        i = (xi - xy%x0)/xy%dx+.5
-        j = (yi - xy%y0)/xy%dy+.5
-        k = (zi - xy%z0)/xy%dz+.5
+        i = int((xi - xy%x0)/xy%dx+.5)
+        j = int((yi - xy%y0)/xy%dy+.5)
+        k = int((zi - xy%z0)/xy%dz+.5)
 
         if (i.lt.1)       i=1;       
         if (i.gt.xy%imax) i=xy%imax; 
@@ -389,8 +389,8 @@ if (xy%typex.eq.reg.and.xy%typey.eq.reg.and.xy%typez.eq.reg) then
           si(1) = i; sj(1) = j; sk(1) = k; sc(1) = 1
         else
           n = 0
-		end if
-	end if
+        end if
+    end if
 elseif (xy%typex.eq.reg.and.xy%typey.eq.reg.and.xy%typez.eq.irreg) then
       out = xi.lt.xy%x0+xy%dx-toleranceX.or.xi.gt.xy%x0+xy%dx*xy%imax+toleranceX.or. &
             yi.lt.xy%y0+xy%dy-toleranceY.or.yi.gt.xy%y0+xy%dy*xy%jmax+toleranceY
@@ -399,8 +399,8 @@ elseif (xy%typex.eq.reg.and.xy%typey.eq.reg.and.xy%typez.eq.irreg) then
 
       ri = (xi - xy%x0)/xy%dx;  
       rj = (yi - xy%y0)/xy%dy;  
-      i = ri
-      j = rj
+      i = int(ri)
+      j = int(rj)
 
       if (i.lt.1)       then; i=1;         ri = i;       end if
       if (i.ge.xy%imax) then; i=xy%imax-1; ri = xy%imax; end if

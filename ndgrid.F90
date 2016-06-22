@@ -436,7 +436,7 @@ contains
 
   if (abs(determ) > tol) then
     out = .not.all(0d0-tol <= c .and.c <= 1d0+tol)
-    coeff = c
+    coeff = real(c)
     return
   end if
 
