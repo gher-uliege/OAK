@@ -13,7 +13,7 @@ LDFLAGS ?=
 
 #F90FLAGS += -heap-arrays 
 
-DEBUG_F90FLAGS = -g -fbounds-check
+DEBUG_F90FLAGS = -g -check all -traceback
 
 OPTIM_F90FLAGS = -vec-report0 -O3
 
