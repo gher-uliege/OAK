@@ -900,25 +900,44 @@ end subroutine
 !
 ! A = V' diag(E) V 
 
-subroutine symeig_TYPE(A,E,V,nbiggest,nsmallest,indices,INFO)
-implicit none
-REAL_TYPE, intent(in)  :: A(:,:)
-REAL_TYPE,         intent(out) :: E(size(A,1))
-integer, optional, intent(in) :: nbiggest, nsmallest,indices(2)
-REAL_TYPE, optional, target, intent(out) :: V(:,:)
-integer, optional, intent(out) :: info
 
-character :: jobz
-REAL_TYPE, pointer :: pV(:,:)
-REAL_TYPE :: rlwork, tmp
-integer :: lwork, myinfo, N, iwork(5*size(A,1)), ifail(size(A,1)), i,j
-REAL_TYPE, allocatable :: work(:)
+ subroutine symeig_TYPE(A,E,V,nbiggest,nsmallest,indices,info,work)
 
-! LAPACK Machine precision routine
+  ! Compute eigenvalue/-vector of a symetric matrix
+  ! A = V diag(E) V'
 
-real :: slamch
-integer :: r,idummy,ind(2)
+  implicit none
 
+  ! Input
+  REAL_TYPE, intent(in)  :: A(:,:)                   ! symetrix matrix
+
+  ! Output
+  REAL_TYPE, intent(out) :: E(size(A,1))             ! eigenvalues
+
+  ! Optional inputs
+  integer, optional, intent(in) :: nbiggest        ! retain only the n biggest
+  ! eigenvalues
+  integer, optional, intent(in) :: nsmallest       ! retain only the n smallest
+  ! eigenvalues
+  integer, optional, intent(in) :: indices(2)      ! retain eigenvalues from 
+  ! indeces(1) to indices(2)
+  REAL_TYPE, optional, target, intent(out) :: V(:,:) ! eigenvectors
+  integer, optional, intent(out) :: info           ! info is zero if sucessful
+
+  REAL_TYPE, optional, intent(inout) :: work(:)      ! work array
+
+
+  ! Local variable
+  character :: jobz
+  REAL_TYPE, pointer :: pV(:,:)
+  REAL_TYPE :: rlwork, tmp
+  integer :: lwork, myinfo, N, iwork(5*size(A,1)), ifail(size(A,1)), i,j
+  REAL_TYPE, allocatable :: work_(:)
+
+  ! LAPACK Machine precision routine
+
+  REAL_TYPE :: slamch
+  integer :: r,idummy,ind(2)
 
 #ifndef ALLOCATE_LOCAL_VARS
   REAL_TYPE :: copyA(size(A,1),size(A,2))
@@ -927,70 +946,84 @@ integer :: r,idummy,ind(2)
   allocate(copyA(size(A,1),size(A,2)))
 #endif
 
+  N = size(A,1)
 
+  if (.not.(present(nbiggest).or.present(nsmallest).or.present(indices)).and.present(V)) then
+    ! call dsyev which is faster than dsyevx
 
-jobz='n'
-N = size(A,1)
-r = n
+    if (.not.present(work)) then
+      ! determine optimal work space
+      call syev_TYPE('V', 'L', N, V, N, E, rlwork, -1, myinfo)
+      lwork = nint(rlwork)
+      allocate(work_(lwork))
+      V = A
+      call syev_TYPE('V', 'L', N, V, N, E, work_, lwork, myinfo)
+      deallocate(work_)
+    else
+      ! use provided work array
+      V = A
+      CALL syev_TYPE('V', 'L', N, V, N, E, work, size(work), myinfo)
+    end if
 
-if (present(V)) then
-  jobz='v'
-  pV => V
-else
-  allocate(pV(1,1))
-end if
+    if (present(info)) info = myinfo
+    return
+  end if
 
-ind = (/ 1,n /)
+  jobz='n'
+  r = n
 
-if (present(nbiggest))  ind = (/ n-nbiggest+1,n /)
-if (present(nsmallest)) ind = (/ 1,nsmallest /)
-if (present(indices))   ind = indices
+  if (present(V)) then
+    jobz='v'
+    pV => V
+  else
+    allocate(pV(1,1))
+  end if
 
-! protect content of A
+  ind = (/ 1,n /)
 
-copyA = A
+  if (present(nbiggest))  ind = (/ n-nbiggest+1,n /)
+  if (present(nsmallest)) ind = (/ 1,nsmallest /)
+  if (present(indices))   ind = indices
 
-! determine the optimal size of work
+  ! protect content of A
+  copyA = A
 
-call syevx_TYPE(JOBZ,'I','U',n,copyA,n,real(-1.,kind(A)),real(-1.,kind(A)),ind(1),ind(2),     &
-     2*SLAMCH('S'),idummy,E,pV,n,rlWORK,-1, IWORK,   &
-     IFAIL, myINFO )
+  ! determine the optimal size of work
+  call syevx_TYPE(JOBZ,'I','U',n,copyA,n,real(-1.,kind(A)),real(-1.,kind(A)),ind(1),ind(2),     &
+       2*SLAMCH('S'),idummy,E,pV,n,rlWORK,-1, IWORK,   &
+       IFAIL, myinfo )
+  lwork = nint(rlwork)
 
-lwork = int(rlwork+0.5)
-allocate(work(lwork))
+  allocate(work_(lwork))
 
-call syevx_TYPE(JOBZ,'I','U',n,copyA,n,real(-1.,kind(A)),real(-1.,kind(A)),ind(1),ind(2),     &
-     2*SLAMCH('S'),idummy,E,pV,n, WORK, LWORK, IWORK,   &
-     IFAIL, myINFO )
+  ! compute the eigenvalues and eigenvectors1
+  call syevx_TYPE(JOBZ,'I','U',n,copyA,n,real(-1.,kind(A)),real(-1.,kind(A)),ind(1),ind(2),     &
+       2*SLAMCH('S'),idummy,E,pV,n, work_, LWORK, IWORK,   &
+       IFAIL, myinfo )
 
   if (present(nbiggest)) then
-! sort in descending order
+    ! sort in descending order
     do i=1,nbiggest/2
       tmp = E(i)
       E(i) = E(nbiggest-i+1)
       E(nbiggest-i+1) = tmp
 
       if (present(V)) then
-       do j=1,n
-        tmp = V(j,i) 
-        V(j,i) = V(j,nbiggest-i+1)
-        V(j,nbiggest-i+1) = tmp
-       end do
+        do j=1,n
+          tmp = V(j,i) 
+          V(j,i) = V(j,nbiggest-i+1)
+          V(j,nbiggest-i+1) = tmp
+        end do
       end if
     end do
   end if
 
-deallocate(work)
+  deallocate(work_)
 #ifdef ALLOCATE_LOCAL_VARS
   deallocate(copyA)
 #endif
 
 
-if (.not.present(V)) deallocate(pV)
-if (present(info)) info = myinfo
-end subroutine
-
-!_______________________________________________________
-!
-
-
+  if (.not.present(V)) deallocate(pV)
+  if (present(info)) info = myinfo
+ end subroutine symeig_TYPE

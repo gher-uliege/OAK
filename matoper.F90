@@ -697,6 +697,7 @@ end function ssparsemat_mult_ssparsemat
 #define dot_TYPE sdot
 #define gemm_TYPE sgemm
 #define syevx_TYPE ssyevx
+#define syev_TYPE ssyev
 #define spotrf_TYPE spotrf
 
 #define diag_TYPE sdiag
@@ -760,6 +761,7 @@ end function ssparsemat_mult_ssparsemat
 #undef dot_TYPE
 #undef gemm_TYPE
 #undef syevx_TYPE
+#undef syev_TYPE
 #undef spotrf_TYPE
 
 #undef diag_TYPE
@@ -848,6 +850,7 @@ end function ssparsemat_mult_ssparsemat
 #define dot_TYPE ddot
 #define gemm_TYPE dGEMM
 #define syevx_TYPE dsyevx
+#define syev_TYPE dsyev
 #define spotrf_TYPE dpotrf
 
 #define diag_TYPE ddiag
