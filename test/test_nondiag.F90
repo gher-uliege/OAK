@@ -2,15 +2,18 @@
 
 module mod_spline
  use covariance
- use ndgrid, only: basegrid
+ use ndgrid, only: basegrid, grid
 
- type, extends(basegrid) :: spline
+
+ type, extends(grid) :: spline
    ! nelem number of grid points, e.g. 110 for a 10 by 11 grid
    ! nelem should be equal to product(gshape)
    integer :: nelem
 
    ! inverse of local resolution
    real, allocatable :: pm(:,:)
+
+   ! TODO: use data of parent class
    real, allocatable :: x(:,:)
 
    ! staggered inverse of local resolution

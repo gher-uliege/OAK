@@ -1,11 +1,16 @@
 ! example program how to use ndgrid
 ! for a two dimensional grid
 
+! cd ~/projects/Fortran/OAK &&  make test/test_ndgrid && test/test_ndgrid
+
 program test_ndgrid
  use matoper
  use ndgrid
  implicit none
 
+ call test_regular_ndgrid_2d(10,20)
+
+ stop
  ! 2D
  call test_ndgrid_2d(10,20)
  call test_ndgrid_2d(1,3)
@@ -38,6 +43,76 @@ contains
  end function fun
 
  subroutine test_ndgrid_2d(m,n)
+
+  ! size of the domain
+  integer, intent(in) :: m,n
+
+  ! x and y coordinates 
+  ! f field to interpolate
+  real, dimension(m,n) :: x,y,f
+
+  ! land-sea mask (land or invalid points equal to .true.)
+  logical, dimension(m,n) :: mask
+
+  ! for bi-linear interpolation we have maximal 2**n interpolation coefficients
+  ! for n=2, 2**n is 4
+  integer :: i,j, indexes(2,4), nbp
+  type(regulargrid) :: g
+
+  ! xi,yi location to interpolate
+  real :: xi, yi, fi, coeff(4), ref
+  logical :: out
+
+  ! initialize coordinate, field and mask
+  do j=1,n
+    do i=1,m
+      x(i,j) = i+1
+      y(i,j) = j+2
+      f(i,j) = fun(x(i,j),y(i,j))
+      mask(i,j) = .false.
+    end do
+  end do
+
+  ! (xi,yi) is the middle of the domain
+
+  xi = sum(x)/(n*m)
+  yi = sum(y)/(n*m)
+
+  ! initialize grid
+  call init_regulargrid(g,[m,n],[1.,2.],[1.,1.],reshape(mask,[m*n]))
+
+  ! get interpolated value
+  call interp(g,f,(/xi,yi/),fi,out)
+
+  ref = fun(xi,yi)
+
+  ! write(6,*) 'fi ',fi
+  ! write(6,*) 'ref ',fun(xi,yi) ! should be the same as fi
+  ! write(6,*) 'out ',out        ! should be .false.
+
+  if (abs(ref-fi) > 1e-6 .or. out) then
+    write(6,*) 'domain ',m,n,'FAILED'
+    stop
+  end if
+
+
+  ! get interpolation coefficients  
+  call cinterp(g,(/xi,yi/),indexes,coeff,nbp)
+  fi = 0
+  do i=1,nbp
+    fi = fi + coeff(i) * f(indexes(1,i),indexes(2,i))
+  end do
+
+  call assert(.not.out,'interp domain '//trim(fmtsize([m,n])) // ' out')
+  call assert(ref,fi,1e-6,'interp domain '//trim(fmtsize([m,n])) // ' interpolation')
+
+ end subroutine test_ndgrid_2d
+
+
+!-----------------------
+! regular grid
+
+ subroutine test_regular_ndgrid_2d(m,n)
 
   ! size of the domain
   integer, intent(in) :: m,n
@@ -101,7 +176,9 @@ contains
   call assert(.not.out,'interp domain '//trim(fmtsize([m,n])) // ' out')
   call assert(ref,fi,1e-6,'interp domain '//trim(fmtsize([m,n])) // ' interpolation')
 
- end subroutine test_ndgrid_2d
+ end subroutine 
+
+
 
 
  function fun_nd(x)

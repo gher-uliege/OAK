@@ -36,6 +36,7 @@
 
 module ndgrid
 
+
 #ifdef DATABOX_SEARCH
  type databoxND
    ! xmin(i) and xmax(i) are the minimum and maximum of the ith coordinate
@@ -54,7 +55,7 @@ module ndgrid
 
 ! definition of a n-dimensional aribtrary grid
 
- type basegrid
+ type, abstract :: basegrid
    ! n number of dimensions (e.g. 2 for lon/lat)
 
    integer :: n
@@ -64,13 +65,71 @@ module ndgrid
 
    ! .false. if point on grid is valid, .true. if is masked
    logical, pointer :: masked(:)
+
+   ! offset for mask
+   integer, pointer :: ioffset_mask(:)
+
+   ! how the cube should be splitted in hyper-tetrahedrons, for 2D just 
+   ! triangles:
+
+   !  a-----------b
+   !  |\         /|
+   !  | \       / |
+   !  |  \     /  |
+   !  |   \   /   |
+   !  |    \ /    |
+   !  |     m
+   !  |    / \    |
+   !  |   /   \   |
+   !  |  /     \  |
+   !  | /       \ |
+   !  |/         \|
+   !  d-----------c
+   !
+   ! all triangles are: 
+   ! a b m
+   ! b c m
+   ! c d m
+   ! d a m
+
+   real, pointer :: tetrahedron(:,:,:)
+
+   contains
+    procedure(getCoord_interface), deferred, pass(g) :: getCoord    
+    procedure(locate_inteface), deferred, pass(g) :: locate
  end type basegrid
 
+ abstract interface
+   function getCoord_interface(g,ind,out) result(x)
+    import :: basegrid
+    implicit none
+    class(basegrid), intent(in) :: g
+    integer, intent(in) :: ind(:)
+    logical, optional, intent(out) :: out
+    real :: x(size(ind))
+   end function getCoord_interface   
+
+   subroutine locate_inteface(g,x,ind,out) 
+    import :: basegrid
+    implicit none
+    class(basegrid), intent(inout) :: g
+    real, intent(in) :: x(:)
+    integer, intent(out) :: ind(size(x))
+    logical, intent(out) :: out
+   end subroutine locate_inteface
+ end interface
+
+
+ ! grid with a constant increment
  type, extends(basegrid) :: regulargrid
    ! coordinate of point (i,j)  is 
    ! x0(1) + i*dx(1), x0(2) + j*dx(2)
 
    real, allocatable :: x0(:), dx(:) 
+
+  contains
+   procedure, pass(g) :: getCoord => getCoord_regulargrid
+   procedure, pass(g) :: locate => locate_regulargrid
  end type regulargrid
 
 
@@ -78,10 +137,6 @@ module ndgrid
 
    ! ioffset(i,j) offset of the ith coordinate with repect to the jth index
    integer, pointer :: ioffset(:,:)
-
-   ! offset for mask
-   integer, pointer :: ioffset_mask(:)
-
 
    ! dependence(n,n): dependence(i,j) is 1 if the jth coordinate dependend on the ith index, ortherwise 0
    integer, pointer :: dependence(:,:)
@@ -95,14 +150,17 @@ module ndgrid
    integer, pointer :: startindex(:)
    integer, pointer :: endindex(:)
    
-   ! how the cube should be splitted in tetrahedrons
-   real, pointer :: tetrahedron(:,:,:)
-
 #  ifdef DATABOX_SEARCH
    type(databoxND) :: db
 #  endif
 
+  contains
+   procedure, pass(g) :: getCoord => getCoord_genericgrid
+   procedure, pass(g) :: locate => locate_genericgrid
  end type grid
+
+
+
 
 ! possible values of type
   integer, parameter :: db_cell = 0
@@ -191,18 +249,11 @@ contains
 
   n = size(gshape)
 
-  allocate(g%x0(n),g%dx(n),g%gshape(n),g%masked(n))
+  call init_basegrid(g,gshape,masked)
+  allocate(g%x0(n),g%dx(n))
 
-  g%n = n
-  g%gshape = gshape
   g%x0 = x0
   g%dx = dx
-
-  if (present(masked)) then
-    g%masked = masked
-  else
-    g%masked = .false.
-  end if
 
  end subroutine init_regulargrid
 
@@ -210,13 +261,14 @@ contains
  ! get coordinates x of point at indices ind
  function getCoord_regulargrid(g,ind,out) result(x)
   implicit none
-  type(regulargrid), intent(in) :: g
+  class(regulargrid), intent(in) :: g
   integer, intent(in) :: ind(:)
   logical, optional, intent(out) :: out
   real :: x(size(ind))
 
+  out = any(ind < 1 .or. ind > g%gshape)
   x = g%x0 + ind * g%dx
-  ! TODO define out
+  ! TODO define out based on mask
  end function getCoord_regulargrid
 
  ! get all points (or more!) near the location x
@@ -272,6 +324,19 @@ contains
  end subroutine near_regulargrid
 
 
+
+ subroutine locate_regulargrid(g,x,ind,out) 
+  implicit none
+  class(regulargrid), intent(inout) :: g
+  real, intent(in) :: x(:)
+  integer, intent(out) :: ind(size(x))
+  logical, intent(out) :: out
+  
+  ind = floor((x - g%x0) / g%dx) 
+  out = any(ind < 1 .or. ind > g%gshape)
+ end subroutine locate_regulargrid
+
+
 !!$ subroutine  allpossibilities(n,b)
 !!$  implicit none
 !!$  integer, intent(in) :: n
@@ -295,86 +360,6 @@ contains
  !
  ! --------------------------------------------------------------------
  !
-
-
- ! x(components , corner point indexes)
-
- ! c(corner points of cube, corner points of cube)
-
- ! tetrahedron(corner points of cube, corner points of tetrahedron, index of tetrahedron)
-
- ! tetrahedron(1:2^n, corner point, thetraeders)  = coefficient
-
- recursive subroutine split_old(n,subn,c,fixeddim,selection,tc)
-  implicit none
-  integer, intent(in) :: n,subn
-  logical, intent(in) :: fixeddim(n),selection(2**n)
-  real, intent(in) :: c(2**n,2**n)
-  real, intent(out) :: tc(:,:,:)
-
-  real :: cm(2**n)
-  integer :: twon,nbth,subnbth,i,j,k,m
-  logical :: fd(n),subselection(2**n),l
-
-  twon = 2**n
-
-  if (subn.eq.1) then
-    ! we have a straight line
-    do i=1,twon
-      tc(i,1:2,1) = pack(c(i,:),selection)
-    end do
-    return
-  end if
-
-  ! middle point
-
-  cm = sum(c,2,spread(selection,1,twon))/count(spread(selection,1,twon),2)
-
-  nbth = factorial(subn)*2**(subn-1) 
-  subnbth = factorial(subn-1)*2**(subn-2)
-
-  ! add middle point
-
-  tc(:,subn+1,1:nbth) = spread(cm,2,nbth)
-  !  do i=1,nbth
-  !    tc(:,subn+1,i) = cm(:)
-  !  end do
-
-
-  m=1
-  do i=1,n
-    if (.not.fixeddim(i)) then
-      fd = fixeddim
-      fd(i) = .true.
-
-      do j=0,1
-        !        subselection = selection .and. (corner_indexes(i,:).eq.j)
-
-        do k=1,twon
-          if (btest(k-1,i-1)) then
-            subselection(k) = selection(k) .and. (1.eq.j)
-          else
-            subselection(k) = selection(k) .and. (0.eq.j)
-          end if
-        end do
-
-        ! split the faces of the cube
-        call split_old(n,subn-1,c,fd,subselection,tc(:,1:subn,m:m+subnbth-1) )
-
-        m=m+subnbth
-      end do
-    end if
-  end do
-
- end subroutine split_old
-
-
-
-
-!
- ! --------------------------------------------------------------------
- !
-
 
  ! x(components , corner point indexes)
 
@@ -656,68 +641,6 @@ contains
     end if
   end  do
 
-
-
-  !   ind = (/(i,i=1,n)/)
-
-  !   X8 = X
-  !   ! check which point X(:,i) is inside the convex hull formed by the other 
-  !   ! points
-  !   ! make interpolation without this point
-
-
-  !   search_redundant_point : do i = 1,n+1
-  !     ! ind is a vector of all integers from 1 to n different from i
-  !     ind(1:i-1) = (/(j,j=1,i-1)/)
-  !     ind(i:n) = (/(j,j=i+1,n+1)/)
-
-  !     c2 = matmul(inv(X8(:,ind),determ), X(:,i))
-  !     if (abs(determ) < tol) then
-  !       write(6,*) 'degenerated case (1), determ',determ
-  !       write(6,*) 'degenerated case (1), i',i
-  !       write(6,*) 'degenerated case (1), X8',X8
-  !       write(6,*) 'degenerated case (1), ind',ind
-  !       write(6,*) 'degenerated case (1), n',n
-  !       write(6,*) 'degenerated case (1), xi',xi
-
-  !       stop
-  !     end if
-
-
-  !     if (all(c2 >= 0d0-tol.and.c2 <= 1d0+tol)) then
-  !       ! X(:,i) is inside X(:,ind)
-
-  !       ! this point is ignored in the interpolation and thus attributed a 
-  !       ! weight equal to zero
-  !       coeff(i) = 0        
-
-  !       ! the weight of other points
-
-  !       coeff(ind) = matmul( &
-  !            inv(matmul(transpose(X8(:,ind)), X8(:,ind)),determ), &
-  !            matmul(transpose(X8(:,ind)), xi))
-
-  !       if (abs(determ) < tol) then
-  !         write(6,*) 'degenerated case (2)'
-  !         stop
-  !       end if
-
-  !       exit search_redundant_point
-  !     end if
-
-  !   end do search_redundant_point
-
-  ! else
-  !   out = .not.all(c.ge.0d0-tol.and.c.le.1d0+tol)
-  !   coeff = c
-  ! end if
-  ! write(6,*) 'determ ',determ
-  ! write(6,*) 'coeff ',coeff
-  ! !  stop
-  ! !if (out) coeff = coeff+(1-sum(coeff))/(n+1)
-
-  ! !  write(6,*) 'corrected coeff ',coeff,out
-
  end subroutine interp_tetrahedron
  !
  ! --------------------------------------------------------------------
@@ -958,6 +881,39 @@ contains
 !________________________________________________________________
 !
 
+ subroutine init_basegrid(g,gshape,masked)
+  implicit none
+  class(basegrid), intent(out) :: g
+  integer, intent(in) :: gshape(:)
+  logical, optional :: masked(:)
+
+  integer :: n,i
+
+  n = size(gshape)
+  allocate(g%gshape(n),g%ioffset_mask(n))
+  allocate(g%masked(product(gshape)))
+
+  g%n = n
+  g%gshape = gshape
+  g%ioffset_mask(1) = 1
+
+  do i=2,n
+    g%ioffset_mask(i) = g%ioffset_mask(i-1)*(g%gshape(i-1))
+  end do
+  
+  call split(n,n,(/ (.false.,i=1,n) /),(/ (.true.,i=1,2**n) /),g%tetrahedron)
+  
+  if (present(masked)) then
+    g%masked = masked
+  else
+    g%masked = .false.
+  end if
+
+ end subroutine init_basegrid
+
+
+
+
 !
 ! Initialization
 !
@@ -980,6 +936,7 @@ contains
   real, dimension(2**n,2**n) :: identity
 !  write(6,*) 'n ',n
 !  n = size(gshape)
+
   g%n = n
   allocate(g%gshape(n),g%ioffset(n,n),g%ioffset_mask(n),g%dependence(n,n),g%startindex(n),g%endindex(n))
 
@@ -1161,9 +1118,9 @@ contains
 
 ! ind = one-based index
 
-function getCoord(g,ind,out) result(x)
+function getCoord_genericgrid(g,ind,out) result(x)
 implicit none
-  type(grid), intent(inout) :: g
+  class(grid), intent(in) :: g
   integer, intent(in) :: ind(:)
   logical, optional, intent(out) :: out
   real :: x(size(ind))
@@ -1182,7 +1139,7 @@ end function
 
 function getCoord0(g,ind,out) result(x)
 implicit none
-  type(grid), intent(inout) :: g
+  type(grid), intent(in) :: g
   integer, intent(in) :: ind(:)
   logical, optional, intent(out) :: out
   real :: x(size(ind))
@@ -1211,9 +1168,9 @@ implicit none
   
 end function
 
-subroutine localizeIt(g,x,ind,out) 
+subroutine locate_genericgrid(g,x,ind,out) 
 implicit none
-  type(grid), intent(inout) :: g
+  class(grid), intent(inout) :: g
   real, intent(in) :: x(:)
   integer, intent(out) :: ind(size(x))
   logical, intent(out) :: out
@@ -1237,7 +1194,7 @@ end subroutine
 
 subroutine cinterp(g,xi,indexes,coeff,nbp)
  implicit none
- type(grid), intent(inout) :: g
+ class(basegrid), intent(inout) :: g
  real, intent(in) :: xi(:)
  integer, intent(out) :: indexes(:,:),nbp
  real, intent(out) :: coeff(:)
@@ -1258,7 +1215,7 @@ subroutine cinterp(g,xi,indexes,coeff,nbp)
  twon = 2**g%n
  nbp = 0
 
- call localizeIt(g,xi,ind,out) 
+ call g%locate(xi,ind,out) 
 
  if (.not.out) then
 
@@ -1277,7 +1234,8 @@ subroutine cinterp(g,xi,indexes,coeff,nbp)
 
      linindex = sum((indexes(:,j)) * g%ioffset_mask) + 1
      pmasked(j) = g%masked(linindex)
-     px(:,j) = getCoord0(g,indexes(:,j))
+     !px(:,j) = getCoord0(g,indexes(:,j))
+     px(:,j) = g%getCoord(indexes(:,j)+1)
 
      !write(6,*) 'point ',px(:,j)
 
@@ -1319,7 +1277,7 @@ end subroutine cinterp
 
 subroutine interp(g,f,xi,fi,out)
  implicit none
- type(grid), intent(inout) :: g
+ class(basegrid), intent(inout) :: g
  real, intent(in) :: f(*),xi(:)
  real, intent(out) :: fi
  logical, intent(out) :: out
@@ -1349,7 +1307,7 @@ end subroutine interp
 
 subroutine interp_c(g,f,xi,fi,out,indexes,coeff,nbp)
  implicit none
- type(grid), intent(inout) :: g
+ class(grid), intent(inout) :: g
  real, intent(in) :: f(:),xi(:)
  real, intent(out) :: fi
  logical, intent(out) :: out
@@ -1381,7 +1339,7 @@ end subroutine interp_c
 
 subroutine interp_field(grid1,field1,grid2,field2,outgrid)
  implicit none
- type(grid), intent(inout) :: grid1, grid2
+ class(grid), intent(inout) :: grid1, grid2
  real, intent(in) :: field1(:)
  logical, intent(out), optional :: outgrid(:)
  real, intent(out) :: field2(:)
@@ -1423,7 +1381,7 @@ end subroutine interp_field
 
 subroutine interp_field_c(grid1,field1,grid2,field2,outgrid,indexes,coefficients,nz)
  implicit none
- type(grid), intent(inout) :: grid1, grid2
+ class(grid), intent(inout) :: grid1, grid2
  real, intent(in) :: field1(:)
  logical, intent(out), optional :: outgrid(:)
  real, intent(out) :: field2(:)

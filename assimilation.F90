@@ -3691,20 +3691,20 @@ end function
      call ind2submv(ModML,index,v,i,j,k,n)
 
      if (ModML%ndim(v).eq.1) then
-       x1 = getCoord(ModelGrid(v),(/ i /),out)
+       x1 = ModelGrid(v)%getCoord((/ i /),out)
        x = x1(1)
        y = 0
      elseif (ModML%ndim(v).eq.2) then
-       x2 = getCoord(ModelGrid(v),(/ i,j /),out)
+       x2 = ModelGrid(v)%getCoord((/ i,j /),out)
        x = x2(1)
        y = x2(2)
      elseif (ModML%ndim(v).eq.3) then
-       x3 = getCoord(ModelGrid(v),(/ i,j,k /),out)
+       x3 = ModelGrid(v)%getCoord((/ i,j,k /),out)
        x = x3(1)
        y = x3(2)
        z = x3(3)
      elseif (ModML%ndim(v).eq.4) then
-       x4 = getCoord(ModelGrid(v),(/ i,j,k,n /),out)
+       x4 = ModelGrid(v)%getCoord((/ i,j,k,n /),out)
        x = x4(1)
        y = x4(2)
        z = x4(3)
