@@ -155,8 +155,8 @@ module ndgrid
 #  endif
 
   contains
-   procedure, pass(g) :: getCoord => getCoord_genericgrid
-   procedure, pass(g) :: locate => locate_genericgrid
+   procedure, pass(g) :: getCoord => getCoord_grid
+   procedure, pass(g) :: locate => locate_grid
  end type grid
 
 
@@ -266,8 +266,12 @@ contains
   logical, optional, intent(out) :: out
   real :: x(size(ind))
 
-  out = any(ind < 1 .or. ind > g%gshape)
+  if (present(out)) then
+    out = any(ind < 1) .or. any(ind > g%gshape)
+  end if
+
   x = g%x0 + ind * g%dx
+
   ! TODO define out based on mask
  end function getCoord_regulargrid
 
@@ -333,29 +337,10 @@ contains
   logical, intent(out) :: out
   
   ind = floor((x - g%x0) / g%dx) 
+  ! 0-based
+  ind = ind-1
   out = any(ind < 1 .or. ind > g%gshape)
  end subroutine locate_regulargrid
-
-
-!!$ subroutine  allpossibilities(n,b)
-!!$  implicit none
-!!$  integer, intent(in) :: n
-!!$  integer :: b(n,2**n)
-!!$
-!!$  integer :: i,j
-!!$
-!!$  do i=1,n
-!!$    do j=0,2**n-1
-!!$      b(i,j+1) = btest(j,i)
-!!$      if (btest(j,i-1)) then
-!!$        b(i,j+1) = 1
-!!$      else
-!!$        b(i,j+1) = 0
-!!$      end if
-!!$    end do
-!!$  end do
-!!$
-!!$ end subroutine allpossibilities
 
  !
  ! --------------------------------------------------------------------
@@ -411,7 +396,7 @@ contains
     if (selection(i))  cm(i) = 1./count(selection)
   end do
 
-  nbth = factorial(subn)*2**(subn-1) 
+  nbth = factorial(subn)*2**(subn-1)
   subnbth = factorial(subn-1)*2**(subn-2)
 
   ! add middle point
@@ -887,11 +872,14 @@ contains
   integer, intent(in) :: gshape(:)
   logical, optional :: masked(:)
 
-  integer :: n,i
+  integer :: n,i,nbth
 
   n = size(gshape)
   allocate(g%gshape(n),g%ioffset_mask(n))
   allocate(g%masked(product(gshape)))
+
+  nbth =  factorial(n)*2**(n-1)
+  allocate(g%tetrahedron(2**n,n+1,nbth))
 
   g%n = n
   g%gshape = gshape
@@ -1118,7 +1106,7 @@ contains
 
 ! ind = one-based index
 
-function getCoord_genericgrid(g,ind,out) result(x)
+function getCoord_grid(g,ind,out) result(x)
 implicit none
   class(grid), intent(in) :: g
   integer, intent(in) :: ind(:)
@@ -1168,7 +1156,7 @@ implicit none
   
 end function
 
-subroutine locate_genericgrid(g,x,ind,out) 
+subroutine locate_grid(g,x,ind,out)
 implicit none
   class(grid), intent(inout) :: g
   real, intent(in) :: x(:)
@@ -1216,6 +1204,7 @@ subroutine cinterp(g,xi,indexes,coeff,nbp)
  nbp = 0
 
  call g%locate(xi,ind,out) 
+ !write(6,*) 'locate ',xi,ind,out
 
  if (.not.out) then
 
@@ -1242,15 +1231,17 @@ subroutine cinterp(g,xi,indexes,coeff,nbp)
    end do
 
    out = any(pmasked)
-   !write(6,*) 'pmasked ',pmasked,px,linindex,g%gshape
-   !write(6,*) 'out ',out
+   ! write(6,*) 'pmasked ',pmasked,linindex,g%gshape
+   ! write(6,*) 'px ',px
+   ! write(6,*) 'out ',out
    
-
    if (.not.out)  then
      call interp_cube(g%n,g%tetrahedron,px,xi,out,coeff)
      nbp = twon
-     !write(6,*) 'coeff ',coeff
-     !write(6,*) 'out ',out
+     ! write(6,*) 'coeff ',coeff
+     ! write(6,*) 'out ',out
+     ! write(6,*) 'te ',g%tetrahedron
+
 
    end if
  end if

@@ -9,8 +9,6 @@ program test_ndgrid
  implicit none
 
  call test_regular_ndgrid_2d(10,20)
-
- stop
  ! 2D
  call test_ndgrid_2d(10,20)
  call test_ndgrid_2d(1,3)
@@ -57,7 +55,7 @@ contains
   ! for bi-linear interpolation we have maximal 2**n interpolation coefficients
   ! for n=2, 2**n is 4
   integer :: i,j, indexes(2,4), nbp
-  type(regulargrid) :: g
+  type(grid) :: g
 
   ! xi,yi location to interpolate
   real :: xi, yi, fi, coeff(4), ref
@@ -79,7 +77,7 @@ contains
   yi = sum(y)/(n*m)
 
   ! initialize grid
-  call init_regulargrid(g,[m,n],[1.,2.],[1.,1.],reshape(mask,[m*n]))
+  call initgrid(g,x,y,mask)
 
   ! get interpolated value
   call interp(g,f,(/xi,yi/),fi,out)
@@ -127,7 +125,7 @@ contains
   ! for bi-linear interpolation we have maximal 2**n interpolation coefficients
   ! for n=2, 2**n is 4
   integer :: i,j, indexes(2,4), nbp
-  type(grid) :: g
+  type(regulargrid) :: g
 
   ! xi,yi location to interpolate
   real :: xi, yi, fi, coeff(4), ref
@@ -149,7 +147,7 @@ contains
   yi = sum(y)/(n*m)
 
   ! initialize grid
-  call initgrid(g,x,y,mask)
+  call init_regulargrid(g,[m,n],[1.,2.],[1.,1.],reshape(mask,[m*n]))
 
   ! get interpolated value
   call interp(g,f,(/xi,yi/),fi,out)
