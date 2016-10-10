@@ -60,10 +60,10 @@ ASSIM_SRCS = sangoma_base.f90 \
 
 ASSIM_OBJS = anamorphosis.o assim.o assimilation.o date.o initfile.o \
 	matoper.o covariance.o ndgrid.o parall.o rrsqrt.o ufileformat.o match.o sangoma_ewpf.o \
-	random_d.o user_base.o oak.o
+	random_d.o sangoma_base.o user_base.o oak.o
 
 MODULES = anamorphosis.mod  assimilation.mod  date.mod initfile.mod  \
-        matoper.mod covariance.mod  ndgrid.mod  parall.mod  rrsqrt.mod  ufileformat.mod oak.mod
+        matoper.mod covariance.mod  ndgrid.mod  parall.mod  rrsqrt.mod  ufileformat.mod oak.mod sangoma_base.mod user_base.mod
 
 #-----------------#
 #  Common macros  #
