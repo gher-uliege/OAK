@@ -274,6 +274,13 @@ contains
 ! for paritioning
   integer, allocatable :: tmpi(:)
 
+  ! make sure pointers are not associated
+  ! http://www.cs.rpi.edu/~szymansk/OOF90/bugs.html#5
+  nullify(filenamesX)
+  nullify(filenamesY)
+  nullify(filenamesZ)
+  nullify(filenamesT)
+
   initfname = fname
 
   call getInitValue(initfname,'runtype',runtype,default=AssimRun)
@@ -2387,24 +2394,29 @@ end subroutine fmtIndex
 
   integer :: maxi, maxj
 
-  maxi = maxval(H%i(1:H%nz))
-  maxj = maxval(H%j(1:H%nz))
-
   ssize = sizeformat((/H%m,H%n/))
   write(unit,'(A,A10)')   'Matrix shape:       ',trim(ssize)
   write(unit,'(A,I10)')   '# non-zero elements:',H%nz
-  write(unit,'(A,I10)')   'max(H%i):           ',maxi
-  write(unit,'(A,I10)')   'min(H%i):           ',minval(H%i(1:H%nz))
-  write(unit,'(A,I10)')   'max(H%j):           ',maxj
-  write(unit,'(A,I10)')   'min(H%j):           ',minval(H%j(1:H%nz))
-  write(unit,'(A,E10.3)') 'max(H%s):           ',maxval(H%s(1:H%nz))
-  write(unit,'(A,E10.3)') 'min(H%s):           ',minval(H%s(1:H%nz)) 
-  write(unit,'(A,E10.3)') 'mean(H%s):          ',sum(H%s(1:H%nz))/H%nz
 
-  if (maxi > H%m .or. maxj > H%n) then
-    write(stderr,*) 'Index exceeds range '
-    ERROR_STOP
-  end if  
+  if (H%nz /= 0) then
+    maxi = maxval(H%i(1:H%nz))
+    maxj = maxval(H%j(1:H%nz))
+
+
+    write(unit,'(A,I10)')   'max(H%i):           ',maxi
+    write(unit,'(A,I10)')   'min(H%i):           ',minval(H%i(1:H%nz))
+    write(unit,'(A,I10)')   'max(H%j):           ',maxj
+    write(unit,'(A,I10)')   'min(H%j):           ',minval(H%j(1:H%nz))
+    write(unit,'(A,E10.3)') 'max(H%s):           ',maxval(H%s(1:H%nz))
+    write(unit,'(A,E10.3)') 'min(H%s):           ',minval(H%s(1:H%nz)) 
+    write(unit,'(A,E10.3)') 'mean(H%s):          ',sum(H%s(1:H%nz))/H%nz
+
+    if (maxi > H%m .or. maxj > H%n) then
+      write(stderr,*) 'Index exceeds range '
+      ERROR_STOP
+    end if
+  end if
+
  end subroutine
 
 
