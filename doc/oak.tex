@@ -553,10 +553,15 @@ of each variable. The files in \code{Model.gridZ} can be plain files
 and contains the depth. The key \code{Model.mask} is used to determine
 the sea-land mask of each variable. The exclusion value (or missing
 value or \_FillValue in NetCDF terminology) marks a land point all other values, a sea
-points. Every files assembled into a state vector should have physical
+points. The arrays in \code{Model.gridX}, \code{Model.gridY}, \code{Model.gridZ} cannot 
+contain an exclusion value/fill value.
+
+Every files assembled into a state vector should have physical
 values where mask assumes a sea point. The shape of the arrays in
 \code{Model.gridX}, \code{Model.gridY}, \code{Model.gridZ} and
 \code{Model.mask} must be the same. 
+
+
 %No check is performed for the shape neither for the mask so be careful. 
 \\
 
@@ -1045,11 +1050,11 @@ The required keys are: \\
 \begin{keytabular}
 \code{Model.mask} & vector of strings &  sea-land mask of each variable 
 \\
-\code{Model.gridX} & vector of strings & longitude of each variable (degenerated file)
+\code{Model.gridX} & vector of strings & longitude of each variable (without any exclusion value/fill value)
 \\
-\code{Model.gridY} & vector of strings & latitude of each variable (degenerated file)
+\code{Model.gridY} & vector of strings & latitude of each variable (without any exclusion value/fill value)
 \\
-\code{Model.gridZ} & vector of strings & depth 
+\code{Model.gridZ} & vector of strings & depth (without any exclusion value/fill value)
 \\
 \code{Model.path} & string & The path is prepended to all filenames
 specified in \code{Model.*}. The current path is used by default.
