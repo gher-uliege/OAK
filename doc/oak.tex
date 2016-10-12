@@ -559,11 +559,9 @@ contain an exclusion value/fill value.
 Every files assembled into a state vector should have physical
 values where mask assumes a sea point. The shape of the arrays in
 \code{Model.gridX}, \code{Model.gridY}, \code{Model.gridZ} and
-\code{Model.mask} must be the same. 
+\code{Model.mask} must be the same. In some obvious cases, OAK can automatically repeat the coordinates values. For example is the mask has the size 10x11x12, then a latitude vector with 10 elements is automatically repeated along the 2nd and 3rd dimension.
 
 
-%No check is performed for the shape neither for the mask so be careful. 
-\\
 
 The string in \code{Model.path} in prepended to each file names.
 Example:
