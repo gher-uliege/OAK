@@ -8,12 +8,16 @@
 Config.exec = '~/Assim/OAK/assim-gfortran-single'
 #Config.calendar = 'standard'
 #Config.time_origin  = '0001-01-01T00:00:00'
+# coupling 
+# 1: shell (default)
+# 2: mex (experimental)
+Config.coupling = 1
 
 
 
 # State vector definition
 
-Model.variables     = [          'var1',          'var2']
+Model.variables	    = [          'var1',          'var2']
 Model.gridX         = [ 'domain.nc#lon', 'domain.nc#lon']
 Model.gridY         = [ 'domain.nc#lat', 'domain.nc#lat']
 Model.gridZ         = [   'domain.nc#z',   'domain.nc#z']
@@ -25,7 +29,13 @@ Model.path          = 'Common/'
 ErrorSpace.dimension = 10
 ErrorSpace.path      = './'
 ErrorSpace.init      = ['("Ens",I3.3,"/model.nc#var1")','("Ens",I3.3,"/model.nc#var2")']
+ErrorSpace.weight      = 'weight.nc#weight'
 ErrorSpace.type      = 2
+
+anamorphosistype = 0
+Anamorphosis.x = ['_id','_id']
+Anamorphosis.y = ['_id','_id']
+
 
 # runtype = integer: possible values of runtype are:
 #   0 = do nothing, i.e. a pure run of the model 
@@ -39,7 +49,7 @@ runtype = 2
 #   0 = global assimilation (default)
 #   1 = local assimilation
 
-schemetype = 0
+schemetype = 2
 
 Zones.partition        = ['domain.nc#part','domain.nc#part']
 Zones.corrLength.const = [           30e3,             30e3]
@@ -57,7 +67,7 @@ debugfile = 'assim.debug'
 #
 # observations
 
-Obs001.time      = '2010-07-06T00:30:00'
+Obs001.time      = '2010-07-06T00:00:00'
 Obs001.path      = 'Obs/'
 Obs001.variables  = [              'var1']
 Obs001.names      = [      'var1_surface']
@@ -69,7 +79,7 @@ Obs001.mask       = [      'obs1.nc#var1']
 Obs001.rmse       = [      'obs1.nc#rmse']
 
 
-Obs002.time      = '2010-07-06T00:30:00'
+Obs002.time      = '2010-07-07T00:00:00'
 Obs002.path      = 'Obs/'
 Obs002.variables  = [              'var1']
 Obs002.names      = [      'var1_surface']
@@ -89,6 +99,7 @@ Diag*.stddevxa  =  ['stddevxa.nc#var1','stddevxa.nc#var2']
 Diag*.xf        =  ['forecast.nc#var1','forecast.nc#var2']
 Diag*.xa-xf     =  [     'inc.nc#var1',     'inc.nc#var2']
 Diag*.Ea      = ['("../Ens",I3.3,"/model_an.nc#var1")','("../Ens",I3.3,"/model_an.nc#var2")']
+Diag*.weighta     =  'weighta.nc#weighta'
 
 
 Diag001.Hxf       = [       'diag1.nc#xf']
@@ -242,5 +253,9 @@ Analysis001.path  =  'Analysis001/'
 #
 # DiagXXX.stddevHxa = vector of strings. Error standard deviation of analysis
 #   at observation location
+#
+# DiagXXX.Ef = vector of strings. Ensemble of forecasted states 
+#
+# DiagXXX.Ea = vector of strings. Ensemble of states after the analysis
 #
 # DiagXXX.path   = string. Path where all files for the diagnostics can be found

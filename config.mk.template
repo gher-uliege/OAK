@@ -43,6 +43,11 @@ USE_MPIF90 ?= on
 
 #DEBUG ?= on
 
+# uncomment/comment this line to activate/deactivate profiling
+# http://modb.oce.ulg.ac.be/mediawiki/index.php/Code_optimization
+
+#PROFILING ?= on
+
 # ------------------------------------------------------------------------------------------------------------
 # Library names and locations
 # Variables name use the following naming scheme:

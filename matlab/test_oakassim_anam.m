@@ -3,7 +3,7 @@ currentdir = pwd;
 initfile = fullfile(currentdir,'test_assim_anam.init');
 
 testdir = tempname;
-testdir = '/tmp/oak-temp';
+%testdir = '/tmp/oak-temp';
 
 randn('state',0)
 

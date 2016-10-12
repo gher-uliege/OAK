@@ -4,14 +4,23 @@ initfile = fullfile(currentdir,'test_assim.init');
 initfile = fullfile(currentdir,'test_assim_local.init');
 
 testdir = tempname;
-testdir = '/tmp/oak-temp';
+%testdir = '/tmp/oak-temp';
 randn('state',0)
 
 [t0,data,model,Eic,Eforcing, obs, fun, h ] = oak_create_test(testdir,initfile);
 
-partname = get(init,'Zones.partition');
 
-part = gen_part(ones(size(x)));
+init = InitFile(initfile);
+
+cd(testdir)
+
+partname = get(init,'Zones.partition');
+path = get(init,'Zones.path');
+
+modml = oak_memlayout(init,'Model');
+maskv = ones(modml.VarShape(:,1));
+
+part = gen_part(maskv);
 
 for i=1:length(partname)
   gwrite(fullfile(testdir,path,partname{i}),part);
@@ -21,125 +30,42 @@ end
 scheduler = SchedulerShell();
 
 n = 1;
-cd(testdir)
 Ef = oak_assim(Eic,n,data,scheduler);
+
 inc = full(load(init,mask(Eic),'Diag001.xa-xf'));
+xf = full(load(init,mask(Eic),'Diag001.xf'));
+xa = full(load(init,mask(Eic),'Diag001.xa'));
+a = gread(fullfile(get(init,'Diag001.path'),get(init,'Diag001.amplitudes')));
+
+assert( rms(inc,xa-xf) < 1e-5)
+disp('increment: OK');
+
+data.filename = fullfile(currentdir,'test_assim_local_mpi.init');
+
+Ef2 = oak_assim(Eic,n,data,scheduler);
+
+inc2 = full(load(init,mask(Eic),'Diag001.xa-xf'));
+xf2 = full(load(init,mask(Eic),'Diag001.xf'));
+xa2 = full(load(init,mask(Eic),'Diag001.xa'));
+a2 = gread(fullfile(get(init,'Diag001.path'),get(init,'Diag001.amplitudes')));
+
 cd(currentdir)
 
 
+assert( rms(xf2,xf) < 1e-5)
+disp('forecast: OK');
 
-incr = gread('/home/abarth/Assim/OAK/test/Reference/AssimLocal/Analysis001/inc.nc#var1');
+assert( rms(xa2,xa) < 1e-5)
+disp('analysis: OK');
 
+assert( rms(inc2,inc) < 1e-5)
+disp('inc: OK');
 
-rms(incr(:),inc(1:150))
+assert( rms(a2,a) < 1e-5)
+disp('amplitudes: OK');
 
-
-
-
-%{
-
-
-initfile = 'test_assim_local.init';
-init = InitFile(initfile);
-
-
-[t0,data,model,Eic,Eforcing, obs, fun, h ] = oak_create_test(testdir,initfile);
-
-sz = [10 15 1];
-[x,y,z] = ndgrid(1:sz(1),1:sz(2),1:sz(3));
-
-xname = get(init,'Model.gridX');
-yname = get(init,'Model.gridY');
-zname = get(init,'Model.gridZ');
-path = get(init,'Model.path');
-maskname = get(init,'Model.mask');
-partname = get(init,'Zones.partition');
-
-mask = {};
-part = gen_part(ones(size(x)));
-
-for i=1:length(xname)
-  gwrite(fullfile(path,xname{i}),x);
-  gwrite(fullfile(path,yname{i}),y);
-  gwrite(fullfile(path,zname{i}),z);
-
-  mask{i} = ones(size(x));
-  gwrite(fullfile(path,maskname{i}),mask{i});
-  gwrite(fullfile(path,partname{i}),part);
-end
-
-fun = @(t0,t1,x) x;
-
-model = ModelFun(1,fun);
+assert( rms(full(Ef2),full(Ef)) < 1e-5)
+disp('ensemble: OK');
 
 
-Nens = get(init,'ErrorSpace.dimension');
 
-E = zeros([sz Nens]);
-for i=1:Nens
-   kx = floor(i);
-   E(:,:,:,i) =  sin(kx * pi*(x-1)/(sz(1)-1)) .* sin(kx * pi*(y-1)/(sz(2)-1));
-end
-E = reshape(E,[prod(sz) Nens]);
-E = [E; E];    
-time = 1:2;
-
-fmt = get(init,'ErrorSpace.init');
-path = get(init,'ErrorSpace.path');
-
-Eic = SVector(path,fmt,mask,1:Nens);
-
-%E = randn(size(Eic));
-%E = reshape(1:numel(Eic),size(Eic));
-Eic(:,:) = E;
-
-
-obs = [];
-
-xobs = prctile(x(:),[40 60]);
-yobs = prctile(y(:),[40 60]);
-zobs = prctile(z(:),[40 60]);
-
-h = @(v) interpn(x,y,reshape(v(1:numel(x)),size(x)),xobs,yobs);
-
-v = gread(fullfile(path,'Ens001/model.nc#var1'));
-assert(rms(h(E(:,1)),interpn(x,y,v,xobs,yobs)) < 1e-6)
-
-
-for n=1:length(time)
-  obs(n).time = time(n);
-  obs(n).H = h;
-  obs(n).yo = [1 2]';
-  obs(n).RMSE = [1 1]';   
-
-  obsprefix = sprintf('Obs%03g',n);
-  obsxname = get(init,[obsprefix '.gridX']);
-  obsyname = get(init,[obsprefix '.gridY']);
-  obszname = get(init,[obsprefix '.gridZ']);
-  obsRMSEname = get(init,[obsprefix '.rmse']);
-  obsmaskname = get(init,[obsprefix '.mask']);
-  obsname = get(init,[obsprefix '.value']);
-  path = get(init,[obsprefix '.path']);
-
-  gwrite(fullfile(path,obsxname{1}),xobs);
-  gwrite(fullfile(path,obsyname{1}),yobs);
-  gwrite(fullfile(path,obszname{1}),zobs);
-  gwrite(fullfile(path,obsmaskname{1}),double(isfinite(obs(n).yo)));
-  gwrite(fullfile(path,obsRMSEname{1}),obs(n).RMSE);
-  gwrite(fullfile(path,obsname{1}),obs(n).yo);
-end
-
-t0 = 0;
-Ebc = zeros(0,Nens);
-Eforcing = zeros(0,Nens);
-
-data = DataSetInitFile(initfile,1:length(time));
-
-scheduler = SchedulerShell();
-
-n = 1;
-
-return
-Ef = oak_assim(Eic,n,data,scheduler);
-
-%}

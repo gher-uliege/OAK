@@ -22,7 +22,7 @@
 
 module parall
 # ifdef MPI  
-  include 'mpif.h'
+  use mpi
 # endif
 # ifdef PVM
   include 'fpvm3.h'
@@ -35,6 +35,8 @@ module parall
  integer, save :: procnum=1, nbprocs=1
  integer, save, allocatable :: procid(:), procSpeed(:), cumulProcSpeed(:)
 
+ ! communicator
+ integer :: comm
 
  ! indices for parallelisation (zones)
  ! vector of nbprocs integer
@@ -48,18 +50,24 @@ contains
 !_______________________________________________________
 
 
- subroutine parallInit(num,nb,speed)
+ subroutine parallInit(num,nb,speed,communicator)
   implicit none
   integer, intent(in), optional :: num,nb
   integer, intent(in), optional :: speed
+  integer, intent(in), optional :: communicator
 
   integer :: i,inum,istat,info,ierr
-
+  logical :: flag
 
 #ifdef MPI  
-  call mpi_init(ierr)
-  call mpi_comm_rank(mpi_comm_world, procnum, ierr)
-  call mpi_comm_size(mpi_comm_world, nbprocs, ierr)
+  comm = mpi_comm_world
+  if (present(communicator)) comm = communicator
+
+  call mpi_initialized(flag, ierr)
+  if (.not.flag) call mpi_init(ierr)
+
+  call mpi_comm_rank(comm, procnum, ierr)
+  call mpi_comm_size(comm, nbprocs, ierr)
 
   procnum = procnum+1
 
@@ -165,8 +173,8 @@ subroutine parallPartion(nzones)
 #ifdef ASSIM_PARALLEL
 
   allocate(startZIndex(nbprocs),endZIndex(nbprocs))
-  startZIndex =(nzones*cumulprocspeed(1:nbprocs))/cumulprocspeed(nbprocs+1) + 1
-  endZIndex =  (nzones*cumulprocspeed(2:nbprocs+1))/cumulprocspeed(nbprocs+1)
+  startZIndex =(nzones*cumulProcSpeed(1:nbprocs))/cumulProcSpeed(nbprocs+1) + 1
+  endZIndex =  (nzones*cumulProcSpeed(2:nbprocs+1))/cumulProcSpeed(nbprocs+1)
 
 # ifdef DEBUG
   write(stdout,*) 'partitioning start',startZIndex
@@ -491,35 +499,56 @@ end subroutine
  !  xf: subset of state vector
  !  startIndexZones,endIndexZones: start and end indeces of each zone
  !    vector of Nzones integers where Nzones if the number of zones
+ !  vectype: 0 for state vector (default) and 1 for vector of a size equal to the 
+ !     number of zones
  ! Output:
  !  xt: gathered total vector
 
- subroutine parallGather(xf,xt,startIndexZones,endIndexZones)
+ subroutine parallGather(xf,xt,startIndexZones,endIndexZones, vectype)
   implicit none
   real, intent(in) :: xf(:)
   real, intent(out):: xt(:)
   integer, intent(in) :: startIndexZones(:),endIndexZones(:)
+  integer, intent(in), optional :: vectype
   integer, allocatable :: rcount(:),rdispls(:)
   integer          :: ierr,k,j1,j2,baseIndex
-
+  
+  integer :: type
   real :: dummy(1)
 
+  type = 0
+  if (present(vectype)) type = vectype
+
 #ifdef ASSIM_PARALLEL
-  j1 = startIndexZones(startZIndex(procnum))
-  j2 =   endIndexZones(  endZIndex(procnum))
+
+  if (type == 0) then
+    j1 = startIndexZones(startZIndex(procnum))
+    j2 =   endIndexZones(  endZIndex(procnum))
+  else
+    j1 = startZIndex(procnum)
+    j2 =   endZIndex(procnum)
+  end if
+
 
   baseIndex = -j1+1
 
   allocate(rcount(nbprocs),rdispls(nbprocs))
 
-  ! revieve count and displacements
-  rcount = endIndexZones(endZIndex) - startIndexZones(startZIndex) + 1
-  rdispls = startIndexZones(startZIndex) -1
+  if (type == 0) then
+    ! revieve count and displacements
+    rcount = endIndexZones(endZIndex) - startIndexZones(startZIndex) + 1
+    rdispls = startIndexZones(startZIndex) -1
+  else
+    ! revieve count and displacements
+    rcount = endZIndex - startZIndex + 1
+    rdispls = startZIndex -1
+  end if
 
 # ifdef DEBUG
-!  write(stdout,*) 'rdispls ',rdispls
+!  write(stdout,*) 'rdispls ',rdispls,type
 !  write(stdout,*) 'rcount ',rcount
 # endif
+
 
   ! only master get the complete x
 

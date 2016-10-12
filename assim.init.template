@@ -47,6 +47,20 @@ Zones.corrLength.const = [           30e3,             30e3]
 Zones.maxLength.const  = [         2000e3,           2000e3]
 Zones.path = 'Common/'
 
+# loctype = integer: type of localization when using local assimilation (i.e. schemetype = 1)
+#   possible values of "loctype" are:
+#   1 = (default) "Classical" horizontal localization where corrLength and maxLength are spatial distances (localization in .gridX and .gridY)
+#   Units of corrLength and maxLength are (m) as distances are deduced form x/y coordinates
+#   2 = Depth localization scheme where corrLength and maxLength are depth ranges (localization in .gridZ)
+#   Units of corrLength and maxLength should be equal to those of .gridZ
+#   3 = Time localization scheme where corrLength and maxLength are time ranges (localization in .gridT)
+#   Units of corrLength and maxLength should be equal to those of .gridT
+
+
+# metrictype = integer: possible values of metrictype are:
+# 0 = CartesianMetric
+# 1 = SphericalMetric (default)
+
  
 # logfile contains simple diagnostics such as RMSE with observations
 
@@ -244,3 +258,20 @@ Diag001.path   = 'Analysis001/'
 #   at observation location
 #
 # DiagXXX.path   = string. Path where all files for the diagnostics can be found
+
+
+
+# percentage of kept particles
+# EWPF.keep = 0.8                  
+# normal standard deviation of 1
+# EWPF.nstd = 1.0                  
+# normal mean of 0
+# EWPF.nmean = 0.0                 
+# parameter for uniform distribution in equal_weight_step
+# EWPF.ufac = 0.00001              
+# parameter for uniform distribution in equal_weight_step
+# EWPF.efacNum = 0.001             
+# parameter in Bprime routine of freetime i.e. time with no nudging
+# EWPF.freetime = 0.6              
+# nudging strength parameter 
+# EWPF.nudgefac = 0.9              

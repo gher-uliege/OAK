@@ -145,10 +145,15 @@ contains
 
  integer function uniquenumber()
   implicit none
-  integer ierror,ipid
-  real :: r
-#ifdef HAS_GETPID
+
+#if defined(HAS_GETPID)
+  integer :: ipid
   integer :: getpid
+#elif defined(HAS_PXFGETPID)
+  integer :: ipid
+  integer :: ierror
+#else
+  real :: r
 #endif
 
 #if defined(HAS_GETPID)
@@ -171,7 +176,7 @@ contains
   character(len=*), intent(out) :: tmpname
 
   character(len=256) cmd,spid,tmpdir
-  integer ierror,ipid
+  integer ipid
   logical :: exi
 
   inquire(file=fname,exist=exi)
@@ -204,7 +209,7 @@ contains
   character(len=*), intent(out) :: tmpname
 
   character(len=256) cmd,spid,tmpdir
-  integer ierror,ipid,last,length
+  integer ipid,length
   logical :: exi
 
   tmpname=fname
@@ -252,8 +257,7 @@ contains
   character(len=*), intent(in) :: fname
   character(len=*), intent(in) :: tmpname
 
-  character(len=256) cmd,spid
-  integer ierror,ipid,last,length
+  integer :: length
 
 #ifdef GZIP
   if (fname.ne.tmpname) then
@@ -327,8 +331,8 @@ contains
   real (kind=4) :: valex4
 
 #ifdef NETCDF
-  integer(NCI) :: i,ncid,rcode, ndims, nvars, natts, recdim, cid, &
-       vtype, cdim(MaxDimensions), sizedim(MaxDimensions), &
+  integer(NCI) :: i,ncid,rcode, ndims, natts, cid, &
+       vtype, cdim(MaxDimensions),  &
        vtypeattr, ndimattr
   character(len=128) :: var,name,namedim(MaxDimensions)
 #endif
@@ -566,23 +570,15 @@ contains
 
   character(len=256) :: fname,unzipfname
   logical :: isNetcdf, isZipped
-  integer ::  kb, nbmots,length,iu, stat, pos, iprec
+  integer ::  nbmots,length,iu, stat, pos, iprec
   integer, parameter :: kblanc=10
   integer :: numel
 
 #ifdef NETCDF
-  integer(NCI) :: i,ncid,rcode, ndims, nvars, natts, recdim, cid, &
-       vtype, cdim(MaxDimensions), sizedim(MaxDimensions), &
+  integer(NCI) :: i,ncid,rcode, ndims, natts, cid, &
+       vtype, cdim(MaxDimensions),  &
        vtypeattr, ndimattr
   character(len=128) :: var,name,namedim(MaxDimensions)
-
-  ! for conversion from double
-  real(kind=8), pointer :: p8(:)
-  real(kind=8) :: valex8
-
-  ! for conversion from short
-  integer(kind=2), pointer :: p2(:)
-  integer(kind=2) :: valex2
 
   real :: scale_factor, add_offset
 #endif
@@ -769,11 +765,10 @@ contains
   logical, optional, intent(out) :: isdegen
   integer, optional, intent( in) :: check_numel
 
-  integer :: indp,j,prec,nbmots
-  integer :: e(2,MaxDimensions),lentot,ip,jp,kp,l,lp,d,ndimc,vshapec(MaxDimensions)
+  integer :: indp,prec
+  integer :: e(2,MaxDimensions),ndimc,vshapec(MaxDimensions)
   real :: valexc
-  integer, pointer :: extraction(:,:), ind(:), cummul(:)
-  real, pointer :: tmp(:)
+  integer, pointer :: extraction(:,:)
   logical :: isdegenc
 
   indp = index(filename,'(')
@@ -808,7 +803,7 @@ contains
   real, intent(out) :: c(*)
   integer, intent(out) :: vshapec(:)
 
-  integer :: ndimc,lentot,ip,jp,kp,l,lp,d
+  integer :: ndimc,lentot,l,lp,d
   integer, pointer :: cummul(:),ind(:)
 
   ndimc = size(vshapet)
@@ -999,6 +994,7 @@ contains
   real, pointer :: x(:,:,:)
   logical :: isdegenc
 
+  isdegenc = .false.
 
   if (present(force_shape)) then
     ! replicate dimensions if necessary
@@ -1176,13 +1172,10 @@ contains
   ! variables with well defined kind
   integer(4) ::  imaxc,jmaxc,kmaxc,iprec,nbmots
   real(4) :: valex4
-  ! allocatable space for kind convertion
-  real(4), allocatable :: p4(:)
-  real(8), allocatable :: p8(:)
 
   ! local variables
 
-  integer nl,kl,kc,ir,ide,kb
+  integer nl,ir,ide,kb
   real, allocatable :: tmp(:)
   integer :: shapec(3),extr(2,3)
   integer, parameter :: kblanc=10
@@ -1261,7 +1254,7 @@ contains
   integer, intent(in) :: iu,iprec,nbmots,nl,ir
   real, intent(out) :: var(*)
 
-  integer :: kl,kc,ide,kb
+  integer :: kl,kc,ide
 
   ! allocatable space for kind convertion
 
@@ -1287,11 +1280,11 @@ contains
 
     do kl=1,nl
       read(iu,ERR=99) (p8(kc),kc=1,nbmots)
-      var(ide+1:ide+nbmots) = p8
+      var(ide+1:ide+nbmots) = real(p8)
       ide=ide+nbmots
     end do
     read(iu,ERR=99) (p8(kc),kc=1,ir)
-    var(ide+1:ide+ir) = p8(1:ir)
+    var(ide+1:ide+ir) = real(p8(1:ir))
 
     deallocate(p8)
   elseif (iprec.eq.4.and.kind(var).eq.8) then
@@ -1327,7 +1320,7 @@ contains
 
  subroutine uwritc_all_kind(iu,c,valexc,imaxc,jmaxc,kmaxc,nbm)
   integer, parameter :: kblanc=10
-  integer :: ic,imaxc,jmaxc,kmaxc,nbm
+  integer :: imaxc,jmaxc,kmaxc,nbm
   real :: c(*)
   real :: valexc
   character(256) :: name
@@ -1619,7 +1612,7 @@ contains
 
   character(len=len(filename)) :: tmpname
   real :: c(4)
-  integer  :: prec,nbmots,vshape(MaxDimensions)=1,ndim
+  integer  :: prec,vshape(MaxDimensions)=1,ndim
   real  :: valex
   logical :: isdegen
 
@@ -1854,10 +1847,9 @@ contains
   integer,  intent(in) :: ndim, vshape(:)
   logical,  intent(in) :: isdegen
 
-  integer :: indp,j,prec,nbmots,ndimc
-  integer :: e(2,MaxDimensions),lentot,ip,jp,kp,l,lp,d
-  integer, pointer :: extraction(:,:), ind(:), cummul(:)
-  real, pointer :: tmp(:)
+  integer :: indp,prec,ndimc
+  integer :: e(2,MaxDimensions)
+  integer, pointer :: extraction(:,:)
   real :: valexc
   logical :: isdegenc
 
@@ -1908,20 +1900,19 @@ contains
   integer, optional, intent(in) :: extraction(:,:)
 
   integer :: iu , vshapec(MaxDimensions)
-  integer stat, nbmots
+  integer stat
 
 #ifdef NETCDF
   integer(NCI) :: i,j,pos,ncid,rcode, ndims, nvars, natts, recdim, cid, &
-       vtype, cdim(MaxDimensions), ncvdim, ncvshape(MaxDimensions), dimlen, rcode2, &
-       totalsize, ndimp, vshapep(MaxDimensions)
+       vtype, cdim(MaxDimensions), ncvdim, ncvshape(MaxDimensions), dimlen, &
+       ndimp, vshapep(MaxDimensions)
 
   real :: ncvalex
 
   ! temporary space to replace the missing value
   real, pointer :: ncc(:)
 
-  real, allocatable :: temp(:)
-  character(len=128) :: var,name,namedim(MaxDimensions)
+  character(len=128) :: name,namedim(MaxDimensions)
   logical :: fileexists
 
   !  write(stdout,*) 'uw 1 ', vshape(1:ndim), ndim
@@ -1933,7 +1924,7 @@ contains
 
 #endif
     if (ndim.gt.3.and..not.isdegen) then
-      write(stderr,*) 'Warning: collapse dimention 3 to ',ndim
+      write(stderr,*) 'Warning: collapse dimension 3 to ',ndim
       !    stop
     end if
 
@@ -2248,10 +2239,10 @@ contains
   integer, intent(in) :: imax,jmax,kmax
 
   real :: c(4)
-  real  :: valex
 
   c(1) = c0; c(2) = cx; c(3) = cy; c(4) = cz
-  call usave_generic(filename,c,9999.,3,(/ abs(imax),abs(jmax),abs(kmax) /),.true.)
+  call usave_generic(filename,c,DefaultValex,3, &
+       (/ abs(imax),abs(jmax),abs(kmax) /),.true.)
 
  end subroutine usave_degenerated
 

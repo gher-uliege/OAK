@@ -1,6 +1,6 @@
 !
 !  OAK, Ocean Assimilation Kit
-!  Copyright(c) 2002-2011 Alexander Barth and Luc Vandenblucke
+!  Copyright(c) 2002-2015 Alexander Barth and Luc Vandenblucke
 !
 !  This program is free software; you can redistribute it and/or
 !  modify it under the terms of the GNU General Public License
@@ -19,6 +19,7 @@
 
 ! include the fortran preprocessor definitions
 #include "ppdef.h"
+!#define PROFILE
 
 module matoper
 
@@ -50,6 +51,7 @@ interface operator(.x.)
           dmat_mult_dvec,       &
     ssparsemat_mult_dvec,       &
           dvec_mult_dmat,       &
+          dvec_mult_ssparsemat, &
           dvec_mult_dvec
 end interface
 
@@ -63,10 +65,12 @@ interface operator(.xt.)
 ! single precision
     smat_mult_smatT, &
     smat_mult_ssparsematT, &
+    svec_mult_ssparsematT, &
     svec_mult_svecT, &
 ! double precision
     dmat_mult_dmatT, &
     dmat_mult_ssparsematT, &
+    dvec_mult_ssparsematT, &
     dvec_mult_dvecT
 end interface
 
@@ -77,9 +81,13 @@ interface operator(.tx.)
 ! single precision
     smatT_mult_smat, &
     smatT_mult_svec, &
+    ssparsematT_mult_smat, &
+    ssparsematT_mult_svec, &
 ! double precision
     dmatT_mult_dmat, &
-    dmatT_mult_dvec
+    dmatT_mult_dvec, &
+    dsparsematT_mult_dmat, &
+    dsparsematT_mult_dvec
 end interface
 
 ! diag(A) B
@@ -104,6 +112,12 @@ interface operator(.xd.)
      dmat_mult_ddiag
 end interface
 
+interface randn
+  module procedure &
+       randn_scal, &
+       randn_vec, &
+       randn_mat
+end interface randn
 
 interface inv
   module procedure &
@@ -144,6 +158,19 @@ interface symeig
 end interface
 
 
+interface chol
+  module procedure &
+    schol, &
+    dchol
+end interface
+
+interface sqrtm
+  module procedure &
+    ssqrtm, &
+    dsqrtm
+end interface
+
+
 interface eye
   module procedure &
 !    seye, &
@@ -162,6 +189,14 @@ interface diag
     ddiag, &
     cdiag    
 end interface
+
+interface assert
+  module procedure assert_bool
+  module procedure assert_scal
+  module procedure assert_vec
+  module procedure assert_mat
+end interface assert
+
 
 contains
 
@@ -232,28 +267,96 @@ contains
   call random_number(E)
  end function 
 
-!_______________________________________________________
-!
-! create a matrix filled with gaussian distributed 
-! random number with 0 mean and 1 standard deviation
-!
-! FIXME: implement the "Box-Muller transformation"
-!
+  !_______________________________________________________
+  !
 
- function randn(n,m) result(E)
-  implicit none
-  integer, intent(in) :: n,m
-  real :: E(n,m)
+  function randn_scal() result(E)
 
-  integer :: i
+    ! Return a normally distributed random scalar having
+    ! zero mean and variance one.
+    
+    implicit none
 
-  E = rand(n,m);
-  do i=1,11
-    E = E + rand(n,m);
-  end do
+    ! Output
+    real :: E               ! random vector
 
-  E = E-6
- end function 
+    ! Local variable
+    real :: tmp
+
+    ! Local variable
+    integer :: i
+
+    call random_number(E)
+    do i=1,11
+       call random_number(tmp)
+       E = E + tmp
+    end do
+
+    E = E-6
+  end function randn_scal
+
+  !_______________________________________________________
+  !
+
+  function randn_mat(n,m) result(E)
+
+    ! Return a matrix with normally distributed random elements having
+    ! zero mean and variance one.
+    ! Better would be to implement the "Box-Muller transformation".
+
+    implicit none
+
+    ! Inputs 
+    integer, intent(in) :: n,m ! the size of the random matrix
+
+    ! Output
+    real :: E(n,m)             ! random matrix
+
+    ! Local variable
+    integer :: i
+    real :: tmp(n,m)   
+
+    ! Sum 12 normally distributed random variables and substract 6
+    call random_number(E)
+
+    do i=1,11
+      call random_number(tmp)
+       E = E + tmp
+    end do
+
+    E = E-6
+  end function randn_mat
+
+  !_______________________________________________________
+  !
+
+  function randn_vec(n) result(E)
+
+    ! Return a vector with normally distributed random elements having
+    ! zero mean and variance one.
+    
+    implicit none
+
+    ! Input
+    integer, intent(in) :: n   ! length of the random vector
+
+    ! Output
+    real :: E(n)               ! random vector
+
+    ! Local variable
+    real :: tmp(n)
+
+    ! Local variable
+    integer :: i
+
+    call random_number(E)
+    do i=1,11
+       call random_number(tmp)
+       E = E + tmp;
+    end do
+
+    E = E-6
+  end function randn_vec
 
 !_______________________________________________________
 !
@@ -366,8 +469,8 @@ S%nz = count(X.ne.0)
 allocate(S%i(S%nz),S%j(S%nz),S%s(S%nz))
 k = 1
 
- do j=1,S%m
-   do i=1,S%n
+ do j=1,S%n
+   do i=1,S%m
      if (X(i,j).ne.0) then
        S%i(k) = i
        S%j(k) = j
@@ -594,6 +697,8 @@ end function ssparsemat_mult_ssparsemat
 #define dot_TYPE sdot
 #define gemm_TYPE sgemm
 #define syevx_TYPE ssyevx
+#define syev_TYPE ssyev
+#define spotrf_TYPE spotrf
 
 #define diag_TYPE sdiag
 #define trace_TYPE strace
@@ -612,9 +717,12 @@ end function ssparsemat_mult_ssparsemat
 
 #define mat_mult_matT_TYPE smat_mult_smatT
 #define mat_mult_ssparsematT_TYPE smat_mult_ssparsematT
+#define vec_mult_ssparsematT_TYPE svec_mult_ssparsematT
 #define vec_mult_vecT_TYPE svec_mult_svecT
 #define matT_mult_mat_TYPE smatT_mult_smat
 #define matT_mult_vec_TYPE smatT_mult_svec
+#define ssparsematT_mult_mat_TYPE ssparsematT_mult_smat
+#define ssparsematT_mult_vec_TYPE ssparsematT_mult_svec
 
 #define diag_mult_mat_TYPE sdiag_mult_smat
 #define diag_mult_vec_TYPE sdiag_mult_svec
@@ -628,6 +736,8 @@ end function ssparsemat_mult_ssparsemat
 #define ssvd_TYPE ssvd_singleprec
 #define gesvd_f90_TYPE gesvd_sf90 
 #define symeig_TYPE symeig_sf90
+#define chol_TYPE schol
+#define sqrtm_TYPE ssqrtm
 
 #include "matoper_inc.F90"
 
@@ -651,6 +761,8 @@ end function ssparsemat_mult_ssparsemat
 #undef dot_TYPE
 #undef gemm_TYPE
 #undef syevx_TYPE
+#undef syev_TYPE
+#undef spotrf_TYPE
 
 #undef diag_TYPE
 #undef trace_TYPE
@@ -670,9 +782,12 @@ end function ssparsemat_mult_ssparsemat
 
 #undef mat_mult_matT_TYPE
 #undef mat_mult_ssparsematT_TYPE
+#undef vec_mult_ssparsematT_TYPE 
 #undef vec_mult_vecT_TYPE
 #undef matT_mult_mat_TYPE
 #undef matT_mult_vec_TYPE
+#undef ssparsematT_mult_mat_TYPE
+#undef ssparsematT_mult_vec_TYPE
 
 #undef diag_mult_mat_TYPE
 #undef diag_mult_vec_TYPE
@@ -686,6 +801,8 @@ end function ssparsemat_mult_ssparsemat
 #undef ssvd_TYPE
 #undef gesvd_f90_TYPE
 #undef symeig_TYPE
+#undef chol_TYPE
+#undef sqrtm_TYPE
 
 
 
@@ -733,6 +850,8 @@ end function ssparsemat_mult_ssparsemat
 #define dot_TYPE ddot
 #define gemm_TYPE dGEMM
 #define syevx_TYPE dsyevx
+#define syev_TYPE dsyev
+#define spotrf_TYPE dpotrf
 
 #define diag_TYPE ddiag
 #define trace_TYPE dtrace
@@ -751,9 +870,12 @@ end function ssparsemat_mult_ssparsemat
 
 #define mat_mult_matT_TYPE dmat_mult_dmatT
 #define mat_mult_ssparsematT_TYPE dmat_mult_ssparsematT
+#define vec_mult_ssparsematT_TYPE dvec_mult_ssparsematT
 #define vec_mult_vecT_TYPE dvec_mult_dvecT
 #define matT_mult_mat_TYPE dmatT_mult_dmat
 #define matT_mult_vec_TYPE dmatT_mult_dvec
+#define ssparsematT_mult_mat_TYPE dsparsematT_mult_dmat
+#define ssparsematT_mult_vec_TYPE dsparsematT_mult_dvec
 
 #define diag_mult_mat_TYPE ddiag_mult_dmat
 #define diag_mult_vec_TYPE ddiag_mult_dvec
@@ -767,10 +889,451 @@ end function ssparsemat_mult_ssparsemat
 #define ssvd_TYPE ssvd_doubleprec
 #define gesvd_f90_TYPE gesvd_df90 
 #define symeig_TYPE symeig_df90
+#define chol_TYPE dchol
+#define sqrtm_TYPE dsqrtm
 
 
 #include "matoper_inc.F90"
 
+
+  !_______________________________________________________
+  !
+
+  subroutine assert_bool(cond,msg)
+    
+    ! Produce an error if the specified condition is no true
+
+    implicit none
+    
+    ! Inputs
+    logical, intent(in) :: cond  ! condition to check   
+    character(len=*) :: msg      ! message to print while checking
+
+    if (cond) then
+       write(6,*) msg, ': OK '
+    else
+       write(6,*) msg, ': FAIL '
+       stop
+    end if
+  end subroutine assert_bool
+
+  !_______________________________________________________
+  !
+
+  subroutine assert_scal(found,expected,tol,msg)
+    
+    ! Produce an error if the scalar found is not the same as expected but
+    ! equality comparison for numeric data uses a tolerance tol.
+
+    implicit none
+    
+    ! Inputs
+    real, intent(in) :: found    ! found value
+    real, intent(in) :: expected ! expected value
+    real, intent(in) :: tol      ! tolerance for comparision
+    character(len=*) :: msg      ! message to print while checking
+
+    ! Local variable
+    real :: maxdiff
+    maxdiff = abs(found - expected)
+
+    if (maxdiff < tol) then
+       write(6,*) msg, ': OK '
+    else
+       write(6,*) msg, ': FAIL ', maxdiff
+       write(6,*) 'found ',found
+       write(6,*) 'expected ',expected
+       stop
+    end if
+
+
+  end subroutine assert_scal
+
+  !_______________________________________________________
+  !
+
+  subroutine assert_vec(found,expected,tol,msg)
+    
+    ! Produce an error if the vector found is not the same as expected but
+    ! equality comparison for numeric data uses a tolerance tol.
+
+    implicit none
+    
+    ! Inputs
+    real, intent(in) :: found(:)    ! vector found 
+    real, intent(in) :: expected(:) ! vector expected
+    real, intent(in) :: tol         ! tolerance for comparision
+    character(len=*) :: msg         ! message to print while checking
+
+    ! Local variable
+    real :: maxdiff
+    maxdiff = maxval(abs(found - expected))
+
+    if (maxdiff < tol) then
+       write(6,*) msg, ': OK '
+    else
+       write(6,*) msg, ': FAIL ', maxdiff
+       write(6,*) 'found ',found
+       write(6,*) 'expected ',expected
+       stop
+    end if
+
+
+  end subroutine assert_vec
+
+  !_______________________________________________________
+  !
+
+  subroutine assert_mat(found,expected,tol,msg)
+    
+    ! Produce an error if the matrix found is not the same as expected but
+    ! equality comparison for numeric data uses a tolerance tol.
+
+    implicit none
+    
+    ! Inputs
+    real, intent(in) :: found(:,:)     ! matrix found
+    real, intent(in) :: expected(:,:)  ! matrix expected
+    real, intent(in) :: tol            ! tolerance for comparision
+    character(len=*) :: msg            ! message to print while checking
+
+    ! Local variable
+    real :: maxdiff
+    maxdiff = maxval(abs(found - expected))
+
+    if (maxdiff < tol) then
+       write(6,*) msg, ': OK '
+    else
+       write(6,*) msg, ': FAIL ', maxdiff
+       ! often too large to print
+       !     write(6,*) 'found ',found
+       !     write(6,*) 'expected ',expected
+       stop
+    end if
+
+
+  end subroutine assert_mat
+
+
+  ! Redefine DATA_TYPE to the type needed for the subroutines sort and unique
+#define DATA_TYPE integer 
+
+  subroutine sort(A,ind)
+    
+    ! Sort all elements of vector A inplace.
+    ! The optional argument ind is the sort index such that
+    ! sortedA = A
+    ! call sort(sortedA,ind)
+    ! A(ind) is the same as sortedA
+
+    implicit none
+    
+    ! Input
+    DATA_TYPE, intent(inout), dimension(:) :: A               ! vector to sort
+    
+    ! Optional output
+    integer, intent(out), dimension(size(A)), optional :: ind ! sort index
+
+    ! Local variable
+    integer :: sort_index(size(A))
+    integer :: i
+
+    sort_index = [(i, i=1,size(A))]
+
+    call sort_(A,sort_index)
+    if (present(ind)) ind = sort_index
+
+  contains
+    recursive subroutine sort_(A,ind)
+      implicit none
+
+      DATA_TYPE, intent(inout), dimension(:) :: A
+      integer, intent(inout), dimension(:) :: ind
+      integer :: iq
+
+      if (size(A) > 1) then
+         call sort_partition(A, ind, iq)
+         call sort_(A(:iq-1),ind(:iq-1))
+         call sort_(A(iq:),ind(iq:))
+      end if
+    end subroutine sort_
+
+    subroutine sort_partition(A, ind, marker)
+      implicit none
+
+      DATA_TYPE, intent(inout), dimension(:) :: A
+      integer, intent(inout), dimension(:) :: ind
+      integer, intent(out) :: marker
+      integer :: i, j, tempind
+      DATA_TYPE :: temp
+      DATA_TYPE :: x      ! pivot point
+
+      x = A(1)
+      i = 0
+      j = size(A) + 1
+
+      do
+         j = j-1
+         do
+            if (A(j) <= x) exit
+            j = j-1
+         end do
+
+         i = i+1
+         do
+            if (A(i) >= x) exit
+            i = i+1
+         end do
+
+
+         if (i < j) then
+            ! exchange A(i) and A(j)
+            temp = A(i)
+            A(i) = A(j)
+            A(j) = temp
+
+            tempind = ind(i)
+            ind(i) = ind(j)
+            ind(j) = tempind        
+         else if (i == j) then
+            marker = i+1
+            return
+         else
+            marker = i
+            return
+         end if
+      end do
+
+    end subroutine sort_partition
+
+  end subroutine sort
+
+  !_______________________________________________________
+  !
+
+  subroutine unique(A,n,ind,ind2)
+    
+    ! Return all unique elements of A (inplace)
+    ! n is the number of unique elements
+
+    implicit none
+
+    ! Input and output
+    DATA_TYPE, intent(inout) :: A(:)   ! vector, output unique elements for A
+
+    ! Output
+    integer, intent(out) :: n           ! number of unique elements
+
+    ! Optional outputs:
+    ! indices such that
+    ! ind is a vector of indices for all unique elements in A
+    ! Anew(1:n) = Aold(ind)
+    ! Aold = Anew(ind2)   
+    integer, intent(out), dimension(size(A)), optional :: ind, ind2
+
+    ! Local variables:
+    integer :: unique_index(size(A)), unique_index2(size(A)), i
+
+    unique_index = [(i, i=1,size(A))]
+
+    call unique_(A,n,unique_index,unique_index2)
+    if (present(ind)) ind = unique_index
+    if (present(ind2)) ind2 = unique_index2
+
+  contains
+    subroutine unique_(A,n,ind,ind2)
+      implicit none
+
+      DATA_TYPE, intent(inout) :: A(:)
+      integer, intent(out) :: n
+      integer, intent(out), dimension(size(A)) :: ind
+      integer, intent(out), dimension(size(A)) :: ind2
+
+      integer :: i
+      integer, dimension(size(A)) :: sort_ind
+
+      ind2 = 1
+      call sort(A,sort_ind)
+
+      n = 1
+      do i = 1,size(A)-1
+         ind2(sort_ind(i)) = n
+
+         A(n) = A(i)
+         ind(n) = sort_ind(i)
+
+         if (A(i) /= A(i+1)) then
+            n = n+1
+         end if
+      end do
+
+      A(n) = A(size(A))
+      ind(n) = sort_ind(size(A))
+      ind2(sort_ind(size(A))) = n
+
+    end subroutine unique_
+  end subroutine unique
+
+  !_______________________________________________________
+  !
+
+
+ function pcg(fun,b,x0,tol,maxit,pc,nit,relres) result(x)
+
+  interface 
+    function fun(x) result(y)
+     real, intent(in) :: x(:)
+     real :: y(size(x))
+    end function fun
+  end interface
+
+  interface 
+    function pc(x) result(y)
+     real, intent(in) :: x(:)
+     real :: y(size(x))
+    end function pc
+  end interface
+
+  optional pc
+  !   class(Covar), intent(in) :: A
+  real, intent(in) :: b(:)
+  real :: x(size(b))
+  real, intent(in), optional :: x0(:)
+  real, intent(in), optional :: tol
+  integer, intent(in), optional :: maxit
+  integer, intent(out), optional :: nit
+  ! relative residual 
+  ! |fun(x) - b| / |b|
+  real, intent(out), optional :: relres
+
+  !   class(Covar) :: pc
+  real :: tol_, zr_old, zr_new
+  real, pointer :: alpha(:), beta(:)
+  integer :: maxit_
+  integer :: n, k
+  real :: tol2
+  real, dimension(size(x)) :: Ap, p, r, r_old, z
+# ifdef PROFILE
+  real(8) :: cputime(2)
+# endif
+
+  n = size(b)
+  ! default parameters
+  maxit_ = min(n,100)
+  tol_ = 1e-6
+
+  if (present(tol)) tol_ = tol
+  if (present(maxit)) maxit_ = maxit
+
+
+  allocate(alpha(maxit_+1),beta(maxit_+1))
+
+  ! initial guess
+  if (present(x0)) then
+    x = x0
+  else
+    ! random initial vector
+    x = reshape(randn(n,1),(/ n /))
+  end if
+
+  tol2 = tol_**2
+
+  ! gradient at initial guess
+  r = b - fun(x)
+
+  ! quick exit
+  if (sum(r**2) < tol2) then
+    if (present(nit)) nit = k
+    if (present(relres)) relres = sqrt(sum(r**2)/sum(b**2))
+    return
+  endif
+
+
+  ! apply preconditioner
+
+  if (present(pc)) then
+    z = pc(r)
+  else
+    z = r
+  endif
+
+
+  ! first search direction == gradient
+  p = z
+
+  ! compute: r' * inv(M) * z (we will need this product at several
+  ! occasions)
+
+  zr_old = sum(r*z)
+
+  ! r_old: residual at previous iteration
+  r_old = r
+
+  do k=1,maxit_    
+    !     write(6,*) ' k',k,sum(r*r),maxit_,tol2
+
+#   ifdef PROFILE
+    call cpu_time(cputime(1))
+#   endif    
+
+    ! compute A*p
+    Ap = fun(p)
+
+#   ifdef PROFILE
+    call cpu_time(cputime(2))
+    write(stdout,*) 'pcg fun',cputime(2)-cputime(1)
+#   endif
+
+    !maxdiff(A*p,Ap)
+
+    ! how far do we need to go in direction p?
+    ! alpha is determined by linesearch
+
+    ! alpha z'*r / (p' * A * p)
+    alpha(k) = zr_old / ( sum(p * Ap))
+
+    ! get new estimate of x
+    x = x + alpha(k)*p
+
+    ! recompute gradient at new x. Could be done by
+    ! r = b-fun(x)
+    ! but this does require an new call to fun
+    r = r - alpha(k)*Ap
+
+    ! apply pre-conditionner
+    if (present(pc)) then
+      z = pc(r)
+    else
+      z = r
+    endif
+
+
+    zr_new = sum(r*z)
+
+    if (sum(r*r) < tol2) then
+      if (present(nit)) nit = k
+      exit
+    endif
+
+    !Fletcher-Reeves
+    beta(k+1) = zr_new / zr_old
+    !Polak-Ribiere
+    !beta(k+1) = r'*(r-r_old) / zr_old
+    !Hestenes-Stiefel
+    !beta(k+1) = r'*(r-r_old) / (p'*(r-r_old))
+    !beta(k+1) = r'*(r-r_old) / (r_old'*r_old)
+
+
+    ! norm(p)
+    p = z + beta(k+1)*p
+    zr_old = zr_new
+    r_old = r
+  enddo
+
+  if (present(relres)) relres = sqrt(sum((fun(x) - b)**2)/sum(b**2))
+
+
+ end function pcg
 
 !!$
 !!$!_______________________________________________________

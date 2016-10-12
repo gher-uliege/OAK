@@ -19,6 +19,8 @@
 
 
 \newcommand{\code}{\texttt}
+\newcommand{\mat}{\mathbf}
+\renewcommand{\vec}{\mathbf}
 \newenvironment{codeexample}{\begin{verbatim}}{\end{verbatim}}
 \newenvironment{keytabular}{\begin{tabular}{|p{0.3\textwidth}|p{0.2\textwidth}|p{0.5\textwidth}|} \hline Key & Type & Description \\ \hline \hline }{\end{tabular}}
 \newcommand{\subsubsubsection}[1]{\bigskip \textit{#1} \medskip}
@@ -85,7 +87,7 @@ the indices can also be efficiently represented:
 A(i,j,k) = a_0 + a_1 i + a_2 j + a_3 k
 \end{equation}
 
-Only the coefficient $a_0$, $a_0$, $a_0$ and $a_4$ are
+Only the coefficient $a_0$, $a_1$, $a_2$ and $a_3$ are
 stored. These file are called degenerated. For example, the longitude and latitude of each grid point can
 often be expressed in this way.\\
 
@@ -394,7 +396,7 @@ Using the decomposition \eqref{Udec} in equation (\ref{eqn:Pa_with_Sf}) one obta
 So we found a square root decomposition of $\mathbf{P}^a$ in terms of $\mathbf{S}^f\mathbf{U}(\mathbf I + \mathbf \Lambda)^{-1/2}$. But in order to construct an ensemble from the columns of $\mathbf S^a$, its mean has to be zero. So we will transform $\mathbf S^a$ so that the identity \eqref{PaSfSft} is preserved. One way to do this is
 
 \begin{equation}
-   \mathbf S^a = \mathbf S^f \mathbf U (\mathbf I + \mathbf \Lambda)^{-1/2} \mathbf U^T \mathbf \Omega
+   \mathbf S^a = \mathbf S^f \mathbf U (\mathbf I + \mathbf \Lambda)^{-1/2} \mathbf U^T  %\mathbf \Omega
 \end{equation}
 
 
@@ -419,40 +421,40 @@ by:
  \mathbf S^f \mathbf U (\mathbf I + \mathbf \Lambda)^{-1} \mathbf U^T (\mathbf H \mathbf S^f)^T \mathbf R^{-1}\label{KU}
 \end{eqnarray}
 
-\newcommand{\one}{ \mathbf I_{N \times 1}}
+\newcommand{\one}{ \mathbf 1_{N \times 1}}
 
-$\mathbf \Omega$ is an orthogonal matrix chosen such that sum of all columns of $\mathbf S^a$ is zero. This sum can be obtained by multiplying to the right with a vector $N \times 1$ with all elements equal to 1 ($\one$). Since $\mathbf S^f \one$ is zero, $\mathbf S^a \one$ is also zero if:
+% $\mathbf \Omega$ is an orthogonal matrix chosen such that sum of all columns of $\mathbf S^a$ is zero. This sum can be obtained by multiplying to the right with a vector $N \times 1$ with all elements equal to 1 ($\one$). Since $\mathbf S^f \one$ is zero, $\mathbf S^a \one$ is also zero if:
 
-\begin{eqnarray}
-  \mathbf U (\mathbf I + \mathbf \Lambda)^{-1/2} \mathbf U^T \mathbf \Omega \, \one &=& \one \\
-  \mathbf \Omega \, \one &=& \mathbf U (\mathbf I + \mathbf \Lambda)^{1/2} \mathbf U^T \one
-\end{eqnarray}
+% \begin{eqnarray}
+%   \mathbf U (\mathbf I + \mathbf \Lambda)^{-1/2} \mathbf U^T \mathbf \Omega \, \one &=& \one \\
+%   \mathbf \Omega \, \one &=& \mathbf U (\mathbf I + \mathbf \Lambda)^{1/2} \mathbf U^T \one
+% \end{eqnarray}
 
-We defined the normalised vectors $\mathbf w$ and $\mathbf v$:
+% We defined the normalised vectors $\mathbf w$ and $\mathbf v$:
 
-\begin{eqnarray}
-  \mathbf w &=& \frac{1}{\sqrt{N}} \one \\
-  \mathbf v &=& \alpha \mathbf U (\mathbf I + \mathbf \Lambda)^{-1/2} \mathbf U^T \one
-\end{eqnarray}
+% \begin{eqnarray}
+%   \mathbf w &=& \frac{1}{\sqrt{N}} \one \\
+%   \mathbf v &=& \alpha \mathbf U (\mathbf I + \mathbf \Lambda)^{1/2} \mathbf U^T \one
+% \end{eqnarray}
 
-$\mathbf \Omega$ is thus a matrix which rotates $\mathbf w$ onto $\mathbf v$. 
-\begin{equation}
-\mathbf \Omega \mathbf w = \mathbf v
-\end{equation}
+% $\mathbf \Omega$ is thus a matrix which rotates $\mathbf w$ onto $\mathbf v$. 
+% \begin{equation}
+% \mathbf \Omega \mathbf w = \mathbf v
+% \end{equation}
 
-It can be computed by:
+% It can be computed by:
 
-\begin{eqnarray}
-\mathbf \Omega = \mathbf v \mathbf w^T  + \mathbf H({\mathbf v}) \mathbf H({\mathbf w})^T
-\end{eqnarray}
+% \begin{eqnarray}
+% \mathbf \Omega = \mathbf v \mathbf w^T  + \mathbf H({\mathbf v}) \mathbf H({\mathbf w})^T
+% \end{eqnarray}
 
-where $\mathbf H(\mathbf v)$ is the $N \times (N-1)$ Householder matrix associated to the vector $\mathbf v$, i.e.
-all columns of $\mathbf H({\mathbf v})$ are vectors perpendicular to $\mathbf v$ \citep{Hoteit02}:
+% where $\mathbf H(\mathbf v)$ is the $N \times (N-1)$ Householder matrix associated to the vector $\mathbf v$, i.e.
+% all columns of $\mathbf H({\mathbf v})$ are vectors perpendicular to $\mathbf v$ \citep{Hoteit02}:
 
-\begin{eqnarray}
-\mathbf H(\mathbf v)_{i,j} &=& \delta_{i,j} - \frac{\mathbf v_i \mathbf v_j}{|\mathbf v_N| + 1}   \qquad \mbox{for $i \le N-1$} \\
-\mathbf H(\mathbf v)_{N,j} &=& - \frac{(\mathbf v_N + \sgn(\mathbf v_N)) \mathbf v_j }{|\mathbf v_N| + 1}
-\end{eqnarray}
+% \begin{eqnarray}
+% \mathbf H(\mathbf v)_{i,j} &=& \delta_{i,j} - \frac{\mathbf v_i \mathbf v_j}{|\mathbf v_N| + 1}   \qquad \mbox{for $i \le N-1$} \\
+% \mathbf H(\mathbf v)_{N,j} &=& - \frac{(\mathbf v_N + \sgn(\mathbf v_N)) \mathbf v_j }{|\mathbf v_N| + 1}
+% \end{eqnarray}
 
 %% \begin{equation*}
 %% \mathbf H(\mathbf v)_{i,j} = 
@@ -486,7 +488,35 @@ all columns of $\mathbf H({\mathbf v})$ are vectors perpendicular to $\mathbf v$
 %%     H(n,j) = alpha * (v(n)+sign(1.,v(n)))*v(j);
 
 
+{%\color{blue}
+For a linear observation operator, the sum of all columns of $\mat H \mat S^f$ is zero. Thus $\one$ is a (unnormalized) eigenvector of $\left(\mathbf H \mathbf S^f\right)^T  \mathbf R^{-1} \mathbf H \mathbf S^f$ with eigenvalue 0:
 
+
+\begin{equation}
+\left(\mathbf H \mathbf S^f\right)^T  \mathbf R^{-1} \mathbf H \mathbf S^f
+\one 
+= 
+0 \;
+\one
+\end{equation}
+
+If eigenvalues are sorted in $\mat \Lambda$, then $\one$ is the smallest and last eigenvalue (as all eigenvalues positive).
+
+
+\begin{eqnarray}
+  \mat U \vec e_N &=& \frac{1}{\sqrt{N}} \one \\
+  \mat U^T \frac{1}{\sqrt{N}} \one &=& \vec e_N
+\end{eqnarray}
+
+where $\vec e_N$ is the a vector with all elements equal to zero expect that last which is one. Therefore, it follows that
+
+\begin{equation}
+  \mathbf U (\mathbf I + \mathbf \Lambda)^{-1/2} \mathbf U^T \one = \one
+\end{equation}
+
+since the element $\mat \Lambda_{N,N}$ is zero. Thus the mean of all columns of $\mat S^a$ is zero.
+%or a linear observation operator, the matrix $\mat \Omega$ above is thus the identity matrix as $\vec v = \vec w$ in this case. \\
+}
  
 $\mathbf S^a$ is the square root of $\mathbf P^a$:
 
@@ -523,10 +553,15 @@ of each variable. The files in \code{Model.gridZ} can be plain files
 and contains the depth. The key \code{Model.mask} is used to determine
 the sea-land mask of each variable. The exclusion value (or missing
 value or \_FillValue in NetCDF terminology) marks a land point all other values, a sea
-points. Every files assembled into a state vector should have physical
+points. The arrays in \code{Model.gridX}, \code{Model.gridY}, \code{Model.gridZ} cannot 
+contain an exclusion value/fill value.
+
+Every files assembled into a state vector should have physical
 values where mask assumes a sea point. The shape of the arrays in
 \code{Model.gridX}, \code{Model.gridY}, \code{Model.gridZ} and
 \code{Model.mask} must be the same. 
+
+
 %No check is performed for the shape neither for the mask so be careful. 
 \\
 
@@ -793,7 +828,7 @@ with the tool "\code{genobsoper}".
 All diagnostics are optional and the corresponding files are output.
 
 \begin{keytabular}
-\code{DiagXXX.xf} & vector of strings & the model forecast
+\code{DiagXXX.xf} & vector of strings & the model forecast (ensemble mean)
 \\
 \code{DiagXXX.Hxf} & vector of strings & the observed part of the model forecast
 \\
@@ -801,6 +836,11 @@ All diagnostics are optional and the corresponding files are output.
 format. For the conversion into file names see the key
 \code{ErrorSpace.init}. The files represent
 the error modes of the model forecast.
+\\
+\code{DiagXXX.Ef} & vector of strings & Each string is a Fortran
+format. For the conversion into file names see the key
+\code{ErrorSpace.init}. The files represent
+the forecast ensemble.
 \\
 \code{DiagXXX.diagPf} & vector of strings & The diagonal elements of error
 covariance of the model forecast.
@@ -818,7 +858,7 @@ the error of the observed part of the model forecast.
 specified in \code{DiagXXX.*}. The current path is used by default.
 \\
 \hline
-\code{DiagXXX.xa} & vector of strings & the analysis
+\code{DiagXXX.xa} & vector of strings & the analysis (ensemble mean)
 \\
 \code{DiagXXX.Hxa} & vector of strings & the observed part of the analysis
 \\
@@ -826,6 +866,11 @@ specified in \code{DiagXXX.*}. The current path is used by default.
 format. For the conversion into filenames see the key
 \code{ErrorSpace.init}. The files represent
 the error modes of the analysis.
+\\
+\code{DiagXXX.Ea} & vector of strings & Each string is a Fortran
+format. For the conversion into file names see the key
+\code{ErrorSpace.init}. The files represent
+the analysis ensemble.
 \\
 \code{DiagXXX.diagPa} & vector string & The diagonal elements of error
 covariance of the analysis.
@@ -917,6 +962,21 @@ File contains debugging information is the code was compiled with the flag \code
 \hline
 \end{keytabular}
 
+
+\section{Data structures}
+
+The subroutine assim requires as an argument a part of the model state for local assimilation. The way the data is distributed can be explained by the following steps:
+
+\begin{enumerate}
+\item for each variable concatenate the model sub-domains (if the model domain is decomposed into sub-domains)
+\item concatenate all variables
+\item remove masked elements
+\item permute the order of the elements so that all elements belong to the same zone are continuous in memory. The elements are ``sorted'' using numeric labels in the partition vector (the sort is stable, i.e. if two elements have the same partition label, their order is not changed).
+\item each vector is distributed among the available processes
+\end{enumerate}
+
+The actual implements avoid to form a global vector spanning the entire state vector and goes directly from the first step to the last.
+
 \section{Standalone programs}\label{sec_standalone}
 
 \subsection{Program \code{assim}}\label{prog_assim}
@@ -1003,11 +1063,11 @@ The required keys are: \\
 \begin{keytabular}
 \code{Model.mask} & vector of strings &  sea-land mask of each variable 
 \\
-\code{Model.gridX} & vector of strings & longitude of each variable
+\code{Model.gridX} & vector of strings & longitude of each variable (without any exclusion value/fill value)
 \\
-\code{Model.gridY} & vector of strings & latitude of each variable
+\code{Model.gridY} & vector of strings & latitude of each variable (without any exclusion value/fill value)
 \\
-\code{Model.gridZ} & vector of strings & depth 
+\code{Model.gridZ} & vector of strings & depth (without any exclusion value/fill value)
 \\
 \code{Model.hres} & vector of real numbers & the resolution of the model grid which defines the ``priority'' when using overlapping grids. Observations are associated to the model variable with the highest resolution. The units of the resolution is not important as their values are only compared to each other (optional)
 \\
@@ -1177,4 +1237,4 @@ config TEM ./ligur.SST.X ./ligur.SST.Y ./ligur.SST.Z 32-41
 % LocalWords:  stddevHxf Hxa applyobsoper filteroper lenx leny lenz opermul MJD
 % LocalWords:  GenObsFile initheader diags Outdir Outfile maxX minX maxY minMJD
 % LocalWords:  obstime listfile config API uload filename usave barth beckers
-% LocalWords:  rixen ncdump
+% LocalWords:  rixen ncdump eigenvector

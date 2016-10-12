@@ -1,0 +1,30 @@
+netcdf obs1 {
+dimensions:
+	x = 1 ;
+variables:
+	double mask(x) ;
+		mask:_FillValue = -9999999. ;
+	double lon(x) ;
+		lon:_FillValue = -9999999. ;
+	double lat(x) ;
+		lat:_FillValue = -9999999. ;
+	double z(x) ;
+		z:_FillValue = -9999999. ;
+	double rmse(x) ;
+		rmse:_FillValue = -9999999. ;
+	double var1(x) ;
+		var1:_FillValue = -9999999. ;
+data:
+
+ mask = 1 ;
+
+ lon = 4 ;
+
+ lat = 0 ;
+
+ z = 0 ;
+
+ rmse = 1 ;
+
+ var1 = 1 ;
+}

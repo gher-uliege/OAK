@@ -1,0 +1,2 @@
+
+* check if there is a missing value in Model.gridX,Y,Z,... and erport an error

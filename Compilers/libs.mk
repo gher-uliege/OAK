@@ -3,29 +3,38 @@
 
 ASSIM_PROG ?= assim-$(FORT)-$(PRECISION)
 
+ifeq ($(DEBUG),on)
+  F90FLAGS += -DDEBUG
+  ASSIM_PROG := $(ASSIM_PROG)-debug
+  F90FLAGS += $(DEBUG_F90FLAGS)
+  LDFLAGS += $(DEBUG_LDFLAGS)
+else
+  F90FLAGS += $(OPTIM_F90FLAGS)
+  LDFLAGS += $(OPTIM_LDFLAGS)
+endif
+
 ifdef MPI
   ASSIM_PROG := $(ASSIM_PROG)-mpi
 endif
 
-ifdef OPENMP
+ifeq ($(OPENMP),on)
   ASSIM_PROG := $(ASSIM_PROG)-openmp
+  F90FLAGS += $(OPENMP_F90FLAGS)
+  LDFLAGS += $(OPENMP_LDFLAGS)
 endif
 
-ifdef DEBUG
-  ASSIM_PROG := $(ASSIM_PROG)-debug
-endif
 
 ifdef EXEC_SUFFIX
   ASSIM_PROG := $(ASSIM_PROG)-$(EXEC_SUFFIX)
 endif
 
-ifdef PROFILING
+ifeq ($(PROFILING),on)
   ASSIM_PROG := $(ASSIM_PROG)-profiling
   F90FLAGS += $(PROFILING_F90FLAGS)
   LDFLAGS += $(PROFILING_LDFLAGS)
 endif
 
-ifdef PIC
+ifeq ($(PIC),on)
   F90FLAGS += $(PIC_F90FLAGS)
   CFLAGS += $(PIC_CFLAGS)
 endif

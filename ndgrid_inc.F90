@@ -138,7 +138,7 @@ subroutine interpgrid_coeff_VARIANT(n,gshape,coord,masked,xi,out,indexes,coeff &
    call locate(xi(:,i),ind,out(i))
 #   else
 #   ifdef DATABOX_SEARCH
-   call locate_databox_VARIANT(databox,n,ioffset,tetrahedron,coord,xi(:,i),ind,out(i))
+   call locate_databox_VARIANT(databox,n,gshape,ioffset,tetrahedron,coord,xi(:,i),ind,out(i))
 #   else
    call locate_testall_VARIANT(n,gshape,ioffset,ioffset2,tetrahedron,coord,xi(:,i),ind,out(i))
 #   endif
@@ -234,7 +234,7 @@ subroutine locate_testall_VARIANT(n,gshape,ioffset,ioffset2,tetrahedron,coord,xi
      ind(1) = ind(1)-ind(d)*ioffset2(d)
    end do
 
-   out = .not.InCube_VARIANT(n,ioffset,tetrahedron,coord,xi,ind)
+   out = .not.InCube_VARIANT(n,gshape,ioffset,tetrahedron,coord,xi,ind)
 
    if (.not.out) then
      exit search_grid
@@ -300,13 +300,13 @@ end subroutine locate_testall_VARIANT
 !
 ! Test if point xi is in the hypercube formed by the 
 ! corners x(:,1), x(:,2), ... x(:,2**n)
-!
 
-
-function  InCube_VARIANT(n,ioffset,tetrahedron,coord,xi,ind) result(inside)
+function  InCube_VARIANT(n,gshape,ioffset,tetrahedron,coord,xi,ind) result(inside)
  implicit none
+ ! dimension of the grid
  integer, intent(in) :: n
- integer, intent(in) :: ioffset(n)
+ ! shape and memory offset 
+ integer, intent(in) :: gshape(n),ioffset(n)
  real, intent(in) :: tetrahedron(:,:,:)
 
  real, intent(in) :: xi(n)
@@ -341,7 +341,7 @@ function  InCube_VARIANT(n,ioffset,tetrahedron,coord,xi,ind) result(inside)
 
    do k=1,n
      if  (btest(j-1,k-1)) then
-       pind(k) = ind(k) + 1
+       pind(k) = min(ind(k) + 1,gshape(k)-1)
      else
        pind(k) = ind(k) 
      end if
@@ -841,7 +841,6 @@ end subroutine
 ! 
 
 
-
 recursive subroutine split_databox_VARIANT(db,n,ioffset,coord)
  implicit none
  integer, intent(in) :: n
@@ -861,6 +860,8 @@ recursive subroutine split_databox_VARIANT(db,n,ioffset,coord)
  real, intent(in) :: coord(:,:)
 #endif
 
+! subimin/subimax are zero-based indices
+
  integer :: im(n),subimin(n,2**n),subimax(n,2**n),m,p
  integer :: ind(n),d,l
  logical :: subs(2**n)
@@ -869,7 +870,8 @@ recursive subroutine split_databox_VARIANT(db,n,ioffset,coord)
 
  ! check if databox has to be splitted
 
- if (any(db%imax-db%imin.ne.1))  then
+! if (any(db%imax-db%imin.ne.1))  then
+ if (any(db%imax-db%imin > 1))  then
    db%type = db_splitted
 
    ! middle of data box
@@ -884,6 +886,9 @@ recursive subroutine split_databox_VARIANT(db,n,ioffset,coord)
          subimin(d,m) = im(d)
          subimax(d,m) = db%imax(d)
        end if
+
+     !write(6,*) 'subbox ',m,d,subimin(d,m),subimax(d,m)
+
      end do
    end do
 
@@ -892,9 +897,13 @@ recursive subroutine split_databox_VARIANT(db,n,ioffset,coord)
 !!$     write(6,*) 'subimax ', subimax(1,:)
 !!$     write(6,*) 'subimax ', subimax(2,:)
 !!$    stop
-   subs = all(subimax-subimin.ge.1,1)
+!   subs = all(subimax-subimin.ge.1,1)
+   subs = any(subimax-subimin >= 1,1)
 
+   !write(6,*) 'subs ', subs
    allocate(db%db(count(subs)))
+!   stop
+
    p=1
    do m=1,size(subimax,2)
      if (subs(m)) then
@@ -916,10 +925,11 @@ end subroutine
 !_______________________________________________________
 !
 
-recursive subroutine locate_databox_VARIANT(db,n,ioffset,tetrahedron,coord,xi,i,out)
+recursive subroutine locate_databox_VARIANT(db,n,gshape,ioffset,tetrahedron,coord,xi,i,out)
  implicit none
  type(databoxND), intent(inout) :: db
  integer, intent(in) :: n
+ integer, intent(in) :: gshape(n)
  integer, intent(in) :: ioffset(n)
  real, intent(in) :: tetrahedron(:,:,:)
 
@@ -946,14 +956,14 @@ recursive subroutine locate_databox_VARIANT(db,n,ioffset,tetrahedron,coord,xi,i,
       call split_databox_VARIANT(db,n,ioffset,coord)
    end if
 
-!    write(6,*) 'xi ',xi,out,db%xmin,db%xmax
+   ! write(6,*) 'xi ',xi,out,db%xmin,db%xmax,db%type,size(db%db)
 
  !  if (xi.lt.db%xmin(1).or.xi.gt.db%xmax(1).or.yi.lt.db%xmin(2).or.yi.gt.db%xmax(2)) then
  if ( any(xi.lt.db%xmin).or.any(xi.gt.db%xmax)) then
 
    out = .true.
- !   write(6,*) 'xi ',xi
-!!$    write(6,*) 'not in ',db%xmin,db%xmax
+   ! write(6,*) 'xi ',xi
+   ! write(6,*) 'not in ',db%xmin,db%xmax
 !!$    write(6,*) ' any(xi.lt.db%xmin)', any(xi.lt.db%xmin)
 !!$    write(6,*) ' any(xi.gt.db%xmax)', any(xi.gt.db%xmax)
 
@@ -969,7 +979,7 @@ recursive subroutine locate_databox_VARIANT(db,n,ioffset,tetrahedron,coord,xi,i,
 
      do p=1,size(db%db)
     !write(6,*) 'xi3',xi,out
-       call locate_databox_VARIANT(db%db(p),n,ioffset,tetrahedron,coord,xi,i,out)       
+       call locate_databox_VARIANT(db%db(p),n,gshape,ioffset,tetrahedron,coord,xi,i,out)       
        if (.not.out) exit
      end do
    else
@@ -977,8 +987,8 @@ recursive subroutine locate_databox_VARIANT(db,n,ioffset,tetrahedron,coord,xi,i,
 
      i = db%imin
      !      if (all(i.lt.gshape)) then
-     !        write(6,*) 'test i ',i,ioffset
-     out = .not.InCube_VARIANT(n,ioffset,tetrahedron,coord,xi,i)
+     !write(6,*) 'test i ',i,ioffset
+     out = .not.InCube_VARIANT(n,gshape,ioffset,tetrahedron,coord,xi,i)
      !write(6,*) 'i ',i,out
      !     end if
    end if

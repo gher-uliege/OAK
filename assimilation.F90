@@ -1,6 +1,6 @@
 !
 !  OAK, Ocean Assimilation Kit
-!  Copyright(c) 2002-2012 Alexander Barth and Luc Vandenblucke
+!  Copyright(c) 2002-2015 Alexander Barth and Luc Vandenblucke
 !
 !  This program is free software; you can redistribute it and/or
 !  modify it under the terms of the GNU General Public License
@@ -56,7 +56,8 @@ module assimilation
  end interface
 
  logical, parameter :: removeLandPoints = .true.
- integer, parameter :: maxLen = 256;
+! logical, parameter :: removeLandPoints = .false.
+ integer, parameter :: maxLen = 256
  
  character(len=maxLen) :: initfname, localInitfname, globalInitfname
 
@@ -67,8 +68,8 @@ module assimilation
  ! horizontal resolution of each variable (approximation)
 
  real, allocatable         :: hres(:)
- integer                   :: StateVectorSize, StateVectorSizeSea, &
-      ErrorSpaceDim
+ integer                   :: StateVectorSize, StateVectorSizeSea
+! integer                   :: ErrorSpaceDim
 
  ! possible values of "runtype" are:
  ! FreeRun     = 0 = do nothing, i.e. a pure run of the model 
@@ -110,7 +111,8 @@ module assimilation
  integer :: metrictype
  integer, parameter :: &
       CartesianMetric  = 0, &           
-      SphericalMetric  = 1               ! (default)
+      SphericalMetric  = 1, &                  ! (default)
+      SphericalMetricApprox  = 2 
 
 
  ! value for the _FillValue attribute
@@ -195,10 +197,18 @@ module assimilation
 
 ! local or global assimilation ?
 
-  integer schemetype
+  integer :: schemetype
   integer, parameter :: &
       GlobalScheme  = 0, &           ! (default)
-      LocalScheme   = 1    
+      LocalScheme   = 1, &    
+      CLocalScheme   = 2,  &
+      EWPFScheme   = 3
+
+ ! type of localization
+ ! 1: horizontal distance (default)
+ ! 2: only gridZ distance
+ ! 3: only gridT distance
+  integer :: loctype
 
 ! partition for local assimilation
 
@@ -218,7 +228,7 @@ module assimilation
 ! variables read by callback function selectObservations
 !
 
-  real, allocatable :: obsGridX(:),obsGridY(:)
+  real, allocatable :: obsGridX(:),obsGridY(:),obsGridZ(:),obsGridT(:)
   real, allocatable :: hCorrLengthToObs(:), hMaxCorrLengthToObs(:)
 
  !_______________________________________________________
@@ -251,14 +261,25 @@ contains
   use parall
 # endif
   use matoper
+  use covariance
   implicit none
   character(len=*), intent(in) :: fname
   integer                      :: v,vmax,n
   character(len=MaxFNameLength), pointer   :: filenamesX(:),filenamesY(:),filenamesZ(:),    &
                                               filenamesT(:)
   character(len=MaxFNameLength)            :: path
-  real, pointer                :: maxCorr(:),tmp(:)
+  real, pointer                :: maxCorr(:), tmp(:), tmp_hres(:)
   integer                      :: NZones, zi, istat
+  
+! for paritioning
+  integer, allocatable :: tmpi(:)
+
+  ! make sure pointers are not associated
+  ! http://www.cs.rpi.edu/~szymansk/OOF90/bugs.html#5
+  nullify(filenamesX)
+  nullify(filenamesY)
+  nullify(filenamesZ)
+  nullify(filenamesT)
 
   initfname = fname
 
@@ -272,14 +293,15 @@ contains
   call getInitValue(initfname,'moderrtype',moderrtype,default=ConstModErr)
   call getInitValue(initfname,'biastype',biastype,default=NoBias)
   call getInitValue(initfname,'schemetype',schemetype,default=GlobalScheme)
+  call getInitValue(initfname,'loctype',loctype,default=1)
   call getInitValue(initfname,'anamorphosistype',anamorphosistype,default=NoAnamorphosis)
 
-# ifdef ASSIM_PARALLEL
-  if (schemetype /= LocalScheme) then
-    write(stderr,*) 'Error: for parallel version schemetype should be 1 (local assimilation)'
-    ERROR_STOP
-  end if
-# endif
+! # ifdef ASSIM_PARALLEL
+!   if (schemetype /= LocalScheme) then
+!     write(stderr,*) 'Error: for parallel version schemetype should be 1 (local assimilation)'
+!     ERROR_STOP
+!   end if
+! # endif
   
   call initAnamorphosis(fname,stddebug)
 
@@ -307,49 +329,69 @@ contains
 ! define model grid
 !
 
-  hres = 0
-
-  call getInitValue(initfname,'Model.gridX',filenamesX)
-  call getInitValue(initfname,'Model.gridY',filenamesY)
-  call getInitValue(initfname,'Model.gridZ',filenamesZ)
+  call getInitValue(initfname,'Model.gridX',filenamesX)  
 
   do v=1,vmax
+
     n = ModML%ndim(v)
-  
+
     ! initialisze the model grid structure ModelGrid(v)
     call initgrid(ModelGrid(v),n,ModML%varshape(1:n,v), &
-       ModML%Mask(ModML%StartIndex(v):ModML%EndIndex(v)).eq.0)
+         ModML%Mask(ModML%StartIndex(v):ModML%EndIndex(v)).eq.0)
 
     ! set the coordinates of the model grid
     call setCoord(ModelGrid(v),1,trim(path)//filenamesX(v))
-    call setCoord(ModelGrid(v),2,trim(path)//filenamesY(v))
 
-    if (n > 2) then
-      call setCoord(ModelGrid(v),3,trim(path)//filenamesZ(v))
+    if (n > 1) then
+      if (.not.associated(filenamesY)) then
+        call getInitValue(initfname,'Model.gridY',filenamesY)
+      end if
 
+      call setCoord(ModelGrid(v),2,trim(path)//filenamesY(v))
 
-      if (n > 3) then
-        !write(stderr,*) 'The dimension of variable ',trim(ModML%varnames(v)),' is ',n
-        !write(stderr,*) 'Error: Only 3-d grids are supported for now. '
+      if (n > 2) then
+        if (.not.associated(filenamesZ)) then
+          call getInitValue(initfname,'Model.gridZ',filenamesZ)
+        end if
 
-        !ERROR_STOP 
+        call setCoord(ModelGrid(v),3,trim(path)//filenamesZ(v))
 
-        call getInitValue(initfname,'Model.gridT',filenamesT)
-        call setCoord(ModelGrid(v),4,trim(path)//filenamesT(v))
-        deallocate(filenamesT)
+        if (n > 3) then
+          if (.not.associated(filenamesT)) then
+            call getInitValue(initfname,'Model.gridT',filenamesT)
+          end if
+
+          call setCoord(ModelGrid(v),4,trim(path)//filenamesT(v))
+          deallocate(filenamesT)
+          
+          if (n > 4) then
+            write(stderr,*) 'The dimension of variable ',trim(ModML%varnames(v)),' is ',n
+            write(stderr,*) 'Error: Only 4-d grids are supported for now. '
+            ERROR_STOP 
+          end if
+        end if
       end if
     end if
-    
 
-!   what to do with hres ?
-!    hres(v) = cx**2
   end do
 
-  deallocate(filenamesX,filenamesY,filenamesZ)
+  ! typical horizontal resolution to prioritize model grids in genObsOperator
+  ! in case of overlapping grids
+  if (presentInitValue(initfname,'Model.hres')) then
+    call getInitValue(initfname,'Model.hres',tmp_hres)
+    hres = tmp_hres
+    deallocate(tmp_hres)
+  else
+    ! grids should not overlap in this case
+    hres = 0
+  end if
 
+  if (associated(filenamesX)) deallocate(filenamesX)
+  if (associated(filenamesY)) deallocate(filenamesY)
+  if (associated(filenamesZ)) deallocate(filenamesZ)
+  if (associated(filenamesT)) deallocate(filenamesT)
 
-
-  call getInitValue(initfname,'ErrorSpace.dimension',ErrorSpaceDim,default=0)
+!  call getInitValue(initfname,'ErrorSpace.dimension',ErrorSpaceDim,default=0)
 
   biasf = 0.
 
@@ -358,13 +400,19 @@ contains
 
 ! variables for local assimilation
 
-  if (schemetype.eq.LocalScheme) then
+  if (schemetype == LocalScheme .or. schemetype == CLocalScheme) then
     allocate(tmp(ModML%effsize),partition(ModML%effsize), &
          hCorrLengthToObs(ModML%effsize),hMaxCorrLengthToObs(ModML%effsize))
     call loadVector('Zones.partition',ModML,tmp)
     ! convertion real -> integer
     partition = tmp+.5
     deallocate(tmp)
+
+    ! deal with gaps in partition
+    allocate(tmpi(ModML%effsize))
+    tmpi = partition
+    call unique(tmpi,n,ind2 = partition)
+    deallocate(tmpi)
 
     call loadVector('Zones.corrLength',ModML,hCorrLengthToObs)
     call loadVector('Zones.maxLength',ModML,hMaxCorrLengthToObs)
@@ -399,9 +447,17 @@ contains
     ModMLParallel%startIndexParallel = 1
     ModMLParallel%endIndexParallel   =  ModMLParallel%effsize
 #   endif     
+  else
+    ! no permutation
+    allocate(invZoneIndex(StateVectorSizeSea))
+    invZoneIndex = [(zi,zi=1,StateVectorSizeSea)]
   end if
 
-  ModMLParallel%permute = schemetype.eq.LocalScheme
+  ModMLParallel%permute = schemetype == LocalScheme .or. schemetype == CLocalScheme
+
+  if (schemetype == CLocalScheme) then
+     ModML%permute = .true.
+  end if
 
 ! Maximum correction
 
@@ -426,6 +482,16 @@ contains
   
 
   deallocate(tmp)
+
+# ifdef DEBUG
+  write(stddebug,*) '= Assimilation parameters ='
+  write(stddebug,'(20A,I3)') 'run type',runtype
+  write(stddebug,'(20A,I3)') 'metric',metrictype
+  write(stddebug,'(20A,I3)') 'scheme',schemetype
+  write(stddebug,'(20A,I3)') 'localization',loctype
+  write(stddebug,'(20A,I3)') 'anamorphosis',anamorphosistype
+# endif  
+
 
  end subroutine globalInit
 
@@ -569,7 +635,6 @@ contains
 
     cIndex(zi) = cIndex(zi)+1
   end do
-
 
 #ifdef DEBUG   
    write(stddebug,*) 'End the partitioning of the state vector'
@@ -1575,7 +1640,7 @@ end subroutine fmtIndex
   if (present(packed)) then
     la%removeLandPoints = packed
   else
-    la%removeLandPoints = .true.
+    la%removeLandPoints = removeLandPoints
   end if
 
   mmax = size(filenames)
@@ -1603,6 +1668,7 @@ end subroutine fmtIndex
 
       if (la%varshape(3,m).eq.1) la%ndim(m) = 2
     end if
+    !write(6,*) 'la%varshape(:,m), la%ndim(m)',la%varshape(:,m), la%ndim(m)
 
     la%VarSize(m) = product(la%varshape(1:la%ndim(m),m))
     la%EndIndex(m) = la%StartIndex(m) + la%VarSize(m)-1 
@@ -1634,7 +1700,13 @@ end subroutine fmtIndex
   end do
 
   la%totsizeSea = count(la%Mask.eq.1)
-  allocate(la%invindex(la%totsizesea))
+  if (la%removeLandPoints) then
+    la%effsize = la%totsizeSea
+  else
+    la%effsize = la%totsize
+  end if
+
+  allocate(la%invindex(la%effsize))
 
   la%SeaIndex = -1
   j=1
@@ -1645,12 +1717,6 @@ end subroutine fmtIndex
       j=j+1
     end if
   end do
-
-  if (la%removeLandPoints) then
-    la%effsize = la%totsizeSea
-  else
-    la%effsize = la%totsize
-  end if
 
   la%distributed = .false.
   la%permute = .false.
@@ -1765,9 +1831,10 @@ end subroutine fmtIndex
   integer :: linindex
 
 
-  if (ML%permute) then
-    write(stderr,*) 'ind2sub: not implemented '
-  end if
+!  if (ML%permute) then
+!    write(stderr,*) 'ind2sub: not implemented '
+!  end if
+! currently: should be "unpermuted" at calling level
 
   linindex = ML%invindex(index)
 
@@ -2062,7 +2129,6 @@ end subroutine fmtIndex
 
  subroutine loadObservationCorr(ntime,ObsML,C)
   use initfile
-!  use grids
   use ufileformat
   use matoper
   implicit none
@@ -2164,7 +2230,6 @@ end subroutine fmtIndex
 
  subroutine loadObservationOper(ntime,ObsML,H,Hshift,invsqrtR)
   use initfile
-!  use grids
   use ufileformat
   use matoper
   implicit none
@@ -2301,7 +2366,7 @@ end subroutine fmtIndex
   end if
 
 
-  if (schemetype.eq.LocalScheme) then
+  if (schemetype.eq.LocalScheme .and. allocated(invZoneIndex)) then
     ! permute state vector
     do j=1,H%nz
       H%j(j) = invZoneIndex(H%j(j))
@@ -2329,24 +2394,29 @@ end subroutine fmtIndex
 
   integer :: maxi, maxj
 
-  maxi = maxval(H%i(1:H%nz))
-  maxj = maxval(H%j(1:H%nz))
-
   ssize = sizeformat((/H%m,H%n/))
   write(unit,'(A,A10)')   'Matrix shape:       ',trim(ssize)
   write(unit,'(A,I10)')   '# non-zero elements:',H%nz
-  write(unit,'(A,I10)')   'max(H%i):           ',maxi
-  write(unit,'(A,I10)')   'min(H%i):           ',minval(H%i(1:H%nz))
-  write(unit,'(A,I10)')   'max(H%j):           ',maxj
-  write(unit,'(A,I10)')   'min(H%j):           ',minval(H%j(1:H%nz))
-  write(unit,'(A,E10.3)') 'max(H%s):           ',maxval(H%s(1:H%nz))
-  write(unit,'(A,E10.3)') 'min(H%s):           ',minval(H%s(1:H%nz)) 
-  write(unit,'(A,E10.3)') 'mean(H%s):          ',sum(H%s(1:H%nz))/H%nz
 
-  if (maxi > H%m .or. maxj > H%n) then
-    write(stderr,*) 'Index exceeds range '
-    ERROR_STOP
-  end if  
+  if (H%nz /= 0) then
+    maxi = maxval(H%i(1:H%nz))
+    maxj = maxval(H%j(1:H%nz))
+
+
+    write(unit,'(A,I10)')   'max(H%i):           ',maxi
+    write(unit,'(A,I10)')   'min(H%i):           ',minval(H%i(1:H%nz))
+    write(unit,'(A,I10)')   'max(H%j):           ',maxj
+    write(unit,'(A,I10)')   'min(H%j):           ',minval(H%j(1:H%nz))
+    write(unit,'(A,E10.3)') 'max(H%s):           ',maxval(H%s(1:H%nz))
+    write(unit,'(A,E10.3)') 'min(H%s):           ',minval(H%s(1:H%nz)) 
+    write(unit,'(A,E10.3)') 'mean(H%s):          ',sum(H%s(1:H%nz))/H%nz
+
+    if (maxi > H%m .or. maxj > H%n) then
+      write(stderr,*) 'Index exceeds range '
+      ERROR_STOP
+    end if
+  end if
+
  end subroutine
 
 
@@ -2365,7 +2435,6 @@ end subroutine fmtIndex
 
  subroutine genObservationOper(ntime,ObsML,Hindex,Hcoeff)
   use initfile
-!  use grids
   use ufileformat
   implicit none
   integer, intent(in)  :: ntime
@@ -2384,10 +2453,10 @@ end subroutine fmtIndex
   integer              ::  &
        i,j,k,n, &
        v,tv,m,mmax,omaxSea,tn,nz,linindex, &
-       tindexes(4,16), tmpm
+       tindexes(4,16), tmpm, tn_test
   integer :: istat
   real                 :: tc(16), minres
-
+  logical              :: ingrid
 
   !write(prefix,'(A,I3.3,A)') 'Obs',ntime,'.'
   call fmtIndex('Obs',ntime,'.',prefix)
@@ -2449,6 +2518,7 @@ end subroutine fmtIndex
         minres = huge(minres)
         v = -1
         tn = 0
+        ingrid = .false.
 
         do tv=1,size(ModML%varnames)
           if (varNames(m).eq.ModML%varnames(tv).and.minres.ge.hres(tv)) then
@@ -2459,27 +2529,32 @@ end subroutine fmtIndex
             
             tindexes = 1
 
-            if (ModML%ndim(v).eq.2) then
+            if (ModML%ndim(v).eq.1) then
+              call cinterp(ModelGrid(v), (/ obsX(linindex) /), &
+                   tindexes(1:1,1:2),tc(1:2),tn_test)
+            elseif (ModML%ndim(v).eq.2) then
               call cinterp(ModelGrid(v), (/ obsX(linindex),obsY(linindex) /), &
-                   tindexes(1:2,1:4),tc(1:4),tn)
+                   tindexes(1:2,1:4),tc(1:4),tn_test)
             elseif (ModML%ndim(v).eq.3) then
               call cinterp(ModelGrid(v), (/ obsX(linindex),obsY(linindex),obsZ(linindex) /), &
-                   tindexes(1:3,1:8),tc(1:8),tn)
+                   tindexes(1:3,1:8),tc(1:8),tn_test)
             elseif (ModML%ndim(v).eq.4) then
               call cinterp(ModelGrid(v), (/ obsX(linindex),obsY(linindex),obsZ(linindex),obsT(linindex) /), &
-                   tindexes,tc,tn)
+                   tindexes,tc,tn_test)
             else
               write(stderr,*) 'more than 4 dimensions are not supported'
               ERROR_STOP
             end if
 
 
-            if (tn.ne.0) then
+            if (tn_test.ne.0) then
               ! ok variable v is a candidate
               minres = hres(v)
+              tn = tn_test
               tmpHindex(6,nz+1:nz+tn) = v
               tmpHindex(7:10,nz+1:nz+tn) = tindexes(:,1:tn)
               tmpHcoeff(nz+1:nz+tn) = tc(1:tn)
+              ingrid = .true.
             end if
           end if
         end do
@@ -2491,7 +2566,7 @@ end subroutine fmtIndex
           tmpHindex(6,nz+1:nz+tn) = -1
           tmpHindex(7:10,nz+1:nz+tn) = 0
           tmpHcoeff(nz+1:nz+tn) = 0
-        elseif (tn.eq.0) then
+        elseif (.not.ingrid) then
           ! out of domain
           tn=1
           
@@ -2558,7 +2633,6 @@ end subroutine fmtIndex
 
  subroutine genObservationCorr(ntime,ObsML,Rindex,Rcoeff)
   use initfile
-!  use grids
   use ufileformat
   implicit none
   integer, intent(in)  :: ntime
@@ -2752,15 +2826,22 @@ end subroutine fmtIndex
   Hx = H.x.xf
 #else
 
-#ifdef EXACT_OBS_OPER
-   if (procnum.eq.1) allocate(xt(H%n))
-  call parallGather(xf,xt,startIndexZones,endIndexZones)
+  if (size(xf) == StateVectorSizeSea) then
+    ! we have already the complete state vector
 
+    Hx = H.x.xf
+    return
+  end if
+
+#ifdef EXACT_OBS_OPER
+  if (procnum.eq.1) allocate(xt(H%n))
+  call parallGather(xf,xt,startIndexZones,endIndexZones)
+  
   if (procnum == 1) then
     Hx = H.x.xt
     deallocate(xt)
   end if
-  call mpi_bcast(Hx,H%m,DEFAULT_REAL,0,mpi_comm_world,ierr)
+  call mpi_bcast(Hx,H%m,DEFAULT_REAL,0,comm,ierr)
 #else
   tmp = 0
 
@@ -2775,7 +2856,7 @@ end subroutine fmtIndex
     end if
   end do
 
-  call mpi_allreduce(tmp, Hx, H%m, DEFAULT_REAL,mpi_sum, mpi_comm_world, ierr)
+  call mpi_allreduce(tmp, Hx, H%m, DEFAULT_REAL,mpi_sum, comm, ierr)
 #endif
 #endif
 
@@ -2817,13 +2898,13 @@ end function
  !
  ! ntime: time index of the observation to assimilate as defined 
  !   by the initilisation file
- ! xf: forecasted statevector
+ ! xfp: forecasted statevector
  ! Sf: forecasted error space (error modes or ensemble)
- ! xa: analysed statevector
+ ! xap: analysed statevector
  ! Sa: analysed error space (error modes or ensemble)
  !
- ! if xf and xf are not present, then Sf is assumed to be an ensemble
- ! xf is then computed by calculating the mean of all culumns of Sf.
+ ! if xfp and xfp are not present, then Sf is assumed to be an ensemble
+ ! xfp is then computed by calculating the mean of all culumns of Sf.
  ! Sa will also be an ensemble in this case 
  !
  ! infix: "XXX." where XXX three digit time index
@@ -2859,7 +2940,7 @@ end function
  ! bindex: index of each timed block 
  !
 
- subroutine Assim(ntime,Sf,Sa,xfp,xap,Efanam,Eaanam)
+ subroutine Assim(ntime,Sf,Sa,xfp,xap,Efanam,Eaanam,weightf,weighta)
   use matoper
   use rrsqrt
   use ufileformat
@@ -2873,13 +2954,16 @@ end function
   real, intent(out)              :: Sa(:,:)
   real, intent(inout), optional, target  :: xfp(:)
   real, intent(out),   optional, target  :: xap(:)
-  real, optional, intent(out)    :: Efanam(:,:),Eaanam(:,:)
+  real, intent(out),   optional  :: Efanam(:,:),Eaanam(:,:)
+  real, intent(in),    optional  :: weightf(:)
+  real, intent(out),   optional  :: weighta(:)
 
   ! local variables
-  character(len=256)             :: prefix,path, str
+  character(len=256)             :: prefix,path, str, str2
   character(len=256)             :: infix
   character(len=256), pointer    :: obsnames(:)
   real, pointer :: xf(:),xa(:)
+  real, pointer :: modGrid(:,:)
 
   integer :: m,n,k,v,i1,i2,ingrid,error
   integer :: istat
@@ -2890,6 +2974,7 @@ end function
   real, allocatable, dimension(:) :: yo, Hxf, Hxa, invsqrtR, &
        yo_Hxf, yo_Hxa, innov_projection, Hshift, Hbf
   real, allocatable, dimension(:,:) :: HSf, HSa, locAmplitudes
+
 
 !!$  real, pointer, dimension(:) :: yo, Hxf, Hxa, invsqrtR, &
 !!$       yo_Hxf, yo_Hxa, innov_projection, Hshift, Hbf
@@ -2904,8 +2989,10 @@ end function
   integer :: bindex=1
 # endif
 
-
-
+  ! multiplicative inflation factor
+  real :: inflation
+  real :: valex
+  
 
 # ifdef _OPENMP
   ! shared local variables among the OpenMP threads
@@ -2958,6 +3045,7 @@ end function
 
 
   if (present(xfp)) then
+    ! Sf represent error modes
     xf => xfp
     xa => xap
 
@@ -2992,8 +3080,7 @@ end function
     xf = sum(Sf,2)/size(Sf,2)
     Hxf = sum(HSf,2)/size(Sf,2)
 
-    write(stddebug,*) 'Sf ',shape(Sf),shape(xf),lbound(xf),ubound(xf)
-    write(stddebug,*) 'HSf ',shape(HSf),shape(Hxf),lbound(Hxf),ubound(Hxf)
+    ! compute errors modes Sf and HSf
     do k=1,size(Sf,2)      
        Sf(:,k) = (Sf(:,k)-xf)/scaling
        HSf(:,k) = (HSf(:,k)-Hxf)/scaling
@@ -3023,13 +3110,20 @@ end function
   ! initialisation for local assimilation
 
   if (schemetype.eq.LocalScheme) then
-    ! load obsGridX and obsGridY used by callback 
+    ! load obsGrid{X,Y,Z,T} used by callback 
     ! subroutine selectObservations
 
-    allocate(obsGridX(ObsML%effsize),obsGridY(ObsML%effsize),locAmplitudes(size(Sf,2),size(zoneSize)))
+    allocate(obsGridX(ObsML%effsize),obsGridY(ObsML%effsize))
+    allocate(obsGridZ(ObsML%effsize),obsGridT(ObsML%effsize))
+    allocate(locAmplitudes(size(Sf,2),size(zoneSize)))
+
     call loadVector('Obs'//trim(infix)//'gridX',ObsML,obsGridX)
     call loadVector('Obs'//trim(infix)//'gridY',ObsML,obsGridY)
+    call loadVector('Obs'//trim(infix)//'gridZ',ObsML,obsGridZ)
+    if (presentInitValue(initfname,'Obs'//trim(infix)//'gridT')) &
+        call loadVector('Obs'//trim(infix)//'gridT',ObsML,obsGridT)
   end if
+
 
     if (presentInitValue(initfname,'Diag'//trim(infix)//'xf')) &
          call saveVector('Diag'//trim(infix)//'xf',ModMLParallel,xf)
@@ -3101,6 +3195,36 @@ end function
            call locanalysis(zoneSize,selectObservations, &
                 xf,Hxf,yo,Sf,HSf,invsqrtR, xa,Sa,locAmplitudes)
         end if
+     elseif (schemetype.eq.CLocalScheme) then
+        allocate(modGrid(ModML%effsize,2))
+        call loadVector('Model.gridX',ModML,modGrid(:,1))
+        call loadVector('Model.gridY',ModML,modGrid(:,2))
+
+        call locanalysis2(modGrid,xf,Sf,H,yo,invsqrtR, xa,Sa)
+     elseif (schemetype.eq.EWPFScheme) then
+       if (.not.present(weightf) .or. .not.present(weighta)) then
+         write(stdout,*) 'Error: the parameters weigthf and weighta not ', &
+              ' specified for EWPFScheme'
+       end if
+         
+       !call getInitValue(initfname,'ErrorSpace.path',path)
+       !call getInitValue(initfname,'ErrorSpace.weight',str)
+       !call uload(trim(path)//str,weight,valex)
+       
+       !allocate(weighta(size(weight,1)))
+       call ewpf_analysis(xf,Sf,weightf,H,invsqrtR,yo,xa,Sa,weighta)
+
+       if (presentInitValue(initfname,'Diag'//trim(infix)//'weightf')) then
+         call getInitValue(initfname,'Diag'//trim(infix)//'path',path)
+         call getInitValue(initfname,'Diag'//trim(infix)//'weightf',str)
+         call usave(trim(path)//str,weightf,9999.)
+       end if
+
+       if (presentInitValue(initfname,'Diag'//trim(infix)//'weighta')) then
+         call getInitValue(initfname,'Diag'//trim(infix)//'path',path)
+         call getInitValue(initfname,'Diag'//trim(infix)//'weighta',str)
+         call usave(trim(path)//str,weighta,9999.)
+       end if
      else
 !$omp master
         if (biastype.eq.ErrorFractionBias) then
@@ -3129,10 +3253,18 @@ end function
 
 !$omp end master
 
-     end if
+      end if
 !$omp barrier
 
 !$omp master
+
+   ! apply inflation
+
+   call getInitValue(initfname,'inflation.mult',inflation,default = 1.)
+   if (inflation /= 1) then
+     Sa = inflation * Sa
+   end if
+
    ! saturate correction
 
     write(stdlog,*) 'max Correction reached ', & 
@@ -3175,6 +3307,7 @@ end function
 
       do k=1,size(Sa,2)
         Sa(:,k) = (Sa(:,k)-xa)/scaling
+        HSa(:,k) = (HSa(:,k)-Hxa)/scaling
       end do
     else
       Hxa = obsoper(H,xa) + Hshift
@@ -3193,10 +3326,6 @@ end function
   !
 
 
-! for all
-! fix me
-!  if (procnum.eq.1) then
-  if (.true.) then
   !
   ! write some information in the log file
   ! rms take only into accound points inside the grid
@@ -3268,8 +3397,19 @@ end function
       if (presentInitValue(initfname,'Diag'//trim(infix)//'amplitudes')) then
         call getInitValue(initfname,'Diag'//trim(infix)//'path',path)
         call getInitValue(initfname,'Diag'//trim(infix)//'amplitudes',str)
+        
         if (schemetype.eq.LocalScheme) then
-          call usave(trim(path)//str,LocAmplitudes,9999.)
+
+#         ifdef ASSIM_PARALLEL
+          do k=1,size(LocAmplitudes,1)
+            call parallGather(LocAmplitudes(k,startZIndex(procnum):endZIndex(procnum)),LocAmplitudes(k,:),      & 
+                 startIndexZones,endIndexZones,1)
+          end do
+#         endif
+
+          if (procnum == 1) then
+            call usave(trim(path)//str,LocAmplitudes,9999.)
+          end if
         else 
           call usave(trim(path)//str,amplitudes,9999.)
         end if
@@ -3331,7 +3471,6 @@ end function
 #   endif
 
     deallocate(obsnames)
-  end if
 
   !
   ! end diagonistics
@@ -3357,7 +3496,10 @@ end function
 
   deallocate(yo,invsqrtR,Hxf,Hxa,HSf,HSa,yo_Hxf,yo_Hxa,innov_projection,H%i,H%j,H%s,Hshift)
   if (biastype.eq.ErrorFractionBias) deallocate(Hbf)
-  if (schemetype.eq.LocalScheme) deallocate(obsGridX,obsGridY,locAmplitudes)
+  if (schemetype.eq.LocalScheme) then
+    deallocate(obsGridX,obsGridY,locAmplitudes)
+    deallocate(obsGridZ,obsGridT)
+  end if
 
   call MemoryLayoutDone(ObsML)
 
@@ -3427,6 +3569,51 @@ end function
  end subroutine report
 
 
+
+ ! distance between point p0 and p1
+ ! p0 and p1 are (/ longitude,latitude,... /)
+
+ real function distance(p0,p1)
+  implicit none
+  real, intent(in) :: p0(:), p1(:)
+  real :: a, b, C
+  real :: coeff
+  real, parameter :: EarthRadius = 6378137 ! m
+  real, parameter :: pi = 3.141592653589793238462643383279502884197
+  real :: d2r = pi/180.
+  
+  if (metrictype == CartesianMetric) then
+    distance = sqrt(sum((p1 - p0)**2))
+    
+  elseif (metrictype == SphericalMetricApprox) then
+
+     coeff = pi*EarthRadius/(180.)     
+     distance = sqrt((coeff * cos((p0(2)+p1(2))* (pi/360.))*(p1(1)-p0(1)))**2 &
+          +(coeff * (p1(2)-p0(2)))**2)
+
+  elseif (metrictype == SphericalMetric) then
+     a = p0(2) * d2r
+     b = p1(2) * d2r
+     C = (p1(1) - p0(1)) * d2r
+     
+     coeff = sin(b) * sin(a) + cos(b) * cos(a) * cos(C)
+     coeff = max(min(coeff,1.),-1.)
+     ! distance in radian
+     distance = acos(coeff)
+
+     ! distance in km
+     distance = EarthRadius * distance
+
+  else
+    write(stderr,*) 'Unsupported metric: ',metrictype
+    write(stderr,*) 'Supported metrics are CartesianMetric (0) and SphericalMetric (1)'
+    ERROR_STOP
+  end if
+
+ end function distance
+
+
+
  !_______________________________________________________
  !
  ! horizontal correlation function used by locanalysis
@@ -3435,6 +3622,12 @@ end function
 
 
    subroutine selectObservations(ind,weight,relevantObs)
+   ! input:
+   !   ind:  index of zone
+   ! output:
+   !   weigth(:): weight of observation between 0 (no weight) and 1 (full 
+   !      weight)
+   !   relevantObs(:): true of observation should be used or false otherwise
    implicit none
 
 ! index of model state vector
@@ -3448,7 +3641,7 @@ end function
 
 ! x,y=longitude and latitude of the element the "index"th component of 
 ! model state vector
-     real x,y,x3(3),x2(2)
+     real x,y,z,t,x4(4),x3(3),x2(2),x1(1)
      logical out
 
      real, parameter :: pi = 3.141592653589793238462643383279502884197
@@ -3462,80 +3655,239 @@ end function
 
      call ind2sub(ModML,index,v,i,j,k,n)
 
-     if (ModML%ndim(v).eq.2) then
-      x2 = getCoord(ModelGrid(v),(/ i,j /),out);
-      x = x2(1);
-      y = x2(2);
-    else
-      x3 = getCoord(ModelGrid(v),(/ i,j,k /),out);
-      x = x3(1);
-      y = x3(2); 
-    end if 
+     if (ModML%ndim(v).eq.1) then
+       x1 = getCoord(ModelGrid(v),(/ i /),out)
+       x = x1(1)
+       y = 0
+     elseif (ModML%ndim(v).eq.2) then
+       x2 = getCoord(ModelGrid(v),(/ i,j /),out)
+       x = x2(1)
+       y = x2(2)
+     elseif (ModML%ndim(v).eq.3) then
+       x3 = getCoord(ModelGrid(v),(/ i,j,k /),out)
+       x = x3(1)
+       y = x3(2)
+       z = x3(3)
+     elseif (ModML%ndim(v).eq.4) then
+       x4 = getCoord(ModelGrid(v),(/ i,j,k,n /),out)
+       x = x4(1)
+       y = x4(2)
+       z = x4(3)
+       t = x4(4)
+     else
+       write(stderr,*) __FILE__,__LINE__,'the number of dimensions should be ',&
+            'between 0 and 4 and got ',ModML%ndim(v)
+       ERROR_STOP
+     end if
 
-!    write(6,*) 'x, y ',x,y,'-',ModML%ndim(v),index,v,i,j,out
+
+!     write(6,*) 'x, y ',x,y,'-',ModML%ndim(v),index,ind,v,i,j,out
 
    do l = 1,size(weight)
      ! weight is the distance here
-     weight(l) = distance((/ obsGridX(l),obsGridY(l) /),(/ x,y /))
+
+     if (loctype == 1) then
+       weight(l) = distance((/ obsGridX(l),obsGridY(l) /),(/ x,y /))
+     elseif (loctype == 2) then
+       weight(l) = abs(obsGridZ(l) - z)
+     else ! loctype == 3
+       weight(l) = abs(obsGridT(l) - t)
+     end if
+  
      relevantObs(l) = weight(l) <= hMaxCorrLengthToObs(index)
    end do
 
 !   write(6,*) 'relevantObs ',count(relevantObs),minval(weight),maxval(weight)
 
    noRelevantObs = .not.any(relevantObs)
+!   if (count(relevantObs)  > 0) then
+!     stop
+!   end if
+
 
    if (.not.noRelevantObs) weight = exp(- (weight/hCorrLengthToObs(index))**2)
-
-   contains 
-
-    ! distance between point p0 and p1
-    ! p0 and p1 are (/ longitude,latitude,... /)
-
-    real function distance(p0,p1)
-     implicit none
-     real, intent(in) :: p0(:), p1(:)
-     real :: d2r = pi/180.
-     real :: a, b, C
-     real :: coeff
-
-     if (metrictype == CartesianMetric) then
-       distance = sqrt(sum((p1 - p0)**2))
-
-     elseif (metrictype == SphericalMetric) then
-       ! assume sperical metric
-
-!#define DISTANCE_SIMPLE
-#ifdef DISTANCE_SIMPLE
-     coeff = pi*EarthRadius/(180.)     
-     distance = sqrt((coeff * cos((p0(2)+p1(2))* (pi/360.))*(p1(1)-p0(1)))**2 &
-          +(coeff * (p1(2)-p0(2)))**2)
-     
-#else
-
-     a = p0(2) * d2r
-     b = p1(2) * d2r
-     C = (p1(1) - p0(1)) * d2r
-     
-     coeff = sin(b) * sin(a) + cos(b) * cos(a) * cos(C)
-     coeff = max(min(coeff,1.),-1.)
-     ! distance in radian
-     distance = acos(coeff)
-
-     ! distance in km
-     distance = EarthRadius * distance
-#endif
-     else
-       write(stderr,*) 'Unsupported metric: ',metrictype
-       write(stderr,*) 'Supported metrics are CartesianMetric (0) and SphericalMetric (1)'
-       ERROR_STOP
-     end if
-
-    end function distance
-
 
 
 
    end subroutine 
+
+
+   subroutine locanalysis2(modGrid,xf,Sf,H,yo,invsqrtR, xa,Sa)
+    use matoper
+    use covariance
+    use initfile
+    real, intent(in) :: modGrid(:,:), xf(:), yo(:), invsqrtR(:)
+    real, intent(in) :: Sf(:,:)
+    type(SparseMatrix), intent(in) :: H
+    real, intent(out) :: xa(:)
+    real, intent(out), optional :: Sa(:,:)
+
+    class(DiagCovar), allocatable :: Rc
+    real, pointer :: Hc(:,:)
+    real :: len
+    real, pointer :: Sf2(:,:)
+    integer :: leni, lenj
+
+    integer :: indexj(ModML%effsize), nnz, i
+    real :: w(ModML%effsize)
+!#define CELLGRID_SEARCH
+#ifdef CELLGRID_SEARCH
+    ! distance for internal function lpoints_cellgrid
+    real :: dist(ModML%effsize)
+    type(cellgrid) :: cg
+#endif
+
+    allocate(Rc)
+    call Rc%init(1./(invsqrtR**2))
+
+    call getInitValue(initfname,'CLoc.len',len)
+    call getInitValue(initfname,'CLoc.leni',leni)
+    call getInitValue(initfname,'CLoc.lenj',lenj)
+
+    write(6,*) 'len, leni, lenj ',len, leni, lenj,ModML%permute
+    allocate(Hc(ModML%effsize,1))
+!!! 'fix me'
+    Hc = 1
+    ! normalize
+    do i = 1,size(Hc,2)      
+      Hc(:,i) = Hc(:,i) / sqrt(sum(Hc(:,i)**2))
+    end do
+
+    allocate(Sf2(ModML%effsize,size(Sf,2)))
+    Sf2 = Sf
+
+    !    write(6,*) 'test ',modgrid(1:50,1)
+    !    write(6,*) 'test ',modgrid(1:50,2)
+    !    write(6,*) 'test ',modgrid(1:50,3)
+
+    ! should give the same
+    !    do i = 1,100
+    !    call lpoints(i,nnz,indexj,w)
+    !    write(6,*) 'sum(indexj) ',sum(indexj(1:nnz)),sum(w(1:nnz)),nnz
+    !    call locpoints2(i,modgrid,len,nnz,indexj,w)
+    !    write(6,*) 'sum(indexj) ',sum(indexj(1:nnz)),sum(w(1:nnz)),nnz
+    ! end do
+    !      stop
+
+    !    call locensanalysis(xf,Sf2,H,yo,Rc,lpoints,Hc,xa,Sa)
+    ! test
+
+#ifdef CELLGRID_SEARCH
+    cg = setupgrid(modGrid,[leni/10.,lenj/10.])
+    call locensanalysis(xf,Sf2,H,yo,Rc,lpoints_cellgrid,Hc,xa)
+#else
+    call locensanalysis(xf,Sf2,H,yo,Rc,lpoints,Hc,xa)
+#endif
+    Sa = Sf
+
+
+    do i = 1,size(Hc,2)      
+      write(6,*) 'Hc*(xf-xa) ',i, sum(Hc(:,i) * (xf-xa))
+    end do
+
+    deallocate(Rc)
+    deallocate(Hc)
+    deallocate(Sf2)
+
+   contains
+    subroutine lpoints(indexi,nnz,indexj,w,onlyj)
+     integer, intent(in) :: indexi
+     integer, intent(out) :: nnz,indexj(:)
+     real, intent(out) :: w(:)
+     integer, optional, intent(in) :: onlyj(:)  
+
+     integer :: pi,pj,pk,pn,pv,pindexi
+     integer :: i,j,k,n,v
+     integer :: tj
+     logical :: valid
+     real :: tw
+
+     !      call locpoints(indexi,modGrid,len,nnz,indexj,w,onlyj)  
+
+     !pindexi = indexi
+     pindexi = zoneIndex(indexi)
+     call ind2sub(ModML,pindexi,pv,pi,pj,pk,pn)
+     nnz = 0
+     !write(6,*) 'indexi ',indexi,pindexi,pv,pi,pj,pk,pn
+
+     ! state vector is normally permuted for efficiency
+     ! in this case the z-dimension vary the fastest
+     ! therefore it is the most inner-loop
+
+     do v = 1,ModML%nvar
+       do n = 1,1
+         do j = max(pj-lenj, 1), min(pj+lenj, ModML%varshape(2,v))
+           do i = max(pi-leni, 1), min(pi+leni, ModML%varshape(1,v))
+             do k = 1,ModML%varshape(3,v)
+               tj = sub2ind(ModML,v,i,j,k,n,valid)
+               !write(6,*) 'v,i,j,k,n ',v,i,j,k,n,tj
+
+               if (valid) then
+                 tj = invZoneIndex(tj)
+
+                 tw = locfun(distance(modGrid(indexi,:), &
+                      modGrid(tj,:))/len)
+
+                 if (tw /= 0.) then                
+                   nnz = nnz + 1
+                   indexj(nnz) = tj
+                   w(nnz) = tw
+                 end if
+               end if
+             end do
+           end do
+         end do
+       end do
+     end do
+
+     !      write(6,*) 'indexi ',indexi,nnz, maxval(w),minval(w),count(w > 0.5)
+    end subroutine lpoints
+
+
+    subroutine locpoints2(i,x,len,nnz,j,w)
+     integer, intent(in) :: i
+     real, intent(in) :: len, x(:,:)
+     integer, intent(out) :: nnz, j(:)
+     real, intent(out) :: w(:)
+
+     integer :: k
+     real :: dist(size(x,1)), tmp
+
+     do k = 1,size(x,1)
+       dist(k) = distance(x(i,:),x(k,:))
+     end do
+
+     nnz = 0
+
+     do k = 1,size(x,1)
+       tmp = locfun(dist(k)/len)
+
+       if (tmp /= 0.) then
+         nnz = nnz + 1
+         j(nnz) = k
+         w(nnz) = tmp
+       end if
+     end do
+    end subroutine locpoints2
+
+#ifdef CELLGRID_SEARCH
+
+    subroutine lpoints_cellgrid(indexi,nnz,indexj,w,onlyj)
+     integer, intent(in) :: indexi
+     integer, intent(out) :: nnz,indexj(:)
+     real, intent(out) :: w(:)
+     integer, optional, intent(in) :: onlyj(:)  
+
+     integer :: k
+
+     call near(cg,modGrid(indexi,:),modGrid,distance,2*len,indexj,dist,nnz)
+     do k = 1,nnz
+       w(k) = locfun(dist(k)/len)
+     end do
+    end subroutine lpoints_cellgrid
+#endif
+
+   end subroutine locanalysis2
 
  !_______________________________________________________
  !
@@ -3545,156 +3897,166 @@ end function
  !
 
  subroutine packVector(ML,statevector,v1,v2,v3,v4,v5,v6,v7,v8)
+  use matoper
   implicit none
   type(MemLayout), intent(in) ::  ML
   real, intent(in) :: v1(*)
   real, intent(in), optional :: v2(*),v3(*),v4(*),v5(*),v6(*),v7(*),v8(*)
-  real, intent(out) :: StateVector(ML%effsize)
+  real, intent(out) :: StateVector(:)
 
-  StateVector(ML%StartIndexSea(1):ML%EndIndexSea(1)) = &
-       pack(v1(1:ML%varsize(1)),ML%mask(ML%StartIndex(1):ML%EndIndex(1)).eq.1)
+  call packVariable(ML,StateVector,1,v1)
+  if (present(v2)) call packVariable(ML,StateVector,2,v2)
+  if (present(v3)) call packVariable(ML,StateVector,3,v3)
+  if (present(v4)) call packVariable(ML,StateVector,4,v4)
+  if (present(v5)) call packVariable(ML,StateVector,5,v5)
+  if (present(v6)) call packVariable(ML,StateVector,6,v6)
+  if (present(v7)) call packVariable(ML,StateVector,7,v7)
+  if (present(v8)) call packVariable(ML,StateVector,8,v8)
 
-  if (.not.present(v2)) return
-
-  StateVector(ML%StartIndexSea(2):ML%EndIndexSea(2)) = &
-       pack(v2(1:ML%varsize(2)),ML%mask(ML%StartIndex(2):ML%EndIndex(2)).eq.1)
-
-  if (.not.present(v3)) return
-
-  StateVector(ML%StartIndexSea(3):ML%EndIndexSea(3)) = &
-       pack(v3(1:ML%varsize(3)),ML%mask(ML%StartIndex(3):ML%EndIndex(3)).eq.1)
-
-  if (.not.present(v4)) return
-
-  StateVector(ML%StartIndexSea(4):ML%EndIndexSea(4)) = &
-       pack(v4(1:ML%varsize(4)),ML%mask(ML%StartIndex(4):ML%EndIndex(4)).eq.1)
-
-  if (.not.present(v5)) return
-
-  StateVector(ML%StartIndexSea(5):ML%EndIndexSea(5)) = &
-       pack(v5(1:ML%varsize(5)),ML%mask(ML%StartIndex(5):ML%EndIndex(5)).eq.1)
-
-  if (.not.present(v6)) return
-
-  StateVector(ML%StartIndexSea(6):ML%EndIndexSea(6)) = &
-       pack(v6(1:ML%varsize(6)),ML%mask(ML%StartIndex(6):ML%EndIndex(6)).eq.1)
-
-  if (.not.present(v7)) return
-
-  StateVector(ML%StartIndexSea(7):ML%EndIndexSea(7)) = &
-       pack(v7(1:ML%varsize(7)),ML%mask(ML%StartIndex(7):ML%EndIndex(7)).eq.1)
-
-  if (.not.present(v8)) return
-
-  StateVector(ML%StartIndexSea(8):ML%EndIndexSea(8)) = &
-       pack(v8(1:ML%varsize(8)),ML%mask(ML%StartIndex(8):ML%EndIndex(8)).eq.1)
-
+  if (ML%permute) then
+    call permute(zoneIndex,StateVector,StateVector)
+  end if
  end subroutine packVector
 
  !_______________________________________________________
  !
 
  subroutine unpackVector(ML,statevector,v1,v2,v3,v4,v5,v6,v7,v8)
+  use matoper
   implicit none
   type(MemLayout), intent(in) ::  ML
-  real, intent(in) :: StateVector(ML%effsize)
+  real, intent(in) :: StateVector(:)
+  real, intent(out) :: v1(*)
+  real, intent(out), optional :: v2(*),v3(*),v4(*),v5(*),v6(*),v7(*),v8(*)
+
+  real :: tmp(size(StateVector))
+  integer :: i
+
+  if (ML%permute) then
+    call ipermute(zoneIndex,statevector,tmp)
+  else
+    tmp = statevector
+  end if
+  
+  call unpackVariable(ML,tmp,1,v1)
+  if (present(v2)) call unpackVariable(ML,tmp,2,v2)
+  if (present(v3)) call unpackVariable(ML,tmp,3,v3)
+  if (present(v4)) call unpackVariable(ML,tmp,4,v4)
+  if (present(v5)) call unpackVariable(ML,tmp,5,v5)
+  if (present(v6)) call unpackVariable(ML,tmp,6,v6)
+  if (present(v7)) call unpackVariable(ML,tmp,7,v7)
+  if (present(v8)) call unpackVariable(ML,tmp,8,v8)
+ end subroutine unpackVector
+
+
+ !_______________________________________________________
+ !
+ ! v1, v2, ... are variables with masked elements. Each variable
+ ! represent an ensemble with size(E,2) members
+
+ subroutine packEnsemble(ML,E,v1,v2,v3,v4,v5,v6,v7,v8)
+  use matoper
+  implicit none
+  type(MemLayout), intent(in) ::  ML
+  real, intent(in) :: v1(*)
+  real, intent(in), optional :: v2(*),v3(*),v4(*),v5(*),v6(*),v7(*),v8(*)
+  real, intent(out) :: E(:,:)
+
+  ! ensemble member index
+  integer :: k
+
+  do k = 1,size(E,2)
+    call packVariable(ML,E(:,k),1,v1(1+(k-1)*ML%varsize(1)))
+    if (present(v2)) call packVariable(ML,E(:,k),2,v2(1+(k-1)*ML%varsize(2)))
+    if (present(v3)) call packVariable(ML,E(:,k),3,v3(1+(k-1)*ML%varsize(3)))
+    if (present(v4)) call packVariable(ML,E(:,k),4,v4(1+(k-1)*ML%varsize(4)))
+    if (present(v5)) call packVariable(ML,E(:,k),5,v5(1+(k-1)*ML%varsize(5)))
+    if (present(v6)) call packVariable(ML,E(:,k),6,v6(1+(k-1)*ML%varsize(6)))
+    if (present(v7)) call packVariable(ML,E(:,k),7,v7(1+(k-1)*ML%varsize(7)))
+    if (present(v8)) call packVariable(ML,E(:,k),8,v8(1+(k-1)*ML%varsize(8)))
+  end do
+
+
+  if (ML%permute) then
+    do k = 1,size(E,2)
+      call permute(zoneIndex,E(:,k),E(:,k))
+    end do
+  end if
+  
+ end subroutine packEnsemble
+
+ !_______________________________________________________
+ !
+
+ subroutine unpackEnsemble(ML,E,v1,v2,v3,v4,v5,v6,v7,v8)
+  use matoper
+  implicit none
+  type(MemLayout), intent(in) ::  ML
+  real, intent(in) :: E(:,:)
 
   real, intent(out) :: v1(*)
   real, intent(out), optional :: v2(*),v3(*),v4(*),v5(*),v6(*),v7(*),v8(*)
 
-  integer :: i
+  real :: tmp(size(E,1))
 
-  i=1
-  v1(1:ML%varsize(i)) = &
-       unpack(StateVector(ML%StartIndexSea(i):ML%EndIndexSea(i)), &
-       ML%mask(ML%StartIndex(i):ML%EndIndex(i)).eq.1,0.)
-
-  if (.not.present(v2)) return
-  i=2
-  v2(1:ML%varsize(i)) = &
-       unpack(StateVector(ML%StartIndexSea(i):ML%EndIndexSea(i)), &
-       ML%mask(ML%StartIndex(i):ML%EndIndex(i)).eq.1,0.)
-
-  if (.not.present(v3)) return
-  i=3
-  v3(1:ML%varsize(i)) = &
-       unpack(StateVector(ML%StartIndexSea(i):ML%EndIndexSea(i)), &
-       ML%mask(ML%StartIndex(i):ML%EndIndex(i)).eq.1,0.)
-
-  if (.not.present(v4)) return
-  i=4
-  v4(1:ML%varsize(i)) = &
-       unpack(StateVector(ML%StartIndexSea(i):ML%EndIndexSea(i)), &
-       ML%mask(ML%StartIndex(i):ML%EndIndex(i)).eq.1,0.)
-
-  if (.not.present(v5)) return
-  i=5
-  v5(1:ML%varsize(i)) = &
-       unpack(StateVector(ML%StartIndexSea(i):ML%EndIndexSea(i)), &
-       ML%mask(ML%StartIndex(i):ML%EndIndex(i)).eq.1,0.)
-
-  if (.not.present(v6)) return
-  i=6
-  v6(1:ML%varsize(i)) = &
-       unpack(StateVector(ML%StartIndexSea(i):ML%EndIndexSea(i)), &
-       ML%mask(ML%StartIndex(i):ML%EndIndex(i)).eq.1,0.)
-
-  if (.not.present(v7)) return
-  i=7
-  v7(1:ML%varsize(i)) = &
-       unpack(StateVector(ML%StartIndexSea(i):ML%EndIndexSea(i)), &
-       ML%mask(ML%StartIndex(i):ML%EndIndex(i)).eq.1,0.)
-
-  if (.not.present(v8)) return
-  i=8
-  v8(1:ML%varsize(i)) = &
-       unpack(StateVector(ML%StartIndexSea(i):ML%EndIndexSea(i)), &
-       ML%mask(ML%StartIndex(i):ML%EndIndex(i)).eq.1,0.)
+  ! ensemble member index
+  integer :: k
 
 
- end subroutine unpackVector
+  do k = 1,size(E,2)
+    if (ML%permute) then
+      call ipermute(zoneIndex,E(:,k),tmp)
+    else
+      tmp = E(:,k)
+    end if
 
+    call unpackVariable(ML,tmp,1,v1(1+(k-1)*ML%varsize(1)))
+    if (present(v2)) call unpackVariable(ML,tmp,2,v2(1+(k-1)*ML%varsize(2)))
+    if (present(v3)) call unpackVariable(ML,tmp,3,v3(1+(k-1)*ML%varsize(3)))
+    if (present(v4)) call unpackVariable(ML,tmp,4,v4(1+(k-1)*ML%varsize(4)))
+    if (present(v5)) call unpackVariable(ML,tmp,5,v5(1+(k-1)*ML%varsize(5)))
+    if (present(v6)) call unpackVariable(ML,tmp,6,v6(1+(k-1)*ML%varsize(6)))
+    if (present(v7)) call unpackVariable(ML,tmp,7,v7(1+(k-1)*ML%varsize(7)))
+    if (present(v8)) call unpackVariable(ML,tmp,8,v8(1+(k-1)*ML%varsize(8)))
+  end do
+ end subroutine unpackEnsemble
  !_______________________________________________________
  !
- ! extract variable number "v" from state vector and put 
- ! it as 3D variable
- ! 
+ ! extract variable number "v" from state vector
+ ! (without permutation)
  !_______________________________________________________
  !
 
- function unpack3DVariable(ML,statevector,v) result(var)
+ subroutine unpackVariable(ML,statevector,v,var)
   implicit none
   type(MemLayout), intent(in) ::  ML
-  real, intent(in) :: StateVector(ML%effsize)
+  real, intent(in) :: StateVector(:)
+  real, intent(out) :: var(*)
   integer :: v
 
-  real :: var(ML%varshape(1,v),ML%varshape(2,v),ML%varshape(3,v))
+  var(1:ML%varsize(v)) = &
+       unpack(StateVector(ML%StartIndexSea(v):ML%EndIndexSea(v)), &
+       ML%mask(ML%StartIndex(v):ML%EndIndex(v)) == 1,0.)
 
-  var = reshape( &
-         unpack(StateVector(ML%StartIndexSea(v):ML%EndIndexSea(v)), &
-           ML%mask(ML%StartIndex(v):ML%EndIndex(v)).eq.1,0.), &
-        (/ ML%varshape(1,v),ML%varshape(2,v),ML%varshape(3,v) /) )
-
- end function
+ end subroutine unpackVariable
 
  !_______________________________________________________
  !
- ! put 3D variable number "v" into the state vector
- ! 
+ ! put a variable number "v" into the state vector
+ ! (without permutation)
  !_______________________________________________________
  !
 
-  subroutine pack3DVariable(ML,var,v,statevector)
+  subroutine packVariable(ML,statevector,v,var)
   implicit none
   type(MemLayout), intent(in) ::  ML
-  real, intent(in) :: var(:,:,:)
+  real, intent(in) :: var(*)
   integer, intent(in) :: v
-  real, intent(inout) :: StateVector(ML%effsize)
+  real, intent(inout) :: StateVector(:)
 
   StateVector(ML%StartIndexSea(v):ML%EndIndexSea(v)) = &
-       pack(reshape(var,(/ ML%varsize(v) /)),ML%mask(ML%StartIndex(v):ML%EndIndex(v)).eq.1)
-
- end subroutine
+       pack(var(1:ML%varsize(v)),ML%mask(ML%StartIndex(v):ML%EndIndex(v)) == 1)
+ end subroutine packVariable
 
 
 
@@ -3862,8 +4224,8 @@ end function
 !       unpack3DVariable(ModML,statevector,vS),  &
 !       X,Y)
 
-      call pack3DVariable(ModML,X,v,statevector)
-      call pack3DVariable(ModML,Y,v+1,statevector)
+      call packVariable(ModML,statevector,v,X)
+      call packVariable(ModML,statevector,v+1,Y)
 
 #ifdef DEBUG
       write(stddebug,*) 'Temperature variable ',vT,' and salinity variable ',vS
@@ -3913,9 +4275,6 @@ end function
      allocate(T(ModML%varshape(1,v),ModML%varshape(2,v),ModML%varshape(3,v)), &
               S(ModML%varshape(1,v),ModML%varshape(2,v),ModML%varshape(3,v)))
 
-!     call usave('/u/abarth/Assim/Data2/lulu.TEM2',unpack3DVariable(ModML,statevector,v),0.)
-!     call usave('/u/abarth/Assim/Data2/lulu.SAL2',unpack3DVariable(ModML,statevector,v+1),0.)
-
 ! disabled
 
 !     call invTStransform(ModelGrid3D(v)%mask,ModelGrid3D(v)%z, &
@@ -3923,11 +4282,8 @@ end function
 !       unpack3DVariable(ModML,statevector,v+1),  &
 !       T,S)
 
-      call pack3DVariable(ModML,T,vT,statevector)
-      call pack3DVariable(ModML,S,vS,statevector)
-
-!     call usave('/u/abarth/Assim/Data2/lulu.TEM',T,0.)
-!     call usave('/u/abarth/Assim/Data2/lulu.SAL',S,0.)
+      call packVariable(ModML,statevector,vT,T)
+      call packVariable(ModML,statevector,vS,S)
 
 #ifdef DEBUG
       write(stddebug,*) 'Temperature variable ',vT,' and salinity variable ',vS
@@ -4161,6 +4517,307 @@ subroutine ensAnalysisAnamorph2(yo,Ef,HEf,invsqrtR,  &
   end if
 end subroutine anamtransform
 
+
+subroutine ewpf_proposal_step(ntime,obsVec,dt_obs,X,weight,yo,invsqrtR,H)
+ use matoper
+ use sangoma_ewpf
+ use initfile
+ implicit none
+ integer, intent(in) :: ntime                   ! current model timestep
+ integer,intent(in) :: obsVec                     ! model time step at which we have next 
+                                                            ! observations, i.e. next analysis time
+ integer,intent(in) :: dt_obs                     ! model timesteps betwe
+ real, intent(in) :: yo(:)
+ real, intent(inout) :: weight(:),X(:,:)
+ real, intent(in) :: invsqrtR(:)
+ type(SparseMatrix), intent(in)  :: H
+
+! current model timestep
+! integer ::  ntime = 0      
+
+ ! model time step at which we have next 
+ ! observations, i.e. next analysis time 
+ !integer :: obsVec = 10
+
+ ! model timesteps between last and next
+ ! observation setst
+ !integer :: dt_obs = 3
+
+ ! double precision for sangoma tools
+ real(8) :: weight2(size(weight))
+ real(8)  :: X2(size(X,1),size(X,2))
+
+ real :: Qscale
+ call getInitValue(initfname,'EWPF.Qscale',Qscale,default=0.001)
+
+
+ !subroutine proposal_step(Ne,Nx,Ny,weight,x_n,y,ntime,obsVec,dt_obs, &
+ !          cb_H, cb_HT, cb_Qhalf, cb_solve_r) bind(C, name="proposal_step_")
+
+! write(6,*) 'weight ',__LINE__,weight
+ weight2 = weight
+ X2 = X
+
+ call proposal_step(size(X,2),size(X,1),size(yo), &
+      weight2,X2, &
+      real(yo,8), &
+      ntime,obsVec,dt_obs, &
+      cb_H, cb_HT, cb_Qhalf, cb_solve_r)
+
+ weight = weight2
+ X = X2
+! write(6,*) 'weight ',__LINE__,weight
+! dbg(X)
+contains
+
+ subroutine cb_H(Ne,Nx,Ny,vec_in,vec_out) ! bind(C)
+  use, intrinsic :: ISO_C_BINDING
+  use sangoma_base, only: REALPREC, INTPREC
+  implicit none
+  
+  integer(INTPREC), intent(in) :: Nx,Ny,Ne             ! state, observation and ensemble dimensions
+  real(REALPREC), intent(in), dimension(Nx,Ne) :: vec_in      ! input vector in state space to which
+  ! to apply the observation operator h, e.g. h(x)
+  real(REALPREC), intent(inout), dimension(Ny,Ne) :: vec_out  ! resulting vector in observation space
+
+  vec_out = H.x.vec_in
+ end subroutine cb_H
+
+ subroutine cb_HT(Ne,Nx,Ny,vec_in,vec_out) ! bind(C)
+  use, intrinsic :: ISO_C_BINDING
+  use sangoma_base, only: REALPREC, INTPREC
+  implicit none
+  
+  integer(INTPREC), intent(in) :: Nx,Ny,Ne            ! state, observation and ensemble dimensions
+  real(REALPREC), intent(in), dimension(Ny,Ne) :: vec_in     ! input vector in observation space to which
+  ! to apply the observation operator h, e.g. h^T(x)
+  real(REALPREC), intent(inout), dimension(Nx,Ne) :: vec_out ! resulting vector in state space
+
+  vec_out = H.tx.vec_in
+ end subroutine cb_HT
+
+
+ subroutine cb_solve_r(Ne,Ny,vec_in,vec_out) ! bind(C)
+  use, intrinsic :: ISO_C_BINDING
+  use sangoma_base, only: REALPREC, INTPREC
+  implicit none
+  
+  integer(INTPREC), intent(in) :: Ny,Ne               ! observation and ensemble dimensions
+  real(REALPREC), intent(in), dimension(Ny,Ne) :: vec_in     ! input vector in observation space 
+  ! which to apply the inverse observation error
+  ! covariances R, e.g. R^{-1}(d)
+  real(REALPREC), intent(inout), dimension(Ny,Ne) :: vec_out ! resulting vector in observation space
+  integer :: k
+
+  do k = 1,Ne
+    vec_out(:,k) = invsqrtR**2 * vec_in(:,k)
+  end do
+ end subroutine cb_solve_r
+
+ subroutine cb_Qhalf(Ne,Nx,vec_in,vec_out) ! bind(C)
+  use, intrinsic :: ISO_C_BINDING
+  use sangoma_base, only: REALPREC, INTPREC
+  implicit none
+  
+  integer(INTPREC), intent(in) :: Nx,Ne               ! state and ensemble dimensions
+  real(REALPREC), intent(in), dimension(Nx,Ne) :: vec_in     ! vector in state space to which to apply
+                                                                     ! the squarerooted model error covariances 
+                                                                     ! Q^{1/2}, e.g. Q^{1/2}(d)
+  real(REALPREC), intent(inout), dimension(Nx,Ne) :: vec_out ! resulting vector in state space!!!
+
+!  vec_out = sqrtQ.x.vec_in
+  vec_out = sqrt(Qscale) * vec_in
+ end subroutine cb_Qhalf
+
+ 
+end subroutine ewpf_proposal_step
+
+!------------------------------------------------------------------
+
+subroutine ewpf_analysis(xf,Sf,weight,H,invsqrtR, &
+     !sqrtQ, &
+     yo,xa,Sa,weighta)
+ use matoper
+ use initfile
+ use sangoma_ewpf
+ use user_base
+ implicit none
+ real, intent(in) :: xf(:),Sf(:,:),weight(:),invsqrtR(:),yo(:)
+ real, intent(out) :: xa(:),Sa(:,:),weighta(:)
+ type(SparseMatrix), intent(in)  :: H
+! type(SparseMatrix), intent(in)  :: sqrtQ
+
+ real :: Qscale, tmp
+
+ ! double precision for sangoma tools
+ real(8), allocatable :: X(:,:)
+ real(8) :: weight_analysis(size(weight))
+ integer :: i
+
+ ! parameters keep, ... are always in double precision
+ tmp = real(keep)
+ call getInitValue(initfname,'EWPF.keep',tmp,default=real(keep))
+ keep = tmp
+
+ tmp = real(nstd)
+ call getInitValue(initfname,'EWPF.nstd',tmp,default=real(nstd))
+ nstd = tmp
+
+ tmp = nmean
+ call getInitValue(initfname,'EWPF.nmean',tmp,default=tmp)
+ nmean = tmp
+
+ tmp = ufac 
+ call getInitValue(initfname,'EWPF.ufac',tmp,default=tmp)
+ ufac = tmp
+
+ tmp = efacNum
+ call getInitValue(initfname,'EWPF.efacNum',tmp,default=tmp)
+ efacNum = tmp
+
+ tmp = freetime
+ call getInitValue(initfname,'EWPF.freetime',tmp,default=tmp)
+ freetime = tmp 
+
+ tmp = nudgefac
+ call getInitValue(initfname,'EWPF.nudgefac',tmp,default=tmp)
+ nudgefac = tmp
+
+ call getInitValue(initfname,'EWPF.Qscale',Qscale,default=0.001)
+
+ allocate(X(size(xf,1),size(Sf,2)))
+
+ do i=1,size(Sf,2)
+   X(:,i) = xf + Sf(:,i)
+ end do
+
+ weight_analysis = weight
+
+ call equal_weight_step(size(Sf,2),size(xf),size(yo), &
+      weight_analysis,X,real(yo,8), &
+      cb_H, cb_HT, cb_solve_r, cb_solve_hqht_plus_r, cb_Qhalf)
+
+ weighta = weight_analysis 
+
+! write(6,*) 'X', __LINE__,X(4,:)
+ xa = sum(X,2) / size(X,2)
+ do i=1,size(Sf,2)
+   Sa(:,i) = X(:,i) - xa
+ end do
+
+ deallocate(X)
+contains
+
+ subroutine cb_H(Ne,Nx,Ny,vec_in,vec_out) ! bind(C)
+  use, intrinsic :: ISO_C_BINDING
+  use sangoma_base, only: REALPREC, INTPREC
+  implicit none
+  
+  integer(INTPREC), intent(in) :: Nx,Ny,Ne             ! state, observation and ensemble dimensions
+  real(REALPREC), intent(in), dimension(Nx,Ne) :: vec_in      ! input vector in state space to which
+  ! to apply the observation operator h, e.g. h(x)
+  real(REALPREC), intent(inout), dimension(Ny,Ne) :: vec_out  ! resulting vector in observation space
+
+  vec_out = H.x.vec_in
+
+ end subroutine cb_H
+
+ subroutine cb_HT(Ne,Nx,Ny,vec_in,vec_out) ! bind(C)
+  use, intrinsic :: ISO_C_BINDING
+  use sangoma_base, only: REALPREC, INTPREC
+  implicit none
+  
+  integer(INTPREC), intent(in) :: Nx,Ny,Ne            ! state, observation and ensemble dimensions
+  real(REALPREC), intent(in), dimension(Ny,Ne) :: vec_in     ! input vector in observation space to which
+  ! to apply the observation operator h, e.g. h^T(x)
+  real(REALPREC), intent(inout), dimension(Nx,Ne) :: vec_out ! resulting vector in state space
+
+  vec_out = H.tx.vec_in
+ end subroutine cb_HT
+
+ function hqht_plus_r(vec_in) result (vec_out)
+  implicit none
+  real, intent(in) :: vec_in(:)
+  ! e.g. (HQH^T+R) vec_in
+  real :: vec_out(size(vec_in))
+  
+  ! (HQH^T+R) vec_in
+  ! H (Q (H^T * vec_in)) + R * vec_in
+
+  ! R * vec_in
+  vec_out = H.x.(Qscale  * (H.tx.vec_in))
+
+  ! R * vec_in
+  vec_out = vec_out + vec_in / (invsqrtR**2)
+ end function hqht_plus_r
+
+
+ subroutine cb_solve_hqht_plus_r(Ne,Ny,vec_in,vec_out) ! bind(C)
+  use, intrinsic :: ISO_C_BINDING
+  use sangoma_base, only: REALPREC, INTPREC
+  implicit none
+  
+  integer(INTPREC), intent(in) :: Ny,Ne                ! observation and ensemble dimensions
+  real(REALPREC), intent(in), dimension(Ny,Ne) :: vec_in      ! vector in observation space to which to
+  ! apply the observation error covariances R,
+  ! e.g. (HQH^T+R)^{-1}(d)
+  real(REALPREC), intent(inout), dimension(Ny,Ne) :: vec_out  ! resulting vector in observation space
+
+  integer :: k
+  real :: residual(Ny),relres
+
+  do k = 1,Ne
+!    write(6,*) 'start ',k,vec_in(:,k)
+!    vec_out(:,k) = hqht_plus_r(vec_in(:,k))
+!    write(6,*) 'apply ',k,vec_out(:,k)
+
+    vec_out(:,k) = pcg(hqht_plus_r,real(vec_in(:,k)),relres=relres)
+
+!    residual = hqht_plus_r(vec_out(:,k)) - vec_in(:,k)
+
+!    write(6,*) 'residual ', relres
+!    write(6,*) 'residual ', sqrt(sum(residual**2)/sum(vec_in(:,k)**2))
+
+    !write(6,*) 'residual ', (hqht_plus_r(vec_out(:,k)) - vec_in(:,k))
+  end do
+
+ end subroutine cb_solve_hqht_plus_R
+
+ subroutine cb_solve_r(Ne,Ny,vec_in,vec_out) ! bind(C)
+  use, intrinsic :: ISO_C_BINDING
+  use sangoma_base, only: REALPREC, INTPREC
+  implicit none
+  
+  integer(INTPREC), intent(in) :: Ny,Ne               ! observation and ensemble dimensions
+  real(REALPREC), intent(in), dimension(Ny,Ne) :: vec_in     ! input vector in observation space 
+  ! which to apply the inverse observation error
+  ! covariances R, e.g. R^{-1}(d)
+  real(REALPREC), intent(inout), dimension(Ny,Ne) :: vec_out ! resulting vector in observation space
+  integer :: k
+
+  do k = 1,Ne
+    vec_out(:,k) = invsqrtR**2 * vec_in(:,k)
+  end do
+ end subroutine cb_solve_r
+
+ subroutine cb_Qhalf(Ne,Nx,vec_in,vec_out) ! bind(C)
+  use, intrinsic :: ISO_C_BINDING
+  use sangoma_base, only: REALPREC, INTPREC
+  implicit none
+  
+  integer(INTPREC), intent(in) :: Nx,Ne               ! state and ensemble dimensions
+  real(REALPREC), intent(in), dimension(Nx,Ne) :: vec_in     ! vector in state space to which to apply
+                                                                     ! the squarerooted model error covariances 
+                                                                     ! Q^{1/2}, e.g. Q^{1/2}(d)
+  real(REALPREC), intent(inout), dimension(Nx,Ne) :: vec_out ! resulting vector in state space!!!
+
+  vec_out = sqrt(Qscale) * vec_in
+
+ end subroutine cb_Qhalf
+
+
+ 
+end subroutine ewpf_analysis
 
 
 

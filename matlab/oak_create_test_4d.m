@@ -1,4 +1,8 @@
-function [t0,data,model,Eic,Eforcing, obs, fun, h ] = oak_create_test4D(testdir,initfile)
+function [t0,data,model,Eic,Eforcing, obs, fun, h] = oak_create_test_4d(testdir,initfile,sz)
+
+if nargin == 2
+  sz = [10 15 3 4];
+end
 
 [success,message] = mkdir(testdir);
 [success,message] = mkdir(fullfile(testdir,'Common'));
@@ -9,7 +13,6 @@ function [t0,data,model,Eic,Eforcing, obs, fun, h ] = oak_create_test4D(testdir,
 
 init = InitFile(initfile);
 
-sz = [10 15 3 4];
 [x,y,z,t] = ndgrid(1:sz(1),1:sz(2),1:sz(3),1:sz(4));
 
 xname = get(init,'Model.gridX');

@@ -183,9 +183,10 @@ end function
 
     integer :: length, first_index, last_index, ParseError, count
 
-
+    countElements = 0
     length = len_trim(string)
     error = 0
+    count = 0
 
     if ((string(1:1).eq.'[').and.(string(length:length).eq.']')) then
        length = len_trim(string(1:length-1))
@@ -235,7 +236,7 @@ end function
     integer, intent(out) :: error
     character(len=*), intent(out) :: errormsg
 
-    integer :: dim, ParseError,fi,li,i,istat
+    integer :: dim, ParseError,fi,li,i
 
     dim = countElements(string,ParseError)
     if (ParseError.ne.0) then
@@ -301,7 +302,7 @@ end function
 
     character(len=maxLength) :: line
     integer iostat, lineNumber, ParseError
-    integer fi,li, iu,istat
+    integer fi,li, iu
 #ifdef _OPENMP
     integer omp_get_thread_num
 #endif
@@ -395,7 +396,7 @@ end function
 
     character(len=maxLength) :: string
     character(len=maxLength) :: errormsg
-    integer lineNumber, ConversionError, fi,li,iu, error, istat
+    integer lineNumber, ConversionError, error
 
     call getInitString(filename,variable,string,lineNumber,error,errormsg)
 
@@ -445,7 +446,7 @@ end function
 
     character(len=maxLength) :: string
     character(len=maxLength) :: errormsg
-    integer lineNumber, ConversionError, fi,li,iu, error,istat
+    integer lineNumber, ConversionError, error
 
     call getInitString(filename,variable,string,lineNumber,error,errormsg)
 
@@ -496,7 +497,7 @@ end function
 
     character(len=maxLength) :: string
     character(len=maxLength) :: errormsg
-    integer lineNumber, ConversionError, fi,li,iu, error,istat
+    integer lineNumber, ConversionError, error
 
     call getInitString(filename,variable,string,lineNumber,error,errormsg)
 
@@ -550,7 +551,7 @@ end function
     character(len=maxLength) :: string
     character(len=maxLength) :: errormsg
     character(len=maxLength), pointer :: vec(:)
-    integer lineNumber, ConversionError, error, i,istat
+    integer lineNumber, ConversionError, error, i
 
     call getInitString(filename,variable,string,lineNumber,error,errormsg)
 
@@ -613,7 +614,7 @@ end function
     character(len=maxLength) :: string
     character(len=maxLength) :: errormsg
     character(len=maxLength), pointer :: vec(:)
-    integer lineNumber, ConversionError, error, i,istat
+    integer lineNumber, ConversionError, error, i
 
     call getInitString(filename,variable,string,lineNumber,error,errormsg)
 
@@ -676,7 +677,7 @@ end function
     character(len=maxLength) :: string
     character(len=maxLength) :: errormsg
     character(len=maxLength), pointer :: vec(:)
-    integer lineNumber, ConversionError, error, i,istat
+    integer lineNumber, ConversionError, error, i
 
     call getInitString(filename,variable,string,lineNumber,error,errormsg)
 
@@ -735,7 +736,7 @@ end function
 
     character(len=maxLength) :: string
     character(len=maxLength) :: errormsg
-    integer lineNumber, ConversionError, error, i
+    integer lineNumber, error
 
     call getInitString(filename,variable,string,lineNumber,error,errormsg)
 
@@ -744,11 +745,14 @@ end function
     elseif (error.eq.-1) then
        presentInitValue = .false.
     else
+      presentInitValue = .false.
+
       if (present(err)) then
         err = error
       else
          write(stderr,*) trim(errormsg)
-         stop 'Program stoped in initfile.F90 around line 688'
+         write(stderr,*) 'Program stoped in ',__FILE__,' at line ',__LINE__
+         ERROR_STOP
       end if
     end if
   end function
