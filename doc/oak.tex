@@ -563,6 +563,17 @@ Model.path      = '/u/abarth/soft/Ligur3/Data/'
 \subsubsubsection{Mandatory keys}
 
 \begin{keytabular}
+\code{Model.mask} & vector of strings &  sea-land mask of each variable 
+\\
+\code{Model.gridX} & vector of strings & longitude of each variable (cannot contain missing values)
+\\
+\code{Model.gridY} & vector of strings & latitude of each variable  (cannot contain missing values)
+\\
+\code{Model.gridZ} & vector of strings & depth  (cannot contain missing values)
+\\
+\code{Model.path} & string & The path is prepended to all filenames
+specified in \code{Model.*}. The current path is used by default.
+\\
 \code{ErrorSpace.dimension} & integer & The dimension of the error space.
 \\
 \code{ErrorSpace.init} & vector of strings &
@@ -579,6 +590,8 @@ general not normed. Orthogonality is not necessary.
 \subsubsubsection{Optional keys}
 
 \begin{keytabular}
+\code{Model.hres} & vector of real numbers & the resolution of the model grid which defines the ``priority'' when using overlapping grids. Observations are associated to the model variable with the highest resolution. The units of the resolution is not important as their values are only compared to each other (optional)
+\\
 \code{ErrorSpace.path} & string &  The path is prepended to all file names
 specified in \code{ErrorSpace.*}. The current path is used by default.
 \\
@@ -990,11 +1003,13 @@ The required keys are: \\
 \begin{keytabular}
 \code{Model.mask} & vector of strings &  sea-land mask of each variable 
 \\
-\code{Model.gridX} & vector of strings & longitude of each variable (degenerated file)
+\code{Model.gridX} & vector of strings & longitude of each variable
 \\
-\code{Model.gridY} & vector of strings & latitude of each variable (degenerated file)
+\code{Model.gridY} & vector of strings & latitude of each variable
 \\
 \code{Model.gridZ} & vector of strings & depth 
+\\
+\code{Model.hres} & vector of real numbers & the resolution of the model grid which defines the ``priority'' when using overlapping grids. Observations are associated to the model variable with the highest resolution. The units of the resolution is not important as their values are only compared to each other (optional)
 \\
 \code{Model.path} & string & The path is prepended to all filenames
 specified in \code{Model.*}. The current path is used by default.
