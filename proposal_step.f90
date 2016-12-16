@@ -24,7 +24,7 @@
 ! proposal_step nudges particles at each model time step towards the next set of future observations. 
 ! It also accumulates weight of each particle due to the nudging.
 subroutine proposal_step(Ne,Nx,Ny,weight,x_n,y,t_model,obsVec,dt_obs, &
-           cb_H, cb_HT, cb_Qhalf, cb_solve_r) bind(C, name="proposal_step_")
+           cb_H, cb_HT, cb_Qhalf, cb_solve_r) !bind(C, name="proposal_step_")
   use sangoma_base, only: REALPREC, INTPREC ! use sangoma defined precision for C-Bind
   use user_base                             ! use user defined parameters 
   implicit none
@@ -56,7 +56,7 @@ subroutine proposal_step(Ne,Nx,Ny,weight,x_n,y,t_model,obsVec,dt_obs, &
 !    cb_Qhalf - apply Q^{1/2} to  the given state vector and return the result
 
       INTERFACE
-        subroutine cb_H(Ne,Nx,Ny,vecIn,vecOut) bind(C)
+        subroutine cb_H(Ne,Nx,Ny,vecIn,vecOut) !bind(C)
           use, intrinsic :: ISO_C_BINDING
           use sangoma_base, only: REALPREC, INTPREC
           implicit none
@@ -69,7 +69,7 @@ subroutine proposal_step(Ne,Nx,Ny,weight,x_n,y,t_model,obsVec,dt_obs, &
       END INTERFACE
 
       INTERFACE
-        subroutine cb_HT(Ne,Nx,Ny,vecIn,vecOut) bind(C)
+        subroutine cb_HT(Ne,Nx,Ny,vecIn,vecOut) !bind(C)
           use, intrinsic :: ISO_C_BINDING
           use sangoma_base, only: REALPREC, INTPREC
           implicit none
@@ -82,7 +82,7 @@ subroutine proposal_step(Ne,Nx,Ny,weight,x_n,y,t_model,obsVec,dt_obs, &
       END INTERFACE
 
       INTERFACE
-        subroutine cb_solve_r(Ne,Ny,vecIn,vecOut) bind(C)
+        subroutine cb_solve_r(Ne,Ny,vecIn,vecOut) !bind(C)
           use, intrinsic :: ISO_C_BINDING
           use sangoma_base, only: REALPREC, INTPREC
           implicit none
@@ -96,7 +96,7 @@ subroutine proposal_step(Ne,Nx,Ny,weight,x_n,y,t_model,obsVec,dt_obs, &
       END INTERFACE
 
       INTERFACE
-        subroutine cb_Qhalf(Ne,Nx,vecIn,vecOut) bind(C)
+        subroutine cb_Qhalf(Ne,Nx,vecIn,vecOut) !bind(C)
           use, intrinsic :: ISO_C_BINDING
           use sangoma_base, only: REALPREC, INTPREC
           implicit none
@@ -173,7 +173,7 @@ real(REALPREC) :: p,tau                                 ! parameters
 !    cb_Qhalf - apply Q^{1/2} to  the given state vector and return the result
 
       INTERFACE
-        subroutine cb_HT(Ne,Nx,Ny,vecIn,vecOut) bind(C)
+        subroutine cb_HT(Ne,Nx,Ny,vecIn,vecOut) !bind(C)
           use, intrinsic :: ISO_C_BINDING
           use sangoma_base, only: REALPREC, INTPREC
           implicit none
@@ -186,7 +186,7 @@ real(REALPREC) :: p,tau                                 ! parameters
       END INTERFACE
 
       INTERFACE
-        subroutine cb_solve_r(Ne,Ny,vecIn,vecOut) bind(C)
+        subroutine cb_solve_r(Ne,Ny,vecIn,vecOut) !bind(C)
           use, intrinsic :: ISO_C_BINDING
           use sangoma_base, only: REALPREC, INTPREC
           implicit none
@@ -200,7 +200,7 @@ real(REALPREC) :: p,tau                                 ! parameters
       END INTERFACE
 
       INTERFACE
-        subroutine cb_Qhalf(Ne,Nx,vecIn,vecOut) bind(C)
+        subroutine cb_Qhalf(Ne,Nx,vecIn,vecOut) !bind(C)
           use, intrinsic :: ISO_C_BINDING
           use sangoma_base, only: REALPREC, INTPREC
           implicit none

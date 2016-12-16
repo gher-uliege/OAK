@@ -1,6 +1,7 @@
 #define dbg(var) write(0,*) __FILE__,__LINE__,'var',var
 
 program toymodel
+ use matoper
 #ifdef MODEL_PARALLEL
  use mpi
 #endif
@@ -197,22 +198,26 @@ contains
 
  if (rank == 0) then
    sumx_ref = n*(n+1)/2
-   if (abs(sumx - sumx_ref) > 1e-6) then
-     write(6,*) 'sum: FAIL'
-     write(6,*) 'got: ',sumx
-     write(6,*) 'explected: ',sumx_ref
-   else
-     write(6,*) 'sum:  OK'
-   end if
+
+   call assert(sumx,sumx_ref,1e-6,'check sum')
+   ! if (abs(sumx - sumx_ref) > 1e-6) then
+   !   write(6,*) 'sum: FAIL'
+   !   write(6,*) 'got: ',sumx
+   !   write(6,*) 'explected: ',sumx_ref
+   ! else
+   !   write(6,*) 'sum:  OK'
+   ! end if
 
  end if
 
-! write(6,*) 'sum(x) ',sum(x), maxval(abs(x - xinit))
- if (maxval(abs(x - xinit)) > 1e-6) then
-   write(6,*) 'sub-domain check: FAIL'
- else
-   write(6,*) 'sub-domain check:  OK'
- end if
+ call assert(x,xinit,1e-6,'sub-domain check')
+
+ ! write(6,*) 'sum(x) ',sum(x), maxval(abs(x - xinit))
+ ! if (maxval(abs(x - xinit)) > 1e-6) then
+ !   write(6,*) 'sub-domain check: FAIL'
+ ! else
+ !   write(6,*) 'sub-domain check:  OK'
+ ! end if
 
  end subroutine 
 

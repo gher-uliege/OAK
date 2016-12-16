@@ -4,6 +4,7 @@
 
 
 F90C ?= gfortran
+#F90FLAGS ?= -fimplicit-none -Wall
 F90FLAGS ?= -fimplicit-none
 LD ?= $(F90C)
 LDFLAGS ?= 
@@ -15,8 +16,8 @@ OPTIM_F90FLAGS =  -O3 -ffast-math
 OPENMP_F90FLAGS = -fopenmp
 OPENMP_LDFLAGS = -fopenmp
 
-PROFILING_F90FLAGS ?= -pg
-PROFILING_LDFLAGS ?= -pg
+PROFILING_F90FLAGS ?= -fprofile-arcs -ftest-coverage
+PROFILING_LDFLAGS ?= -fprofile-arcs -ftest-coverage
 
 PIC_F90FLAGS=-fPIC
 PIC_CFLAGS=-fPIC

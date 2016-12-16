@@ -11,7 +11,8 @@ Model.gridX         = [ 'domain.nc#lon', 'domain.nc#lon']
 Model.gridY         = [ 'domain.nc#lat', 'domain.nc#lat']
 Model.gridZ         = [   'domain.nc#z',   'domain.nc#z']
 Model.mask          = ['domain.nc#mask','domain.nc#mask']
-Model.path          = 'tmp-data/'
+Model.path          = 'Common/'
+
 
 # Error space of the state vector
 
@@ -37,7 +38,7 @@ schemetype = 0
 Zones.partition        = ['domain.nc#part','domain.nc#part']
 Zones.corrLength.const = [           30e3,             30e3]
 Zones.maxLength.const  = [         2000e3,           2000e3]
-Zones.path = 'tmp-data/'
+Zones.path = 'Common/'
 
 # loctype = integer: type of localization when using local assimilation (i.e. schemetype = 1)
 #   possible values of "loctype" are:
@@ -64,8 +65,8 @@ debugfile = 'assim.debug'
 #
 # observations
 
-Obs001.time      = '2010-07-06T00:00:00'
-Obs001.path      = 'tmp-data/'
+Obs001.time      = '2010-07-06T00:30:00.00'
+Obs001.path      = 'Obs/'
 Obs001.variables  = [              'var1']
 Obs001.names      = [      'var1_surface']
 Obs001.gridX      = [       'obs1.nc#lon']
@@ -73,8 +74,9 @@ Obs001.gridY      = [       'obs1.nc#lat']
 Obs001.gridZ      = [         'obs1.nc#z']
 Obs001.value      = [      'obs1.nc#var1']
 Obs001.mask       = [      'obs1.nc#var1']
-Obs001.rmse       = [      'obs1.nc#rmse']
-
+Obs001.SMWCovar.SqrtDiag       = [      'obs1.nc#rmse']
+Obs001.SMWCovar.dimension   = 10
+Obs001.SMWCovar.ErrorSpace   = ['("S",I3.3,"/model.nc#var1")']
 
 # diagnostics
 
@@ -84,8 +86,7 @@ Diag*.stddevxf  =  ['stddevxf.nc#var1','stddevxf.nc#var2']
 Diag*.stddevxa  =  ['stddevxa.nc#var1','stddevxa.nc#var2']
 Diag*.xf        =  ['forecast.nc#var1','forecast.nc#var2']
 Diag*.xa-xf     =  [     'inc.nc#var1',     'inc.nc#var2']
-#Diag*.Ea      = ['("../Ens",I3.3,"/model_an.nc#var1")','("../Ens",I3.3,"/model_an.nc#var2")']
-
+Diag*.xa        =  ['analysis.nc#var1','analysis.nc#var2']
 
 Diag001.Hxf       = [       'diag1.nc#xf']
 Diag001.Hxa       = [       'diag1.nc#xa']
@@ -93,13 +94,7 @@ Diag001.yo        = [       'diag1.nc#yo']
 Diag001.invsqrtR  = [ 'diag1.nc#invsqrtR']
 Diag001.stddevHxf = ['diag1.nc#stddevHxf']
 Diag001.stddevHxa = ['diag1.nc#stddevHxa']
-Diag001.path   = 'tmp-data/'
-
-# Analysis
-
-Analysis*.value =  ['analysis.nc#var1','analysis.nc#var2']
-Analysis001.path  =  'tmp-data/'
-
+Diag001.path   = 'Analysis001/'
 
 
 # State vector definition

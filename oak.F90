@@ -605,6 +605,7 @@ contains
   use parall
   use matoper
   use initfile
+  use covariance
   implicit none
   type(oakconfig), intent(inout) :: config
   real(8), intent(in) :: time
@@ -615,7 +616,7 @@ contains
 #endif
   integer :: ierr
   real, allocatable :: Ef(:,:), Ea(:,:)
-  real, pointer :: yo(:), invsqrtR(:), Hshift(:)
+  real, pointer :: yo(:), Hshift(:)
   character(len=256)             :: infix
   type(MemLayout) :: ObsML
   type(SparseMatrix) :: H
@@ -623,6 +624,12 @@ contains
   real(8) :: obstime, obstime_next
   real    :: model_dt
   integer :: ntime, obsVec, dt_obs
+
+  ! true if for some reason the observation should be excluded from the 
+  ! assimilation
+  logical, allocatable :: exclude_obs(:)
+  class(covar), pointer :: R
+  type(DCDCovar), target :: tmpR
 
   ! time of the next observation
   call loadObsTime(config%obsntime_index,obstime,ierr)    
@@ -661,16 +668,25 @@ contains
 
           call fmtIndex('',config%obsntime_index+1,'.',infix)
           call MemoryLayout('Obs'//trim(infix),ObsML,.true.)
-          allocate(yo(ObsML%effsize),invsqrtR(ObsML%effsize),Hshift(ObsML%effsize))
+          allocate(yo(ObsML%effsize), &
+               exclude_obs(ObsML%effsize), &
+               Hshift(ObsML%effsize))
 
-          call loadObs(config%obsntime_index+1,ObsML,yo,invsqrtR)    
-          call loadObservationOper(config%obsntime_index+1,ObsML,H,Hshift,invsqrtR)
+          call loadObs(config%obsntime_index+1,ObsML,yo,R,exclude_obs)
+          call loadObservationOper(config%obsntime_index+1,ObsML,H,Hshift,exclude_obs)
+          if (any(exclude_obs)) then
+            ! multiply R left and right by the inverses of diagonal matrix D which 0 for 
+            ! excluded observation and 1 otherwise
+            call tmpR%init(merge(0., 1., exclude_obs),R)
+            deallocate(R)
+            R => tmpR            
+          end if
 
           !write(6,*) 'weightf ',procnum,config%weightf
-          call ewpf_proposal_step(ntime,obsVec,dt_obs,Ef,config%weightf,yo,invsqrtR,H)
+          call ewpf_proposal_step(ntime,obsVec,dt_obs,Ef,config%weightf,yo,R,H)
           !write(6,*) 'weightf ',procnum,config%weightf
           !dbg(Ef)
-          deallocate(yo,invsqrtR,Hshift)
+          deallocate(yo,Hshift)
         end if
       end if
     else

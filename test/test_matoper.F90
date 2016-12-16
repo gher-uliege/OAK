@@ -1,18 +1,37 @@
+! cd /home/abarth/Assim/OAK-nonDiagR &&  make test/test_matoper && test/test_matoper
+
+
 program test_matoper
  use matoper
  implicit none
 
 
  !call benchmark_matoper
+ call test_factorial
  call test_pcg
  call test_chol
  call test_sqrtm
- call test_sort
+ call test_quicksort
+ call test_mergesort
  call test_unique
+ call test_sparse
+ call test_randperm
+
 
  contains
 
+ subroutine test_factorial
+  implicit none
+
+  call assert(factorial(0),1,'test factorial (1)')
+  call assert(factorial(6),720,'test factorial (2)')
+  call assert(nchoosek(5,3),10,'test nchoosek')
+  
+  
+ end subroutine test_factorial
+
  subroutine test_chol()
+  implicit none
   real :: A(3,3), U(3,3)
 
   A = reshape([2.,1.,1., 1.,2.,1., 1.,1.,2.],[3,3])
@@ -26,6 +45,7 @@ program test_matoper
   !
 
  subroutine test_sqrtm()
+  implicit none
   real :: A(3,3)
   real :: S(size(A,1),size(A,1))
 
@@ -41,7 +61,7 @@ program test_matoper
   !_______________________________________________________
   !
 
-  subroutine test_sort
+  subroutine test_quicksort
    implicit none
    integer, parameter :: n = 10
    integer :: ind(n)
@@ -49,10 +69,26 @@ program test_matoper
         (/0, 50, 20, 25, 90, 10, 5, 20, 99, 75/), sortedA
    
    sortedA = A
-   call sort(sortedA,ind)
+   call quicksort(sortedA,ind)
    call assert(all(sortedA(1:n-1) <= sortedA(2:n)),'quick sort (1)')
    call assert(all(sortedA == A(ind)),'quick sort (2)')
-  end subroutine test_sort
+  end subroutine test_quicksort
+
+  !_______________________________________________________
+  !
+
+  subroutine test_mergesort
+   implicit none
+   integer, parameter :: n = 11
+   integer :: ind(n)
+   integer, dimension(1:n) :: A = &  
+        (/0, 50, 20, 25, 90, 10, 5, 20, 99, 75, 2/), sortedA
+   
+   sortedA = A
+   call sort(sortedA,ind)
+   call assert(all(sortedA(1:n-1) <= sortedA(2:n)),'merge sort (1)')
+   call assert(all(sortedA == A(ind)),'merge sort (2)')
+  end subroutine test_mergesort
 
   !_______________________________________________________
   !
@@ -63,20 +99,21 @@ program test_matoper
    integer :: ind(n), ind2(n), i, nu
    integer, dimension(1:n) :: A = &  
         (/0, 20, 20, 25, 90, 10, 5, 20, 90, 75/), uA
+   logical :: success
    
    uA = A
    call unique(uA,nu,ind,ind2)
 
+   success = .true.
    ! all elements in A must be one time in uA
    do i = 1,n
      if (count(A(i) == uA(1:nu)) /= 1) then
-       write(6,*) 'unique (1): FAILED'
-       stop
+       success = .false.
+       exit
      end if
    end do
 
-   write(6,*) 'unique (1): OK'
-
+   call assert(success,'unique (1)')
    call assert(all(uA(1:nu) == A(ind(1:nu))),'unique (2)')
    call assert(all(A == uA(ind2)),'unique (3)')
 
@@ -163,5 +200,54 @@ program test_matoper
 
  end subroutine benchmark_matoper
 
+ !_______________________________________________________
+ !
+
+ subroutine test_sparse
+  implicit none
+  type(SparseMatrix) :: A,B,C
+  integer, parameter :: n = 3
+  real, parameter :: tol = 1e-6
+
+  A = speye(3)
+
+  A = sparse([1,2,3],[1,2,3],[1.,1.,1.],n,n)
+  B = A + A
+  call assert(full(B),full(A) + full(A),tol,'add sparse matrices (1)')
+
+  B = sparse_compress(A + A)
+  call assert(full(B),full(A) + full(A),tol,'add sparse matrices (2)')
+
+
+  A = sparse([1,2,3,2],[1,2,3,1],[1.,2.,1.,3.],n,n)
+  B = sparse([1,3,2,2],[1,1,2,1],[1.,2.,1.,3.],n,n)
+  call assert(full(sparse_compress(A+B)),full(A) + full(B),tol,'add sparse matrices (3)')
+
+  call assert(full(sparse_compress(A.x.B)),full(A).x.full(B),tol,'mult sparse matrices')
+
+  A = sparse([1,2,3,2],[1,2,3,2],[1.,2.,1.,3.],n,n)
+  A = sparse_compress(A)
+  call assert(A%nz,3,'sparse compress')
+   
+!  call spprint(A)
+
+
+ end subroutine test_sparse
+
+ !_______________________________________________________
+ !
+
+ subroutine test_randperm
+  implicit none
+  
+  integer, parameter :: n = 10
+  integer :: ind(n), nu
+  ind = randperm(n)
+  call unique(ind,nu)
+
+  ! check if we have no repetion
+  call assert(nu,n,'randperm')
+ end subroutine test_randperm
+ 
 
 end program test_matoper

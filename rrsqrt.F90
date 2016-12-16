@@ -1,6 +1,6 @@
 !
 !  OAK, Ocean Assimilation Kit
-!  Copyright(c) 2002-2011 Alexander Barth and Luc Vandenblucke
+!  Copyright(c) 2002-2015 Alexander Barth and Luc Vandenblucke
 !
 !  This program is free software; you can redistribute it and/or
 !  modify it under the terms of the GNU General Public License
@@ -25,6 +25,7 @@
 #define COPY_ERRORSPACE
 
 module rrsqrt
+ use covariance
 
 contains
  subroutine reduceErrorSpace(S,W,Sr)
@@ -94,16 +95,16 @@ contains
  ! Pa = Sa Sa^T 
 
 
- !_______________________________________________________  
- !
 
 
- subroutine analysisIncrement(Hxf,yo,Sf,HSf,invsqrtR, xa_xf, Sa, amplitudes)
+ subroutine analysisIncrement(Hxf,yo,Sf,HSf,R, xa_xf, Sa, amplitudes)
   use ufileformat
   use matoper
+  implicit none
 
   real, intent(in) :: Hxf(:), yo(:), &
-       Sf(:,:), HSf(:,:), invsqrtR(:)
+       Sf(:,:), HSf(:,:)
+  class(covar), intent(in) :: R
   real, intent(out) :: xa_xf(:)
 #ifndef __GFORTRAN__ 
   real, intent(out), optional :: Sa(:,:)
@@ -114,10 +115,10 @@ contains
 #endif
   real, intent(out), optional :: amplitudes(size(Sf,2))
 
-  real :: lambda(size(Sf,2)), sqrt_lambda(size(Sf,2)), UT(size(Sf,2),size(Sf,2)), &
-       ampl(size(Sf,2)), isR(size(invsqrtR))
+  real :: lambda(size(Sf,2)), sqrt_lambda(size(Sf,2)), U(size(Sf,2),size(Sf,2)), &
+       ampl(size(Sf,2))
   real :: dummy(1,1)
-  integer :: info,r
+  integer :: info
 #ifdef ROTATE_ENSEMBLE
   real, dimension(size(Sf,2)) :: v,w
   real :: rotationMatrix(size(Sf,2),size(Sf,2))
@@ -128,32 +129,17 @@ contains
   integer :: i,j
 #endif
 
-  r = size(Sf,2)
   lambda = 0
-#ifdef ALLOCATE_LOCAL_VARS
-  allocate(temp(size(HSf,1),size(HSf,2)))
-  !    temp = invsqrtR.dx.HSf
 
-  do j=1,size(HSf,2)
-    do i=1,size(HSf,1)
-      temp(i,j) = invsqrtR(i)*HSf(i,j)
-    end do
-  end do
-
-  call gesvd('n','a',temp,lambda,dummy,UT,info)
-
-! decomposition satisfies:
-! temp.tx.temp = UT.tx.(diag(lambda**2).x.UT)
-
-  deallocate(temp)
-#else
-  call gesvd('n','a',invsqrtR.dx.HSf,lambda,dummy,UT,info)
-#endif
+  allocate(temp(size(HSf,2),size(HSf,2)))
+  temp = HSf .tx. (R%mldivide(HSf))
+  call symeig(temp,lambda,U)
+  where (lambda < 0) lambda = 0
 
   ! lambda  = (1 + \mathbf \Lambda)^{-1} in OAK documentation
-  lambda = (1+lambda**2)**(-1)
+  lambda = (1+lambda)**(-1)
 
-  ampl = (UT.tx.(lambda.dx.(UT.x.(HSf.tx.(invsqrtR**2*(yo-Hxf))))))
+  ampl = (U.x.(lambda.dx.(U.tx.(HSf.tx.(R%mldivide(yo-Hxf))))))
 
 ! check if any element of ampl is NaN
   if (any(ampl /= ampl)) then
@@ -169,14 +155,14 @@ contains
 ! PGI compiler need a intermediate variable with the square root of lambda
 ! otherwise it produced an error
 ! PGF90-F-0000-Internal compiler error. fill_argt: dimensionality doesn't match       1
-! on lines like: Sa = Sf.x.(UT.tx.(sqrt(lambda).dx.UT))
+! on lines like: Sa = Sf.x.(U.x.(sqrt(lambda).dx.transpose(U)))
 !
 
   ! sqrt_lambda  = (1 + \mathbf \Lambda)^{-1/2} in OAK documentation
     sqrt_lambda = sqrt(lambda)
 
 #   ifndef ROTATE_ENSEMBLE
-    Sa = Sf.x.(UT.tx.(sqrt_lambda.dx.UT))
+    Sa = Sf.x.(U.x.(sqrt_lambda.dx.transpose(U)))
 #   else
 
 !
@@ -190,48 +176,55 @@ contains
 !
 
     ! v = U (1 + \mathbf \Lambda)^{1/2} U^T 1 
-    w = 1./sqrt(1.*r)
-    v = UT.tx.(sum(UT,2)/sqrt_lambda)
+    w = 1./sqrt(1.*size(Sf,2))
+    v = U.x.(sum(U,1)/sqrt_lambda)
     v = normate(v)
 
 ! RotateVector(w,v) is generally the identity matrix
 
-    Sa = Sf.x.(UT.tx.(sqrt_lambda.dx.(UT.x.RotateVector(w,v))))
+    Sa = Sf.x.(U.x.(sqrt_lambda.dx.(U.tx.RotateVector(w,v))))
 #   endif
   end if
 
   if (present(amplitudes)) amplitudes = ampl
- end subroutine analysisIncrement
+ end subroutine 
 
 
  !_______________________________________________________
  !
 
- subroutine analysis(xf,Hxf,yo,Sf,HSf,invsqrtR, xa,Sa, amplitudes)
+ subroutine analysis(xf,Hxf,yo,Sf,HSf,R, xa,Sa, amplitudes)
   use matoper
+  implicit none
 
   real, intent(in) :: xf(:),  Hxf(:), yo(:), &
-       Sf(:,:), HSf(:,:), invsqrtR(:)
+       Sf(:,:), HSf(:,:)
+  class(Covar), intent(in) :: R
   real, intent(out) :: xa(:)
   real, intent(out), optional :: Sa(:,:), amplitudes(size(Sf,2))
 
-  call analysisincrement(Hxf,yo,Sf,HSf,invsqrtR, xa, Sa, amplitudes)
+  call analysisincrement(Hxf,yo,Sf,HSf,R, xa, Sa, amplitudes)
   xa = xf+xa
  end subroutine analysis
 
  !_______________________________________________________
  !
 
- subroutine biasedAnalysis(gamma,xf,bf,Hxf,Hbf,yo,Sf,HSf,invsqrtR, xa,ba,Sa,amplitudes)
+ subroutine biasedAnalysis(gamma,xf,bf,Hxf,Hbf,yo,Sf,HSf,R, xa,ba,Sa,amplitudes)
   use matoper
+  use covariance
   implicit none
   real, intent(in) :: gamma
   real, intent(in) :: xf(:), bf(:), Hxf(:), yo(:), &
-       Sf(:,:), HSf(:,:), invsqrtR(:), Hbf(:)
+       Sf(:,:), HSf(:,:), Hbf(:)
+  class(covar), intent(in) :: R
   real, intent(out) :: xa(:), ba(:), Sa(:,:)
   real, intent(out), optional :: amplitudes(size(Sf,2))
 
   real :: ampl(size(Sf,2))
+
+  integer :: i
+  type(DCDCovar) :: Rinf
 
 #   ifndef ALLOCATE_LOCAL_VARS
   real :: unbiasedxf(size(xf)), unbiasedHxf(size(Hxf)) 
@@ -240,13 +233,15 @@ contains
   allocate(unbiasedxf(size(xf)),unbiasedHxf(size(Hxf)))
 #   endif
 
-  call analysisIncrement(Hxf,yo,Sf,HSf,invsqrtR,ba,amplitudes=ampl)
+  call analysisIncrement(Hxf,yo,Sf,HSf,R,ba,amplitudes=ampl)
   ba = bf - gamma * ba
 
   unbiasedxf = xf-ba
   unbiasedHxf = Hxf-(Hbf - gamma * (HSf.x.ampl))
 
-  call analysisincrement(unbiasedHxf,yo,Sf,HSf,sqrt(1-gamma)*invsqrtR,xa)
+  call Rinf%init([(1./sqrt(1-gamma),i=1,size(Hxf))],R)
+  call analysisincrement(unbiasedHxf,yo,Sf,HSf,Rinf,xa)
+  !call analysisincrement(unbiasedHxf,yo,Sf,HSf,sqrt(1-gamma)*invsqrtR,xa)
   xa = unbiasedxf + xa
   Sa = Sf
 
@@ -260,8 +255,10 @@ contains
  !_______________________________________________________
  !
 
- subroutine locAnalysisIncrement(zoneSize,selectObservations,Hxf,yo,Sf,HSf,invsqrtR,xa_xf, Sa, amplitudes) 
+ subroutine locAnalysisIncrement(zoneSize,selectObservations,Hxf,yo,Sf, &
+       HSf, R,xa_xf, Sa, amplitudes, localise_obs) 
   use matoper
+  use covariance
 # ifdef ASSIM_PARALLEL
   use parall
 # endif 
@@ -273,7 +270,9 @@ contains
   interface 
     subroutine selectObservations(i,c,relevantObs)
      integer, intent(in) :: i
+     ! weight of observation
      real, intent(out) :: c(:)
+     ! true if the observation should be used
      logical, intent(out) :: relevantObs(:)
     end subroutine selectObservations
   end interface
@@ -281,30 +280,43 @@ contains
 ! size of each zone
 ! if a zone is a vertical water column, then all zoneSize 
 ! are equal to the number of vertical layer
+! state vector is decomposed into 
+! xf(1 : zoneSize(1))
+! xf(zoneSize(1)+1 : zoneSize(1)+zoneSize(2))
+! xf(zoneSize(1)+zoneSize(2)+1 : zoneSize(1)+zoneSize(2)+zoneSize(3))
+! ...
 
   integer, intent(in) :: zoneSize(:)
 
 
   real, intent(in) :: Hxf(:), yo(:), &
-       Sf(:,:), HSf(:,:), invsqrtR(:)
+       Sf(:,:), HSf(:,:)
+!  real, intent(in) :: invsqrtR(:)
+  class(Covar), intent(in) :: R
+!  type(DiagCovar) :: R
+  type(DCDCovar) :: DRD
   real, intent(out) :: xa_xf(:)
   real, intent(out), optional :: Sa(:,:), amplitudes(size(Sf,2),size(zoneSize))
+  logical, intent(in), optional :: localise_obs
 
-  real, dimension(size(yo)) :: invsqrtRzone,weight
+  real, dimension(size(yo)) :: weight
 
   logical :: noRelevantObs,relevantObs(size(yo))
   integer :: zi, zi1,zi2,i,j, NZones, nbselectedZones,nbObservations
 
   integer, dimension(size(zoneSize)) :: startIndex,endIndex
 
-# ifdef OPTIM_ZONE_OBS
+  ! wheter observation have to be localised
+  logical :: local_obs
   real, dimension(size(yo)) :: yozone
   real, dimension(size(yo),size(Sf,2)) :: HSfzone
   integer :: nObs
-# endif
 
   integer :: baseIndex = 1, i1,i2
   real,allocatable :: temp(:)
+
+  local_obs = .false.
+  if (present(localise_obs)) local_obs = localise_obs
 
 !$omp single
   xa_xf = 0
@@ -338,6 +350,8 @@ contains
   baseIndex = 0
 # endif
 
+!  call R%init(1./invsqrtR**2)
+
   ! loop over each zone    
 !$omp do schedule(dynamic)
   zonesLoop: do zi=zi1,zi2
@@ -354,38 +368,46 @@ contains
     if (nbObservations.eq.0) cycle zonesLoop
 
 
-#   ifndef OPTIM_ZONE_OBS
-    invsqrtRzone = invsqrtR * weight
-    if (present(amplitudes)) then
-      call analysisIncrement(Hxf,yo,Sf(i1:i2,:),HSf,invsqrtRzone,  &
-           xa_xf(i1:i2),Sa(i1:i2,:),amplitudes(:,zi))
+    if (.not.local_obs) then
+      call DRD%init(weight,R)
+      !call DRD%init(0*weight+1,R)
+      
+      if (present(amplitudes)) then
+        call analysisIncrement(Hxf,yo,Sf(i1:i2,:),HSf,DRD,  &
+             xa_xf(i1:i2),Sa(i1:i2,:),amplitudes(:,zi))
+      else
+        call analysisIncrement(Hxf,yo,Sf(i1:i2,:),HSf,DRD,xa_xf(i1:i2),Sa(i1:i2,:))
+      end if
+      
+      call DRD%done
     else
-      call analysisIncrement(Hxf,yo,Sf(i1:i2,:),HSf,invsqrtRzone,xa_xf(i1:i2),Sa(i1:i2,:))
-    end if
 
-#   else
-
-    if (nbObservations.eq.size(yo)) then
-      invsqrtRzone = invsqrtR * weight
-      call analysisIncrement(Hxf,yo,Sfzone,HSf,invsqrtRzone,xa_xf(i1:i2),Sa(i1:i2,:))
-    else
-      ! selection only the relevant observations
-      nObs = 0
-      do j=1,size(yo)
-        if (relevantObs(j)) then
-          nObs = nObs+1
-          yozone(nObs) = yo(j)
-          HSfzone(nObs,:) = HSf(j,:)
-          invsqrtRzone(nObs) = invsqrtR(j) * weight(j)
-        end if
-      end do
-
-      call analysisIncrement(Hxf,yozone(1:nObs),Sfzone,HSfzone(1:nObs,:),invsqrtRzone(1:nObs),xa_xf(i1:i2),Sa(i1:i2,:))
-      !        write(stdout,*) 'nObs ',nObs,sum(yozone),sum(yo),sum(invsqrtRzone),sum(invsqrtR * weight),sum(HSfzone),sum(HSf)
-
-    end if
-#   endif
-
+      if (nbObservations.eq.size(yo)) then
+        call DRD%init(weight,R)
+        call analysisIncrement(Hxf,yo,Sf(i1:i2,:),HSf,DRD,xa_xf(i1:i2),Sa(i1:i2,:))
+        call DRD%done
+      else
+        ! selecting only the relevant observations
+        
+        call DRD%init(pack(weight,relevantObs),R%pack(relevantObs))
+        
+        nObs = 0
+        do j=1,size(yo)
+          if (relevantObs(j)) then
+            nObs = nObs+1
+            yozone(nObs) = yo(j)
+            HSfzone(nObs,:) = HSf(j,:)
+          end if
+        end do
+        
+        !write(6,*) 'pack ',nObs
+        call analysisIncrement(pack(Hxf,relevantObs),yozone(1:nObs), &
+             Sf(i1:i2,:),HSfzone(1:nObs,:),DRD,xa_xf(i1:i2),Sa(i1:i2,:))
+        !        write(stdout,*) 'nObs ',nObs,sum(yozone),sum(yo),sum(invsqrtRzone),sum(invsqrtR * weight),sum(HSfzone),sum(HSf)
+        
+        call DRD%done
+      end if
+   end if
 
 !$omp critical
     nbselectedZones = nbselectedZones+1
@@ -404,8 +426,11 @@ contains
 
  !_______________________________________________________
  !
- subroutine locAnalysis(zoneSize,selectObservations,xf,Hxf,yo,Sf,HSf,invsqrtR, xa,Sa, amplitudes)
+
+ subroutine locAnalysis(zoneSize,selectObservations,xf,Hxf,yo,Sf,HSf, & 
+      R, xa,Sa, amplitudes, localise_obs)
   use matoper
+  use covariance
   implicit none
 
   ! interface of the function computing the horizontal correlation between 
@@ -422,18 +447,21 @@ contains
   integer :: zoneSize(:)
 
   real, intent(in) :: xf(:),  Hxf(:), yo(:), &
-       Sf(:,:), HSf(:,:), invsqrtR(:)
+       Sf(:,:), HSf(:,:)
+  class(covar), intent(in) :: R
   real, intent(out) :: xa(:)
   real, intent(out), optional :: Sa(:,:), amplitudes(size(Sf,2),size(zoneSize))
+  logical, intent(in), optional :: localise_obs
 
-  call locAnalysisIncrement(zoneSize,selectObservations,Hxf,yo,Sf,HSf,invsqrtR,xa,Sa,amplitudes)
-
+  call locAnalysisIncrement(zoneSize,selectObservations,Hxf,yo,Sf,HSf, & 
+       R, xa,Sa,amplitudes,localise_obs)
 
 !$omp master
   xa = xf + xa
 !$omp end master
 
  end subroutine locAnalysis
+
  !_______________________________________________________
  !
  ! biasedLocAnalysis:
@@ -443,8 +471,9 @@ contains
  !_______________________________________________________
  !
  subroutine biasedLocAnalysis(zoneSize,selectObservations, &
-      gamma,H,Hshift,xf,bf,Hxf,Hbf,yo,Sf,HSf,invsqrtR, &
+      gamma,H,Hshift,xf,bf,Hxf,Hbf,yo,Sf,HSf,R, &
       xa,ba,Sa, amplitudes)
+  use covariance
   use matoper
   implicit none
 
@@ -469,9 +498,13 @@ contains
   real, intent(in) :: Hshift(:)
 
   real, intent(in) :: xf(:), bf(:), Hxf(:), yo(:), &
-       Sf(:,:), HSf(:,:), invsqrtR(:), Hbf(:)
+       Sf(:,:), HSf(:,:), Hbf(:)
+  class(covar), intent(in) :: R  
   real, intent(inout) :: xa(:), ba(:)
   real, intent(out), optional :: Sa(:,:), amplitudes(size(Sf,2))
+
+  integer :: i
+  type(DCDCovar) :: Rinf
 
   ! every thread as a local "unbiasedxf" and "unbiasedHxf"
 #   ifndef ALLOCATE_LOCAL_VARS
@@ -481,7 +514,7 @@ contains
   allocate(unbiasedxf(size(xf)),unbiasedHxf(size(Hxf)))
 #   endif
 
-  call locAnalysisIncrement(zoneSize,selectObservations,Hxf,yo,Sf,HSf,invsqrtR,ba)
+  call locAnalysisIncrement(zoneSize,selectObservations,Hxf,yo,Sf,HSf,R,ba)
 !$omp master
   ba = bf - gamma * ba
 !$omp end master
@@ -492,7 +525,11 @@ contains
   unbiasedxf = xf-ba
   unbiasedHxf = (H.x.unbiasedxf) + Hshift
 
-  call locAnalysisIncrement(zoneSize,selectObservations,unbiasedHxf,yo,Sf,HSf,sqrt(1-gamma)*invsqrtR,xa)
+  call Rinf%init([(1./sqrt(1-gamma),i=1,size(Hxf))],R)  
+!  call locAnalysisIncrement(zoneSize,selectObservations,unbiasedHxf,yo, &
+!       Sf,HSf,sqrt(1-gamma)*invsqrtR,xa)
+  call locAnalysisIncrement(zoneSize,selectObservations,unbiasedHxf,yo, &
+       Sf,HSf,Rinf,xa)
 
 !$omp master
   xa = unbiasedxf + xa
@@ -570,10 +607,11 @@ contains
  !_______________________________________________________
  !
 
- subroutine ensAnalysis(Ef,HEf,yo,invsqrtR,Ea, amplitudes)
+ subroutine ensAnalysis(Ef,HEf,yo, R,Ea, amplitudes, xa)
   implicit none
 
-  real, intent(in) :: yo(:), invsqrtR(:)
+  real, intent(in) :: yo(:)
+  class(covar), intent(in) :: R
 
 ! PERFORMANCE BUG
 ! avoid copies of Ef !!!!
@@ -587,13 +625,13 @@ contains
    real, intent(inout) :: Ef(:,:),  HEf(:,:)
 #endif
 
-  real, intent(out) :: Ea(:,:)
+  real, intent(out), optional :: Ea(:,:)
   real, intent(out), optional :: amplitudes(size(Ef,2))
-
+  real, intent(out), optional :: xa(:)
 
   ! N: ensemble size
   integer :: N,i
-  real, dimension(size(Ef,1)) :: xf,xa
+  real, dimension(size(Ef,1)) :: xf,xa_
   real, dimension(size(HEf,1)) :: Hxf
 
 #ifdef COPY_ERRORSPACE
@@ -610,26 +648,28 @@ contains
     HSf(:,i) = (HEf(:,i) - Hxf)/sqrt(N-1.)
   end do
 
-  call  analysis(xf,Hxf,yo,Sf,HSf,invsqrtR, xa,Ea, amplitudes)  
+  call analysis(xf,Hxf,yo,Sf,HSf, R, xa_,Ea, amplitudes)  
 #else
   do i=1,N
     Ef(:,i) = (Ef(:,i) - xf)/sqrt(N-1.)
     HEf(:,i) = (HEf(:,i) - Hxf)/sqrt(N-1.)
   end do
 
-  call  analysis(xf,Hxf,yo,Ef,HEf,invsqrtR, xa,Ea, amplitudes)
+  call analysis(xf,Hxf,yo,Ef,HEf, R, xa_,Ea, amplitudes)
 #endif
 
+  if (present(Ea)) then
+    do i=1,N
+      Ea(:,i) = xa_ + sqrt(N-1.) * Ea(:,i)
+    end do
+  end if
 
-  do i=1,N
-    Ea(:,i) = xa + sqrt(N-1.) * Ea(:,i)
-  end do
-
+  if (present(xa)) xa = xa_
  end subroutine ensanalysis
  !_______________________________________________________
  !
 
- subroutine analysisAnamorph(xf,Hxf,yo,Sf,HSf,invsqrtR,  &
+ subroutine analysisAnamorph(xf,Hxf,yo,Sf,HSf,R,  &
   anamorph,invanamorph, &
        xa,Sa, amplitudes)
   use matoper
@@ -637,7 +677,8 @@ contains
   implicit none
 
   real, intent(in) :: xf(:),  Hxf(:), yo(:), &
-       Sf(:,:), HSf(:,:), invsqrtR(:)
+       Sf(:,:), HSf(:,:)
+  class(covar), intent(in) :: R
   real, intent(out) :: xa(:)
 
   interface 
@@ -673,7 +714,7 @@ contains
   end do
 
   !call ensanalysis(Ef,HEf,yo,invsqrtR,Ea, amplitudes)
-  call ensanalysis(E,HEf,yo,invsqrtR,E,amplitudes)
+  call ensanalysis(E,HEf,yo,R,E,amplitudes)
 
   do i=1,N
     call invanamorph(E(:,i))

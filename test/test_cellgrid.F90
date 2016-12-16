@@ -1,8 +1,11 @@
+! cd ~/Assim/OAK-nonDiagR; make DEBUG= PROFILING= test/test_cellgrid && time test/test_cellgrid 
+
 program test_cellgrid
  integer :: sz(2)
 
- ! call test_near([20,20],5.)
- call test_near([1000,1000],20.)
+ call test_near([4,4],2.)
+ call test_near([20,20],3.)
+ call test_near([1000,1000],5.)
 
 #ifdef LARGE
  ! requires ~/matlab/LocEns/ligurian_sea_loc_assim.init
@@ -22,6 +25,7 @@ contains
 
   integer :: i,j,k,l, nind, Nsz
   real :: x(2)
+  real :: start, finish
 
   integer, allocatable :: ind(:)
   real, allocatable :: dist(:)
@@ -38,6 +42,7 @@ contains
       do i = 1,sz(1)
         l = l+1
         xpos(l,1) = 2*(i-10)
+        xpos(l,1) = i
         xpos(l,2) = j
       end do
     end do
@@ -55,20 +60,41 @@ contains
   end if
 
 
-  cg = setupgrid(xpos,[4.,4.])
+!  cg = setupgrid(xpos,[maxdist,maxdist]/2)
+  cg = setupgrid(xpos,[maxdist,maxdist])
 
-  call get(cg,[11.,11.],ind,nind)
+!  call get(cg,[11.,11.],ind,nind)
   !  write(6,*) 'nind ',nind
   !  write(6,*) 'ind ',ind(:nind)
 
 
   x = [2.,2.]
 
+  call cpu_time(start)
   call near(cg,x,xpos,cdist,maxdist,ind,dist,nind)
-  !  write(6,*) 'nind ',nind
-  !  write(6,*) 'ind ',ind(:nind)
+!  write(6,*) 'nind ',nind
+!  write(6,*) 'ind ',ind(:nind)
+#ifdef PROFILE
+  call cpu_time(finish)
+  print '("Time = ",f9.6," seconds.")',(finish-start)
+#endif
 
-  call checknear(cg,x,xpos,cdist,maxdist,ind,dist)
+  call cpu_time(start)
+  call checknear(cg,x,xpos,cdist,maxdist,ind(1:nind))
+  call cpu_time(finish)
+#ifdef PROFILE
+  print '("Time = ",f9.6," seconds.")',(finish-start)
+#endif
+  ! x = sz
+
+  ! call near(cg,x,xpos,cdist,maxdist,ind,dist,nind)
+  ! !write(6,*) 'nind ',nind, maxdist
+  ! !write(6,*) 'ind ',ind(:nind)
+
+  ! call cpu_time(start)
+  ! call checknear(cg,x,xpos,cdist,maxdist,ind(1:nind))
+  ! call cpu_time(finish)
+  ! print '("Time = ",f9.6," seconds.")',(finish-start)
 
  end subroutine test_near
 
@@ -127,7 +153,7 @@ contains
   write(6,*) 'Non-optimized search'
 
   call cpu_time(start)
-  call checknear(cg,x,xpos,distance,maxdist,ind(1:nind),dist(1:nind))
+  call checknear(cg,x,xpos,distance,maxdist,ind(1:nind))
   call cpu_time(finish)
   print '("Time = ",f9.6," seconds.")',(finish-start)
 

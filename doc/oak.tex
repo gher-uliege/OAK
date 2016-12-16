@@ -617,6 +617,10 @@ formed and represent a error mode in the state space. Their norm
 represent the importance of the error mode and thus they are in
 general not normed. Orthogonality is not necessary.
 \\
+\code{ErrorSpace.type} & integer &  vectors are anomalies (type = 1) or vectors are ensemble members (with mean; type = 2)
+\\
+\code{ErrorSpace.scale} & float & inflation factor (default is 1, i.e. no inflation)
+\\
 \hline
 \end{keytabular}
 
@@ -716,15 +720,46 @@ following keys ``XXX'' have to be replaced by the time index.
 \code{ObsXXX.value} & vector of strings & Each string is a file name containing
   the actual values of the observations
 \\
-\code{ObsXXX.rmse} & vector of strings & Each string is a file name containing 
-  the root mean square error of the observations.
-\\
 \code{ObsXXX.mask} & vector of strings & Each string is a file name containing 
   the binary mask of the observations. Values where the mask is different
   from 1 are rejected.
 \\
 \hline
 \end{keytabular}
+
+\subsubsubsection{Diagonal observation error covariance matrix}
+
+\begin{keytabular}
+\code{ObsXXX.rmse} & vector of strings & Each string is a file name containing 
+  the root mean square error of the observations.
+\\
+\hline
+\end{keytabular}
+
+\subsubsubsection{Non-Diagonal observation ($\mathbf B + \mathbf C \mathbf C^T$)}
+
+All keys start with \code{ObsXXX.SMWCovar}.
+
+\begin{keytabular}
+\code{SqrtDiag} & vector of strings & Each string is a file name containing the root of the diagonal elements of $\mat B$.
+\\
+\code{dimension} & integer & The dimension of the error space $\mat C$.
+\\
+\code{ErrorSpace} & vector of strings & 
+Each string is a Fortran format containing an integer descriptor. The format is converted into a
+file name with an internal write. The integer is a number ranging from 1
+to the dimension of the error space $n$. $n$ vectors of file names are
+formed and represent a error mode in the state space. Their norm
+represent the importance of the error mode and thus they are in
+general not normed. Orthogonality is not necessary.
+\\
+\code{type} & integer &  vectors in \code{ErrorSpace} are anomalies (type = 1) or vectors are ensemble members (with mean; type = 2). In the later case, the mean will be ignored.
+\\
+\code{scale} & float & inflation factor (default is 1, i.e. no inflation)
+\\
+\hline
+\end{keytabular}
+
 
 \subsubsubsection{Optional keys}
 

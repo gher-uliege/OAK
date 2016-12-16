@@ -56,3 +56,6 @@
 
 
 #define dbg(var) write(0,*) __FILE__,__LINE__,'var',var
+
+! allow color output for test
+#define COLOR

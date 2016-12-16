@@ -1,6 +1,6 @@
 !
 !  OAK, Ocean Assimilation Kit
-!  Copyright(c) 2002-2015 Alexander Barth and Luc Vandenblucke
+!  Copyright(c) 2002-2016 Alexander Barth and Luc Vandenblucke
 !
 !  This program is free software; you can redistribute it and/or
 !  modify it under the terms of the GNU General Public License
@@ -18,6 +18,11 @@
 !  Boston, MA  02110-1301, USA.
 !
 
+! include the fortran preprocessor definitions
+#include "ppdef.h"
+
+#define SUPPORT_CON
+
 
 module covariance
 
@@ -26,6 +31,10 @@ use matoper
 integer, parameter :: locensanalysis_SSt = 1
 integer, parameter :: locensanalysis_Pc = 2
 
+
+interface assignment(=)
+  procedure covar_assign
+end interface assignment(=)
 
 ! Abstract covariance matrix
 
@@ -37,9 +46,12 @@ type, abstract :: Covar
 
   procedure :: print => Covar_print
   procedure :: full => Covar_full
+  procedure :: pack => Covar_pack
+  procedure :: sub => Covar_sub
   procedure :: mtimes_mat => Covar_mtimes_mat
   procedure :: mldivide_vec => Covar_mldivide_vec
   procedure :: mldivide_mat => Covar_mldivide_mat
+  procedure :: diag => Covar_diag
 
   generic, public :: mtimes => mtimes_vec, mtimes_mat
   generic, public :: mldivide => mldivide_vec, mldivide_mat
@@ -56,10 +68,12 @@ end interface
 
 
 type, extends(Covar) :: DiagCovar
-  real, pointer :: diag(:)
+  real, allocatable :: D(:)
    contains
         procedure :: init => DiagCovar_init
+        procedure :: done => DiagCovar_done
         procedure :: full => DiagCovar_full
+        procedure :: pack => DiagCovar_pack
         procedure :: mtimes_vec => DiagCovar_mtimes_vec
         procedure :: mldivide_vec => DiagCovar_mldivide_vec
 end type DiagCovar
@@ -71,14 +85,39 @@ end interface DiagCovar
 #endif
 
 
+!---------------------------------------------------------------------
+! SMWCovar: covariance matrix of the type C +  B*B'
+!---------------------------------------------------------------------
+
 type, extends(Covar) :: SMWCovar
   real, allocatable :: C(:), B(:,:), D(:,:)
   contains
-        procedure :: initialize => SMWCovar_init
-        procedure :: full => SMWCovar_full
-        procedure :: mtimes_vec => SMWCovar_mtimes_vec
-        procedure :: mldivide_vec => SMWCovar_mldivide_vec
+   procedure :: init => SMWCovar_init
+   procedure :: done => SMWCovar_done
+   procedure :: full => SMWCovar_full
+   procedure :: mtimes_vec => SMWCovar_mtimes_vec
+   procedure :: mldivide_vec => SMWCovar_mldivide_vec
+   procedure :: pack => SMWCovar_pack  
 end type SMWCovar
+
+
+!---------------------------------------------------------------------
+! DCDCovar: covariance matrix of the type inv(D) C inv(D)
+! where D is a diagonal matrix and C a covariance matrix
+!---------------------------------------------------------------------
+
+type, extends(Covar) :: DCDCovar
+  real, allocatable :: D(:)
+  class(covar), allocatable :: C
+  contains
+   procedure :: init => DCDCovar_init
+   procedure :: done => DCDCovar_done
+   procedure :: mtimes_vec => DCDCovar_mtimes_vec
+   procedure :: mldivide_vec => DCDCovar_mldivide_vec
+   procedure :: pack => DCDCovar_pack  
+end type DCDCovar
+
+!---------------------------------------------------------------------
 
 
 interface
@@ -112,21 +151,25 @@ type, extends(Covar) :: ConsCovar
 !  class(LocCovar), pointer :: C
   class(Covar), pointer :: C
    contains
-        procedure :: initialize => ConsCovar_init
+        procedure :: init => ConsCovar_init
         procedure :: mtimes_vec => ConsCovar_mtimes_vec
         procedure :: mtimes_mat => ConsCovar_mtimes_mat
 end type ConsCovar
 
 interface matmul
-  module procedure              &
-        Covar_matmul_vec,       &
-        Covar_matmul_mat
+  module procedure           &
+        covar_mul_vec,       &
+        covar_mul_mat!,       &
+!        mat_mul_covar !,       &
+!        vec_mul_covar
 end interface matmul
 
 interface operator(.x.)
-  module procedure              &
-        Covar_matmul_vec,       &
-        Covar_matmul_mat
+  module procedure           &
+        covar_mul_vec,       &
+        covar_mul_mat,       &
+        mat_mul_covar,       &
+        vec_mul_covar
 end interface 
 
 !interface operator(*)
@@ -137,6 +180,15 @@ end interface
 
 
  contains
+
+   SUBROUTINE covar_assign(out,in)
+    class(covar), intent(out), allocatable :: out
+    class(covar), intent(in) :: in
+    !write(6,*) 'assignment'
+    allocate(out, source=in)
+    !write(6,*) 'out%n ',out%n
+   END SUBROUTINE covar_assign
+
 
 !---------------------------------------------------------------------
 ! Covar: abstract covariance matrix
@@ -167,6 +219,60 @@ end interface
   end function Covar_full
 
 !---------------------------------------------------------------------
+!
+! return subset of covariance, where mask is true
+
+  function Covar_pack(this, mask) result(C)
+   implicit none
+   class(Covar), intent(in) :: this
+   logical, intent(in) :: mask(:)
+   class(Covar), allocatable :: C
+
+   ! abstract function
+   write(6,*) 'abstract function'   
+  end function Covar_pack
+
+!---------------------------------------------------------------------
+!
+! return subset of covariance, between indices i and j
+
+  function Covar_sub(this,i,j) result(C)
+   implicit none
+   class(Covar), intent(in) :: this
+   integer, intent(in) :: i,j
+   class(Covar), allocatable :: C
+
+   logical :: mask(this%n)
+
+   mask = .false.
+   mask(i:j) = .true.
+   C = this%pack(mask)
+  end function Covar_sub
+
+!---------------------------------------------------------------------
+!
+! return diagonal of covariance matrix
+
+  function Covar_diag(this) result(d)
+   implicit none
+   class(Covar), intent(in) :: this
+   real                     :: d(this%n)
+
+   integer :: i
+   real :: e(this%n), Ce(this%n)
+
+   ! apply Covar to a unit vector
+   e = 0
+   do i = 1,this%n
+     e(i) = 1.
+     Ce = this%mtimes_vec(e)
+     d(i) = Ce(i)
+     ! reset
+     e(i) = 0.
+   end do
+  end function Covar_diag
+
+!---------------------------------------------------------------------
  
   function Covar_mtimes_mat(this,A) result(Q)
    implicit none
@@ -184,8 +290,8 @@ end interface
 
   function Covar_mldivide_mat(this,A) result(Q)
    implicit none
-   class(Covar) :: this
-   real, intent(in) :: A(:,:)
+   class(Covar), intent(in) :: this
+   real, intent(in)         :: A(:,:)
    real :: Q(size(A,1),size(A,2))
    integer :: i
 
@@ -197,14 +303,14 @@ end interface
 
 !---------------------------------------------------------------------
 
-  function Covar_mldivide_vec(this,v) result(Q)
+  function Covar_mldivide_vec(this,x) result(Q)
    use matoper
    implicit none
-   class(Covar) :: this
-   real, intent(in) :: v(:)
-   real :: Q(size(v))
+   class(Covar), intent(in) :: this
+   real, intent(in) :: x(:)
+   real :: Q(size(x))
 
-   Q = pcg(fun,v)
+   Q = pcg(fun,x)
 
    contains
     function fun(x) result(y)
@@ -220,7 +326,7 @@ end interface
   !---------------------------------------------------------------------
   ! for generic function matmul and .x.
 
-  function Covar_matmul_mat(this,x) result (Px)
+  function covar_mul_mat(this,x) result (Px)
    implicit none
    class(Covar), intent(in) :: this
    real, intent(in) :: x(:,:)
@@ -229,7 +335,25 @@ end interface
    Px = this%mtimes(x)
   end function 
 
-  function Covar_matmul_vec(this,x) result (Px)
+  function covar_mul_vec(this,x) result (Px)
+   implicit none
+   class(Covar), intent(in) :: this
+   real, intent(in) :: x(:)
+   real ::  Px(size(x,1))
+
+   Px = this%mtimes(x)
+  end function 
+
+  function mat_mul_covar(x,this) result (Px)
+   implicit none
+   real, intent(in) :: x(:,:)
+   class(Covar), intent(in) :: this
+   real ::  Px(size(x,1),size(x,2))
+
+   Px = transpose(this%mtimes(transpose(x)))
+  end function 
+
+  function vec_mul_covar(x,this) result (Px)
    implicit none
    class(Covar), intent(in) :: this
    real, intent(in) :: x(:)
@@ -242,23 +366,37 @@ end interface
 ! DiagCovar: diagonal covariance matrix
 !---------------------------------------------------------------------
 
-  function newDiagCovar(diag) result(this)
-    type(DiagCovar) :: this
-    real, target :: diag(:)
+  function newDiagCovar(D) result(this)
+   implicit none
+   type(DiagCovar) :: this
+   real :: D(:)
 
-    this%n = size(diag)
-    this%diag => diag 
+   this%n = size(D)
+   allocate(this%D(this%n))
+   this%D = D
+   !this%D => D 
   end function newDiagCovar
 
 !---------------------------------------------------------------------
 
-  subroutine DiagCovar_init(this,C)
-    class(DiagCovar) :: this
-    real, target :: C(:)
+  subroutine DiagCovar_init(this,D)
+   implicit none
+   class(DiagCovar) :: this
+   real :: D(:)
+   
+   this%n = size(D)
+   allocate(this%D(this%n))
+   this%D = D
+  end subroutine DiagCovar_init
 
-    this%n = size(C)
-    this%diag => C 
-   end subroutine DiagCovar_init
+!---------------------------------------------------------------------
+
+  subroutine DiagCovar_done(this)
+   implicit none
+   class(DiagCovar) :: this
+   
+   deallocate(this%D)
+  end subroutine DiagCovar_done
 
 !---------------------------------------------------------------------
  
@@ -267,8 +405,9 @@ end interface
    class(DiagCovar), intent(in) :: this
    real :: M(this%n,this%n)
 
-   M = diag(this%diag)
+   M = diag(this%D)
   end function
+
 
 !---------------------------------------------------------------------
 
@@ -278,19 +417,47 @@ end interface
    real, intent(in) :: x(:)
    real :: C(size(x,1))
 
-   C = this%diag*x    
+   C = this%D*x    
   end function DiagCovar_mtimes_vec
 
 !---------------------------------------------------------------------
  
-  function DiagCovar_mldivide_vec(this,v) result(Q)
+  function DiagCovar_mldivide_vec(this,x) result(Q)
    implicit none
-   class(DiagCovar) :: this
-   real, intent(in) :: v(:)
-   real :: Q(size(v))
+   class(DiagCovar), intent(in) :: this
+   real, intent(in) :: x(:)
+   real :: Q(size(x))
 
-   Q = v / this%diag
+   Q = x / this%D
   end function DiagCovar_mldivide_vec
+
+!---------------------------------------------------------------------
+!
+! return subset of covariance, where mask is true
+
+  function DiagCovar_pack(this, mask) result(C)
+   implicit none
+   class(DiagCovar), intent(in) :: this
+   logical, intent(in) :: mask(:)
+   class(Covar), allocatable :: C
+
+   real, allocatable :: Dsub(:)
+   integer :: i,j, nsub
+
+    allocate(DiagCovar::C)
+
+    select type(C)
+    type is (DiagCovar) 
+      ! size of sub-matrix
+      nsub = count(mask)
+      allocate(Dsub(nsub))
+
+      Dsub = pack(this%D,mask)
+      !write(6,*) 'Dsub ',Dsub
+      call C%init(Dsub)
+    end select
+   
+   end function DiagCovar_pack
 
 
 !---------------------------------------------------------------------
@@ -318,6 +485,19 @@ end interface
    this%D = inv(matmul(transpose(B), (1/C) .dx. B) + eye(size(B,2)))
   end subroutine SMWCovar_init
 
+  
+!---------------------------------------------------------------------
+
+  subroutine SMWCovar_done(this)
+   use matoper
+   implicit none   
+   class(SMWCovar) :: this
+
+   deallocate(this%C,this%B, &
+        this%D)
+
+  end subroutine SMWCovar_done
+
 
 !---------------------------------------------------------------------
  
@@ -341,24 +521,132 @@ end interface
 
 !---------------------------------------------------------------------
  
-  function SMWCovar_mldivide_vec(this,v) result(Q)
+  function SMWCovar_mldivide_vec(this,x) result(Q)
    implicit none
-   class(SMWCovar) :: this
-   real, intent(in) :: v(:)
-   real :: Q(size(v))
+   class(SMWCovar), intent(in) :: this
+   real, intent(in) :: x(:)
+   real :: Q(size(x))
 
-   Q = v / this%C
+   Q = x / this%C
 
    Q = Q - matmul(this%B,matmul(this%D,(matmul(transpose(this%B),Q))))/this%C
   end function SMWCovar_mldivide_vec
+
+ 
+!---------------------------------------------------------------------
+!
+! return subset of covariance, where mask is true
+
+  function SMWCovar_pack(this, mask) result(C)
+   implicit none
+   class(SMWCovar), intent(in) :: this
+   logical, intent(in) :: mask(:)
+   class(Covar), allocatable :: C
+
+   real, allocatable :: Csub(:), Bsub(:,:)
+   integer :: i,j, nsub
+
+    allocate(SMWCovar::C)
+
+    select type(C)
+    type is (SMWCovar) 
+      ! size of sub-matrix
+      nsub = count(mask)
+      allocate(Csub(nsub),Bsub(nsub,size(this%B,2)))
+
+      ! extract elements
+      j = 0
+      do i = 1,this%n
+        if (mask(i)) then
+          j = j+1
+          Csub(j) = this%C(i)
+          Bsub(j,:) = this%B(i,:)
+        end if
+      end do
+
+      call SMWCovar_init(C,Csub,Bsub)
+    end select
+   
+  end function SMWCovar_pack
+
+!---------------------------------------------------------------------
+
+  subroutine DCDCovar_init(this,D,C)
+   use matoper
+   implicit none   
+   class(DCDCovar) :: this
+   class(Covar), intent(in) :: C
+   real, intent(in) :: D(:)
+
+   allocate(this%D(size(D)))
+
+   this%n = size(D)
+   this%D = D
+   allocate(this%C, source=C)
+  end subroutine 
+
+!---------------------------------------------------------------------
+
+  subroutine DCDCovar_done(this)
+   use matoper
+   implicit none   
+   class(DCDCovar) :: this
+
+   deallocate(this%D,this%C)
+
+  end subroutine DCDCovar_done
+
+!---------------------------------------------------------------------
+
+  function DCDCovar_mtimes_vec(this,x) result(C)
+   implicit none
+   class(DCDCovar), intent(in) :: this
+   real, intent(in) :: x(:)
+   real :: C(size(x,1))
+   
+   C = this%C%mtimes(x/this%D)/this%D
+  end function DCDCovar_mtimes_vec
+
+!---------------------------------------------------------------------
+
+  function DCDCovar_mldivide_vec(this,x) result(Q)
+   implicit none
+   class(DCDCovar), intent(in) :: this
+   real, intent(in) :: x(:)
+   real :: Q(size(x))
+   
+   Q = this%D * this%C%mldivide(this%D*x)
+  end function DCDCovar_mldivide_vec
+
+!---------------------------------------------------------------------
+!
+! return subset of covariance, where mask is true
+
+  function DCDCovar_pack(this, mask) result(C)
+   implicit none
+   class(DCDCovar), intent(in) :: this
+   logical, intent(in) :: mask(:)
+   class(Covar), allocatable :: C
+
+    allocate(DCDCovar::C)
+
+    select type(C)
+    type is (DCDCovar) 
+      call DCDCovar_init(C,pack(this%D,mask),this%C%pack(mask))
+    end select
+   
+   end function DCDCovar_pack
 
 
 !---------------------------------------------------------------------
 ! LocCovar: localized ensemble covariance matrix
 !---------------------------------------------------------------------
 
-  function locfun(r) result(fun)
-   real :: r,fun
+  elemental function locfun(r) result(fun)
+   implicit none
+   ! distance
+   real, intent(in) :: r
+   real             :: fun
 
    ! optim
    if (r <= 1.) then

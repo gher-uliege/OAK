@@ -38,6 +38,23 @@
 
 !_______________________________________________________
 !
+! extract diagonal elements from a matrix
+!
+
+ function diag_TYPE_mat(A) result(d)
+  implicit none
+  REAL_TYPE, intent(in) :: A(:,:)
+  REAL_TYPE :: d(min(size(A,1),size(A,2)))
+  integer :: i
+
+  do i=1,size(d)
+    d(i) = A(i,i)
+  end do
+
+ end function 
+
+!_______________________________________________________
+!
 ! computes the trace of a matrix
 !
 
@@ -139,6 +156,24 @@ end function
 
 !_______________________________________________________
 !
+! mulitply scalar and a sparse matrix
+
+function scal_mult_ssparsemat_TYPE(alpha,S) result(alphaS)
+implicit none
+REAL_TYPE, intent(in)          :: alpha
+type(SparseMatrix), intent(in) :: S
+type(SparseMatrix)             :: alphaS
+
+alphaS%m = S%m
+alphaS%n = S%n
+alphaS%nz = S%nz
+allocate(alphaS%i(S%nz),alphaS%j(S%nz),alphaS%s(S%nz))
+
+alphaS%i = S%i(1:S%nz)
+alphaS%j = S%j(1:S%nz)
+alphaS%s = alpha*S%s(1:S%nz)
+
+end function
 
 
 !_______________________________________________________

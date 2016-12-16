@@ -20,4 +20,4 @@ ncgen -o obs1.nc obs1.cdl
 # mpif90 -fdefault-real-8 -g -C -DOAK -o toymodel $F ndgrid.F90 oak.F90 toymodel.F90  -llapack -lblas && mpirun -np 4 toymodel
 
 
-mpirun -np 4 toymodel
+mpirun -np 4 ./toymodel

@@ -60,7 +60,7 @@ ASSIM_SRCS = sangoma_base.f90 \
 
 ASSIM_OBJS = anamorphosis.o assim.o assimilation.o date.o initfile.o \
 	matoper.o covariance.o ndgrid.o parall.o rrsqrt.o ufileformat.o match.o sangoma_ewpf.o \
-	random_d.o sangoma_base.o user_base.o oak.o
+	random_d.o sangoma_base.o user_base.o oak.o cholmod_wrapper.o
 
 MODULES = anamorphosis.mod  assimilation.mod  date.mod initfile.mod  \
         matoper.mod covariance.mod  ndgrid.mod  parall.mod  rrsqrt.mod  ufileformat.mod oak.mod sangoma_base.mod user_base.mod
@@ -143,7 +143,7 @@ ndgrid.o: ndgrid.F90 ndgrid_inc.F90 matoper.o ufileformat.o ppdef.h
 
 parall.o: parall.F90 ppdef.h
 
-matoper.o: matoper.F90 ppdef.h matoper_inc.F90
+matoper.o: matoper.F90 ppdef.h matoper_inc.F90 cholmod_wrapper.o
 
 covariance.o: matoper.o covariance.F90
 
@@ -153,7 +153,7 @@ anamorphosis.o: anamorphosis.F90 initfile.o ufileformat.o ppdef.h
 
 initfile.o: initfile.F90 ppdef.h
 
-rrsqrt.o: rrsqrt.F90 matoper.o parall.o ufileformat.o ppdef.h
+rrsqrt.o: rrsqrt.F90 matoper.o parall.o ufileformat.o ppdef.h covariance.o
 
 sangoma_ewpf.o: random_d.o equal_weights_step.f90 quicksort.f90 gen_random.f90 subroutines_for_EWPF.f90 proposal_step.f90
 
@@ -182,39 +182,65 @@ test-clean:
 test/toymodel.o: test/toymodel.F90 oak.o assimilation.o
 test/toymodel: test/toymodel.o matoper.o covariance.o ndgrid.o assimilation.o rrsqrt.o anamorphosis.o \
                date.o parall.o initfile.o user_base.o  oak.o ufileformat.o random_d.f90 sangoma_base.f90 \
-               sangoma_ewpf.o match.o 
+               sangoma_ewpf.o match.o cholmod_wrapper.o
 	$(F90C) $(F90FLAGS) $(LDFLAGS) -o $@ $+ $(LIBS) $(EXTRA_LDFLAGS)
 
-test/test_covariance.o: test/test_covariance.F90 matoper.o covariance.o
-test/test_covariance: test/test_covariance.o matoper.o covariance.o
+test/test_covariance.o: test/test_covariance.F90 matoper.o covariance.o ndgrid.o 
+test/test_covariance: test/test_covariance.o matoper.o covariance.o ndgrid.o cholmod_wrapper.o ufileformat.o
 	$(F90C) $(F90FLAGS) $(LDFLAGS) -o $@ $+ $(LIBS) $(EXTRA_LDFLAGS)
 
 test/test_ndgrid.o: test/test_ndgrid.F90 matoper.o ndgrid.o ufileformat.o
-test/test_ndgrid: test/test_ndgrid.o matoper.o ndgrid.o ufileformat.o
+test/test_ndgrid: test/test_ndgrid.o matoper.o ndgrid.o ufileformat.o cholmod_wrapper.o
 	$(F90C) $(F90FLAGS) $(LDFLAGS) -o $@ $+ $(LIBS) $(EXTRA_LDFLAGS)
 
 test/test_cellgrid.o: test/test_cellgrid.F90 matoper.o ndgrid.o ufileformat.o
-test/test_cellgrid: test/test_cellgrid.o matoper.o ndgrid.o ufileformat.o
+test/test_cellgrid: test/test_cellgrid.o matoper.o ndgrid.o ufileformat.o cholmod_wrapper.o
 	$(F90C) $(F90FLAGS) $(LDFLAGS) -o $@ $+ $(LIBS) $(EXTRA_LDFLAGS)
 
-test/assimtest2.o: test/assimtest2.F90 matoper.o rrsqrt.o
-test/assimtest2: test/assimtest2.o matoper.o rrsqrt.o
+test/assimtest2.o: test/assimtest2.F90 matoper.o rrsqrt.o covariance.o
+test/assimtest2: test/assimtest2.o matoper.o rrsqrt.o covariance.o cholmod_wrapper.o
 	$(F90C) $(F90FLAGS) $(LDFLAGS) -o $@ $+ $(LIBS) $(EXTRA_LDFLAGS)
 
-test/test_matoper.o: test/test_matoper.F90 matoper.o 
-test/test_matoper: test/test_matoper.o matoper.o 
+test/test_matoper.o: test/test_matoper.F90 matoper.o
+test/test_matoper: test/test_matoper.o matoper.o cholmod_wrapper.o
 	$(F90C) $(F90FLAGS) $(LDFLAGS) -o $@ $+ $(LIBS) $(EXTRA_LDFLAGS)
 
-test/test_rrsqrt.o: test/test_rrsqrt.F90  matoper.o rrsqrt.o
-test/test_rrsqrt: test/test_rrsqrt.o  matoper.o rrsqrt.o
+test/test_rrsqrt.o: test/test_rrsqrt.F90  matoper.o covariance.o rrsqrt.o 
+test/test_rrsqrt: test/test_rrsqrt.o  matoper.o covariance.o rrsqrt.o  cholmod_wrapper.o
 	$(F90C) $(F90FLAGS) $(LDFLAGS) -o $@ $+ $(LIBS) $(EXTRA_LDFLAGS)
 
-test: test/test_covariance test/test_ndgrid test/test_cellgrid test/assimtest2 test/test_matoper test/test_rrsqrt test/toymodel
-	./test/test_ndgrid
-	./test/test_toymodel
-	./test/test_covariance
-	./test/test_cellgrid
-	./test/test_matoper
+test/test_assim.o: test/test_assim.F90  matoper.o assimilation.o 
+test/test_assim: test/test_assim.o  matoper.o assimilation.o rrsqrt.o covariance.o ufileformat.o initfile.o user_base.o sangoma_ewpf.o anamorphosis.o parall.o ndgrid.o date.o random_d.o  match.o cholmod_wrapper.o
+	$(F90C) $(F90FLAGS) $(LDFLAGS) -o $@ $+ $(LIBS) $(EXTRA_LDFLAGS)
+
+test/test_nondiag.o: test/test_nondiag.F90 matoper.F90 rrsqrt.o covariance.o ndgrid.o ufileformat.o
+test/test_nondiag: test/test_nondiag.o matoper.o cholmod_wrapper.o rrsqrt.o covariance.o ndgrid.o ufileformat.o
+	$(F90C) $(F90FLAGS) $(LDFLAGS) -o $@ $+ $(LIBS) $(EXTRA_LDFLAGS)
+
+test/test_cholmod.o: test/test_cholmod.F90 matoper.o
+test/test_cholmod: test/test_cholmod.o matoper.o cholmod_wrapper.o
+	$(F90C) $(F90FLAGS) $(LDFLAGS) -o $@ $+ $(LIBS) $(EXTRA_LDFLAGS)
+
+test/test_cholmod_wrapper.o: test/test_cholmod_wrapper.c 
+test/test_cholmod_wrapper: test/test_cholmod_wrapper.o cholmod_wrapper.o
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $+ $(LIBS) $(EXTRA_LDFLAGS)
+
+test/test_bootstrap.o: test/test_bootstrap.F90  matoper.o covariance.o rrsqrt.o 
+test/test_bootstrap: test/test_bootstrap.o  matoper.o covariance.o rrsqrt.o  cholmod_wrapper.o
+	$(F90C) $(F90FLAGS) $(LDFLAGS) -o $@ $+ $(LIBS) $(EXTRA_LDFLAGS)
+
+test: test/test_covariance test/test_ndgrid test/test_cellgrid test/assimtest2 test/test_matoper test/test_rrsqrt test/toymodel test/test_nondiag test/test_cholmod test/test_cholmod_wrapper test/test_assim test/test_bootstrap
+	test/test_matoper
+	test/test_ndgrid
+	test/test_covariance
+	test/test_rrsqrt
+	test/test_toymodel
+	test/test_cellgrid
+	test/test_nondiag
+	test/test_cholmod_wrapper
+	test/test_cholmod
+	test/test_assim
+	test/test_bootstrap
 
 release:
 	TMPOAK=$$(mktemp -d -t --suffix -OAK); \

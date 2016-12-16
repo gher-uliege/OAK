@@ -112,6 +112,24 @@ endif
 
 endif
 
+
+# CHOLMOD
+CHOLMOD_INCDIR ?= /usr/include/suitesparse
+CHOLMOD_LIBDIR ?= $(LIBDIR)
+CHOLMOD_LIB ?= -lcholmod -lamd -lcolamd -lsuitesparseconfig -lccolamd -lcamd  -lm -lrt
+
+# use CHOLMOD_INCDIR only if it is non-empty
+ifneq ($(strip $(CHOLMOD_INCDIR)),)
+  CFLAGS +=  -I$(CHOLMOD_INCDIR) -g
+endif
+
+# use CHOLMOD_LIBDIR only if it is non-empty
+ifneq ($(strip $(CHOLMOD_LIBDIR)),)
+  LIBS += -L$(CHOLMOD_LIBDIR)
+endif
+LIBS += $(CHOLMOD_LIB)
+
+
 # LAPACK
 # use LAPACK_LIBDIR only if it is non-empty
 
@@ -153,6 +171,8 @@ else
   LIBS += $(shell $(NETCDF_CONFIG) --flibs)
 endif
 
+
+# Add extra flags
 
 F90FLAGS += $(EXTRA_F90FLAGS)
 LDFLAGS += $(EXTRA_LDFLAGS)
