@@ -84,7 +84,9 @@ Diag*.stddevxf  =  ['stddevxf.nc#var1','stddevxf.nc#var2']
 Diag*.stddevxa  =  ['stddevxa.nc#var1','stddevxa.nc#var2']
 Diag*.xf        =  ['forecast.nc#var1','forecast.nc#var2']
 Diag*.xa-xf     =  [     'inc.nc#var1',     'inc.nc#var2']
-#Diag*.Ea      = ['("../Ens",I3.3,"/model_an.nc#var1")','("../Ens",I3.3,"/model_an.nc#var2")']
+Diag*.Ea      = ['("ens",I3.3,"model_an.nc#var1")','("ens",I3.3,"model_an.nc#var2")']
+Diag*.Ef      = ['("ens",I3.3,"model_for.nc#var1")','("ens",I3.3,"model_for.nc#var2")']
+Diag*.Ea-Ef   = ['("ens",I3.3,"model_inc.nc#var1")','("ens",I3.3,"model_inc.nc#var2")']
 
 
 Diag001.Hxf       = [       'diag1.nc#xf']

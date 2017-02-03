@@ -3331,6 +3331,14 @@ end function
       if (presentInitValue(initfname,'Diag'//trim(infix)//'Ea')) & 
            call saveEnsemble('Diag'//trim(infix)//'Ea',ModMLParallel,Sa)
 
+      ! ok, it's complicated...
+      ! Sa is here the ensemble, but Sf are the scaled ensemble perturbations
+      ! the forecast ensemble is recomputed here with
+      ! spread(xf,2,size(Sf,2)) + scaling * Sf
+      if (presentInitValue(initfname,'Diag'//trim(infix)//'Ea-Ef')) &
+           call saveEnsemble('Diag'//trim(infix)//'Ea-Ef',ModMLParallel, &
+              Sa - spread(xf,2,size(Sf,2)) - scaling * Sf )
+
       if (presentInitValue(initfname,'Diag'//trim(infix)//'HEa')) & 
            call saveEnsemble('Diag'//trim(infix)//'HEa',ObsML,HSa)
 

@@ -67,7 +67,7 @@ program test_assim
 
  do Rtype = 1,2
 
-   if (Rtype == 0) then
+   if (Rtype == 1) then
      initfname = 'test/test_assim.init'
      write (6,*) '= Test-case with diagonal R ='
    else
@@ -120,7 +120,7 @@ program test_assim
    call saveVector('Obs001.value',ObsML,yo)
 
    ! obs. error covariance
-   if (Rtype == 0) then 
+   if (Rtype == 1) then
      R = 2*eye(m)
      call saveVector('Obs001.rmse',ObsML,sqrt(diag(R)))
    else
