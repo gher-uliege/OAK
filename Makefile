@@ -87,14 +87,14 @@ clean: test-clean
 	rm -f $(PROG) $(OBJS) $(MODULES)
 
 $(OAK_LIBNAME): $(OBJS)
-	ar rs $(OAK_LIBNAME) $(OBJS)
+	ar rs $(OAK_LIBNAME) $(filter-out assim.o,$(OBJS))
 
 $(OAK_SONAME): $(OBJS)
 	@if test $$(getconf LONG_BIT) = 64 -a ! "$(PIC)"; then \
 	  echo "Warning: Your system seems to be 64-bit and PIC is not activated. Creating dynamic libraries will probaly fail."; \
 	  echo "Use 'make PIC=on ...' or set PIC=on in config.mk"; \
         fi 
-	$(CC) -shared -Wl,-soname,$(OAK_SONAME) -o $(OAK_SONAME) $(OBJS) $(LIBS) $(FRTLIB)
+	$(CC) -shared -Wl,-soname,$(OAK_SONAME) -o $(OAK_SONAME) $(filter-out assim.o,$(OBJS)) $(LIBS) $(FRTLIB)
 
 allbin:
 	make -j $(JOBS) FORT=$(FORT) DEBUG=on clean
