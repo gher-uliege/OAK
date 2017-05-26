@@ -82,6 +82,14 @@ USE_MPIF90 ?= on
 #BLAS_LIBDIR ?=
 #BLAS_LIB ?= -lblas
 
+# Cholmod (included in SuiteSparse)
+# The default values work on a Ubuntu system
+
+#CHOLMOD_INCDIR ?= /usr/include/suitesparse
+#CHOLMOD_LIBDIR ?= $(LIBDIR)
+#CHOLMOD_LIB ?= -lcholmod -lamd -lcolamd -lsuitesparseconfig -lccolamd -lcamd  -lm -lrt
+
 # additional compiler and linker options (such as libraries)
 #EXTRA_F90FLAGS ?= 
-#EXTRA_LDFLAGS ?= 
+#EXTRA_LDFLAGS ?=
+
