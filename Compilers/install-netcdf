@@ -2,7 +2,7 @@
 FC=ifort
 F90C=$FC
 CC=gcc
-PREFIX=$PWD
+PREFIX=$HOME/Assim/OAK/deps
 JOBS=5
 
 HDF5_VERSION=1.10.1
