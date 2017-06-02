@@ -32,9 +32,9 @@ program assimtest
  implicit none
 
  real, allocatable  :: xf(:), xa(:), &
-      Sf(:,:), Sa(:,:)
+      Sf(:,:), Sa(:,:), mE(:)
 
- integer            :: iargc, ntime, enstype
+ integer            :: iargc, ntime, enstype, k
  character(len=124) :: str
  character(len=124) :: ntimeindex
  integer            :: ErrorSpaceDim
@@ -70,14 +70,39 @@ program assimtest
 !$omp parallel
    call assim(ntime,Sf,Sa,xf,xa)
 !$omp end parallel
- else
+ elseif (enstype == 2) then
    ! Sf are ensemble members
    call loadEnsemble('ErrorSpace.init',ModMLParallel,Sf)
 
 !$omp parallel
    call assim(ntime,Sf,Sa)   
 !$omp end parallel
+
+ elseif (enstype == 3) then
+   ! Sf are ensemble members to be recentred
+   call loadEnsemble('ErrorSpace.init',ModMLParallel,Sf)
+   allocate(mE(ModMLParallel%startIndexParallel:ModMLParallel%endIndexParallel))
+   ! mE: ensemble mean
+   mE = sum(Sf,2) / size(Sf,2)
+
+   call loadVector('Forecast'//trim(ntimeindex)//'value',ModMLParallel,xf)
+
+   ! difference between ensemble mean and the forecast
+   mE = mE - xf
+
+   ! recenter ensemble
+   do k=1,size(Sf,2)      
+     Sf(:,k) = Sf(:,k) - mE
+   end do
+
+!$omp parallel
+   call assim(ntime,Sf,Sa)   
+!$omp end parallel
+
+ else
+   write(stderr,*) 'Unknown enstype ',enstype,'. It should be 1, 2 or 3'
  end if
+
 
  call done()
 #ifdef ASSIM_PARALLEL
