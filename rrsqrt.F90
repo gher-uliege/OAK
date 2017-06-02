@@ -316,6 +316,7 @@ contains
   real,allocatable :: temp(:)
 
   local_obs = .false.
+  local_obs = .true.
   if (present(localise_obs)) local_obs = localise_obs
 
 !$omp single
