@@ -20,6 +20,7 @@
 
 ! include the fortran preprocessor definitions
 #include "ppdef.h"
+#define DEBUG
 
 module assimilation
  use ndgrid
@@ -1972,8 +1973,9 @@ end subroutine fmtIndex
 
 
     
-    if (index(str,'T') /= 0) then
+    if (index(str,'T') /= 0 .or. index(str,' ') /= 0) then
       ! ISO 8601 time format: YYYY-MM-DDThh:mm:ss
+      !                  or   YYYY-MM-DD hh:mm:ss
 
       read(str(1:4),*) year
       read(str(6:7),*) month
@@ -3542,7 +3544,10 @@ end function
   ! free memory
 
   deallocate(yo,Hxf,Hxa,HSf,HSa,yo_Hxf,yo_Hxa,innov_projection,H%i,H%j,H%s,Hshift)
-  deallocate(exclude_obs,R)
+  deallocate(exclude_obs)
+!#ifndef __INTEL_COMPILER
+!  deallocate(R)
+!#endif
   if (biastype.eq.ErrorFractionBias) deallocate(Hbf)
   if (schemetype.eq.LocalScheme) then
     deallocate(obsGridX,obsGridY,locAmplitudes)
