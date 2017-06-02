@@ -15,7 +15,7 @@ LDFLAGS ?=
 
 DEBUG_F90FLAGS = -g -check all -traceback
 
-OPTIM_F90FLAGS = -vec-report0 -O3
+OPTIM_F90FLAGS = -O3
 
 OPENMP_F90FLAGS = -openmp
 OPENMP_LDFLAGS = -openmp
