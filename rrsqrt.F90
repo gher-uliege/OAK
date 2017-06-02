@@ -359,7 +359,9 @@ contains
     i2 =   endIndex(zi) + baseIndex
 
 !$omp critical
-!    write(stdout,*) 'zi ',zi
+    if (mod(zi,100) == 0) then
+      write(stdout,*) 'zi ',zi
+    end if
 !$omp end critical
 
     call selectObservations(startIndex(zi),weight,relevantObs)
