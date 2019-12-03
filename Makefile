@@ -40,7 +40,7 @@ OPENMP ?=
 DEBUG ?= 
 JOBS ?= 1
 
-VERSION=1.6
+VERSION=1.7
 OAK_SONAME ?= liboak.so.1
 OAK_LIBNAME ?= liboak.a
 
@@ -244,7 +244,8 @@ test: test/test_covariance test/test_ndgrid test/test_cellgrid test/assimtest2 t
 
 release:
 	TMPOAK=$$(mktemp -d -t --suffix -OAK); \
-	svn export . $$TMPOAK/OAK-$(VERSION); \
+	mkdir $$TMPOAK/OAK-$(VERSION); \
+	git archive master | tar -x -C $$TMPOAK/OAK-$(VERSION); \
 	mv $$TMPOAK/OAK-$(VERSION)/config.mk.template $$TMPOAK/OAK-$(VERSION)/config.mk; \
 	tar -cvzf OAK-$(VERSION).tar.gz -C $$TMPOAK --exclude-vcs  OAK-$(VERSION)
 
