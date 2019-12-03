@@ -20,7 +20,6 @@
 
 ! include the fortran preprocessor definitions
 #include "ppdef.h"
-#define DEBUG
 
 module assimilation
  use ndgrid
