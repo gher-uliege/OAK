@@ -504,7 +504,7 @@ end function
 ! generates n-1 orthonormal vectors perpendicular to w
 !
 ! Hoteit et al, 2002
-! http://dx.doi.org/10.1016/S0924-7963(02)00129-X
+! https://doi.org/10.1016/S0924-7963(02)00129-X
 
 function perpSpace(w) result(H)
 implicit none
