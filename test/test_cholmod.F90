@@ -3,6 +3,8 @@
 
 
 program test_cholmod 
+#ifdef HAS_CHOLMOD
+
  use matoper
  use iso_c_binding, only: c_int, c_double, c_size_t, c_loc
 
@@ -149,5 +151,6 @@ contains
 
  end subroutine sparse_solver_test
 
+#endif
 
 end program test_cholmod

@@ -19,7 +19,7 @@
 
 ! include the fortran preprocessor definitions
 #include "ppdef.h"
-#define HAS_CHOLMOD
+
 !#define PROFILE
 
 module matoper

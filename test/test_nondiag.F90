@@ -1,5 +1,9 @@
 ! cd /home/abarth/Assim/OAK-nonDiagR &&  make test/test_nondiag && test/test_nondiag
 
+#include "../ppdef.h"
+
+#ifdef HAS_CHOLMOD
+
 module mod_spline
  use covariance
  use ndgrid, only: basegrid, grid
@@ -691,6 +695,7 @@ contains
 
 
 end module mod_spline
+#endif
 
 
 
@@ -698,7 +703,10 @@ end module mod_spline
 !_______________________________________________________
 !
 
+
 program test_nondiag
+#ifdef HAS_CHOLMOD
+
  use mod_spline
  use matoper
   use ndgrid, only: cellgrid, setupgrid, near
@@ -1379,7 +1387,7 @@ contains
 
  end subroutine test_loc_cov
 
-
+ 
  !_______________________________________________________
  ! 
 
@@ -1447,5 +1455,6 @@ contains
   call donespline(conf)
 
  end subroutine test_loc_cov_large
+#endif
 
 end program test_nondiag

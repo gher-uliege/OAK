@@ -59,3 +59,5 @@
 
 ! allow color output for test
 #define COLOR
+
+!#define HAS_CHOLMOD
