@@ -22,7 +22,7 @@ Optionally, for parallelization, either one of:
 To compile with open-source gfortran, parallelized with MPI, at least the following packages are needed:
 
 ```
-sudo apt-get install gfortran libatlas-base-dev liblapack-dev openmpi-bin libopenmpi-dev libnetcdf-dev netcdf-bin
+sudo apt-get install gfortran libatlas-base-dev liblapack-dev openmpi-bin libopenmpi-dev libnetcdf-dev netcdf-bin libsuitesparse-dev
 cp config.mk.template config.mk
 make
 ```
